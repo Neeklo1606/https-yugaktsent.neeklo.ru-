@@ -30,6 +30,8 @@ type Props = {
   imgClassName?: string;
   imgStyle?: CSSProperties;
   onImageLoad?: (event: SyntheticEvent<HTMLImageElement>) => void;
+  /** Фото не загрузилось (битый URL у источника) — родитель может убрать карточку из подборки */
+  onImageError?: () => void;
 };
 
 function aspectClass(aspect: MediaAspect): string {
@@ -78,6 +80,7 @@ const StableMediaFrame = ({
   imgClassName,
   imgStyle,
   onImageLoad,
+  onImageError,
 }: Props) => {
   const [useFallback, setUseFallback] = useState(() => shouldUseFallbackImage(src));
   const [loaded, setLoaded] = useState(false);
@@ -118,7 +121,10 @@ const StableMediaFrame = ({
                   setLoaded(true);
                   onImageLoad?.(e);
                 }}
-                onError={() => setUseFallback(true)}
+                onError={() => {
+                  setUseFallback(true);
+                  onImageError?.();
+                }}
                 style={imgStyle}
                 className={cn(
                   'max-h-full max-w-full object-contain transition-opacity duration-200',
@@ -138,7 +144,10 @@ const StableMediaFrame = ({
                 setLoaded(true);
                 onImageLoad?.(e);
               }}
-              onError={() => setUseFallback(true)}
+              onError={() => {
+                  setUseFallback(true);
+                  onImageError?.();
+                }}
               style={imgStyle}
               className={cn(
                 'absolute inset-0 h-full w-full object-cover transition-opacity duration-200',

@@ -727,7 +727,7 @@ const RedesignCatalog = () => {
               <p className="text-sm text-destructive mb-4">Не удалось загрузить каталог. Проверьте API и прокси /api.</p>
             )}
             {apartmentsAsListings && (
-              <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <div className="mb-4 flex items-start gap-2 rounded-xl border border-warning/20 bg-warning-soft px-3 py-2 text-xs text-warning">
                 <span className="mt-0.5">ℹ️</span>
                 <span>
                   В этом регионе пока нет жилых комплексов. Показываем отдельные квартиры от собственников и агентств.

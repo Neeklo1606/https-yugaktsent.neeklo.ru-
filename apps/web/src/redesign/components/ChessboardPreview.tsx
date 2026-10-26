@@ -58,7 +58,7 @@ const ChessboardPreview = ({
             className={cn(
               'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium',
               apartment.status === 'available' && 'bg-green-500/15 text-green-700 dark:text-green-400',
-              apartment.status === 'reserved' && 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+              apartment.status === 'reserved' && 'bg-warning-soft text-warning',
               apartment.status === 'sold' && 'bg-muted text-muted-foreground',
             )}
           >

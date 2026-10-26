@@ -5,31 +5,36 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 /**
- * Site-wide button system — PRIMARY / SECONDARY / GHOST.
- * Brand color: CSS `--primary` (hsl 206 89% 60%, same as «Войти»).
+ * Кнопки дизайн-системы Re-Apple Emerald 2.0.
+ * primary — одно главное действие экрана; secondary — спокойная альтернатива;
+ * inverse / inverseOutline — поверх фото (hero); ghost/link — текстовые.
+ * Цвет только из токенов (--primary, --primary-hover, --border), без HEX.
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap select-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary: "bg-primary text-primary-foreground font-semibold hover:opacity-90",
+        primary: "bg-primary text-primary-foreground font-semibold hover:bg-primary-hover",
         secondary:
-          "bg-transparent text-primary border-[1.5px] border-primary font-medium hover:bg-primary/[0.08]",
+          "bg-card text-foreground border border-border font-medium hover:border-primary/40 hover:bg-surface-soft",
+        inverse: "bg-white text-foreground font-semibold hover:bg-white/90",
+        inverseOutline:
+          "bg-white/10 text-white border border-white/40 font-medium backdrop-blur-sm hover:bg-white/20",
         ghost:
           "bg-transparent text-primary font-medium border-0 shadow-none hover:underline underline-offset-4",
-        default: "bg-primary text-primary-foreground font-semibold hover:opacity-90",
+        default: "bg-primary text-primary-foreground font-semibold hover:bg-primary-hover",
         destructive: "bg-destructive text-destructive-foreground font-semibold hover:opacity-90",
         outline:
-          "bg-transparent text-primary border-[1.5px] border-primary font-medium hover:bg-primary/[0.08]",
+          "bg-card text-foreground border border-border font-medium hover:border-primary/40 hover:bg-surface-soft",
         link: "text-primary underline-offset-4 hover:underline font-medium",
       },
       size: {
-        md: "h-11 min-h-12 sm:min-h-11 rounded-[10px] px-6 py-3 text-[15px]",
-        default: "h-11 min-h-12 sm:min-h-11 rounded-[10px] px-6 py-3 text-[15px]",
-        sm: "h-8 min-h-8 rounded-[10px] px-3 py-1.5 text-xs font-medium",
-        lg: "h-11 min-h-12 sm:min-h-11 rounded-[10px] px-8 text-[15px]",
-        icon: "h-11 w-11 min-h-12 sm:min-h-11 rounded-[10px] p-0",
+        md: "h-12 sm:h-11 rounded-lg px-5 text-[15px]",
+        default: "h-12 sm:h-11 rounded-lg px-5 text-[15px]",
+        sm: "h-9 rounded-lg px-3.5 text-[13px] font-medium",
+        lg: "h-12 rounded-lg px-7 text-base",
+        icon: "h-11 w-11 rounded-lg p-0",
       },
     },
     compoundVariants: [

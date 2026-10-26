@@ -72,3 +72,7 @@ deployment/tmp-lg-work/
 # Снимки экрана и дампы от проверок в браузере
 .playwright-mcp/
 /*.png
+
+# Скриншоты before/after редизайна — локальные артефакты QA, в репозиторий не кладём
+docs/redesign-v3/baseline/
+docs/redesign-v3/after/

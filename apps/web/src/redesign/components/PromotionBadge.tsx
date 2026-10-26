@@ -14,10 +14,10 @@ export default function PromotionBadge({ promotion, className }: Props) {
 
   const styles =
     tier === 'PREMIUM'
-      ? 'bg-amber-500/90 text-white'
+      ? 'bg-warning text-warning-foreground'
       : tier === 'VIP'
-        ? 'bg-violet-600/90 text-white'
-        : 'bg-sky-600/90 text-white';
+        ? 'bg-graphite/85 text-graphite-foreground'
+        : 'bg-primary/90 text-primary-foreground';
 
   return (
     <span

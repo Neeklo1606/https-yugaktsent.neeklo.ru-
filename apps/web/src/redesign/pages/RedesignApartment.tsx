@@ -457,7 +457,7 @@ const RedesignApartment = () => {
           <div
             className={cn(
               'mb-4 rounded-xl border px-4 py-3 text-sm',
-              isSold ? 'border-muted bg-muted/40 text-muted-foreground' : 'border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+              isSold ? 'border-muted bg-muted/40 text-muted-foreground' : 'border-warning/30 bg-warning-soft text-warning',
             )}
           >
             {isSold

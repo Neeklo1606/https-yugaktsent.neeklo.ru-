@@ -5,6 +5,7 @@ import { buildCatalogSeoMeta } from '@/redesign/lib/catalog-seo-meta';
 import { useSiteSettings, setting, settingOptional } from '@/redesign/hooks/useSiteSettings';
 import { siteBrandFromMap } from '@/redesign/hooks/useSiteBrand';
 import { useDefaultRegionId } from '@/redesign/hooks/useDefaultRegionId';
+import { getExpert } from '@/shared/experts/expert-profile';
 
 const SITE_URL = (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined)?.replace(/\/+$/, '') || 'https://yugaktsent.neeklo.ru';
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.jpg`;
@@ -161,8 +162,12 @@ function buildMeta(
   if (pathname === '/about') {
     return {
       title: 'О компании',
-      description: `${siteName}, агентство недвижимости в Анапе с 2017 года: подбор новостроек, проверка документов, сопровождение сделки и помощь с ипотекой.`,
+      description: `${siteName}, агентство недвижимости в Анапе: подбор новостроек, проверка документов, сопровождение сделки и помощь с ипотекой.`,
     };
+  }
+  if (pathname.startsWith('/experts/')) {
+    const expert = getExpert(pathname.slice('/experts/'.length).replace(/\/+$/, ''));
+    if (expert?.published) return { title: expert.seo.title, description: expert.seo.description };
   }
   if (pathname.startsWith('/presentation/')) {
     return {

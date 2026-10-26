@@ -1,28 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Heart, LayoutGrid, MapPin, Menu, Search } from 'lucide-react';
+import { Home, LayoutGrid, MapPin, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useFavorites } from '@/shared/hooks/useFavorites';
-
-type Props = {
-  /** Открыть поиск (обычно — шторка или фокус в поле) */
-  onSearch: () => void;
-  /** Открыть меню «Ещё» */
-  onMore: () => void;
-  /** Клик по избранному: открыть список (хранится локально, вход не нужен) */
-  onFavorites: () => void;
-};
 
 const TAB_CLASS =
-  'flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors';
+  'flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors';
+
+/** Четыре раздела по ТЗ v3 (4.1). Избранное — в карточках и меню, поиск — на главной и в каталоге */
+const TABS = [
+  { to: '/', label: 'Главная', icon: Home },
+  { to: '/catalog', label: 'Каталог', icon: LayoutGrid },
+  { to: '/map', label: 'Карта', icon: MapPin },
+  { to: '/contacts', label: 'Контакты', icon: Phone },
+] as const;
 
 /**
- * Нижняя навигация для телефонов: пять вкладок, прячется при скролле вниз
+ * Нижняя навигация для телефонов: прячется при скролле вниз
  * и возвращается при скролле вверх, чтобы не съедать экран.
+ * Высота = --mobile-nav-h + safe-area; страницы резервируют её через .pb-mobile-nav.
  */
-const MobileTabBar = ({ onSearch, onMore, onFavorites }: Props) => {
+const MobileTabBar = () => {
   const location = useLocation();
-  const { count: favoritesCount } = useFavorites();
   const [hidden, setHidden] = useState(false);
   const lastY = useRef(0);
 
@@ -43,8 +41,6 @@ const MobileTabBar = ({ onSearch, onMore, onFavorites }: Props) => {
   const isActive = (path: string) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
 
-  const tone = (active: boolean) => (active ? 'text-primary' : 'text-muted-foreground');
-
   return (
     <nav
       aria-label="Основная навигация"
@@ -54,40 +50,16 @@ const MobileTabBar = ({ onSearch, onMore, onFavorites }: Props) => {
         hidden && 'translate-y-[calc(100%+env(safe-area-inset-bottom,0px))]',
       )}
     >
-      <div className="grid grid-cols-5">
-        <Link to="/catalog" className={cn(TAB_CLASS, tone(isActive('/catalog')))}>
-          <LayoutGrid className="h-6 w-6" />
-          <span>Каталог</span>
-        </Link>
-
-        <button type="button" onClick={onSearch} className={cn(TAB_CLASS, tone(false))}>
-          <Search className="h-6 w-6" />
-          <span>Поиск</span>
-        </button>
-
-        <Link to="/map" className={cn(TAB_CLASS, tone(isActive('/map')))}>
-          <MapPin className="h-6 w-6" />
-          <span>Карта</span>
-        </Link>
-
-        <button
-          type="button"
-          onClick={onFavorites}
-          className={cn(TAB_CLASS, 'relative', tone(isActive('/favorites')))}
-        >
-          <Heart className="h-6 w-6" />
-          {favoritesCount > 0 ? (
-            <span className="absolute right-[22%] top-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-destructive px-0.5 text-[9px] font-bold leading-none text-destructive-foreground">
-              {favoritesCount > 9 ? '9+' : favoritesCount}
-            </span>
-          ) : null}
-          <span>Избранное</span>
-        </button>
-
-        <button type="button" onClick={onMore} className={cn(TAB_CLASS, tone(false))}>
-          <Menu className="h-6 w-6" />
-          <span>Ещё</span>
-        </button>
+      <div className="grid h-[var(--mobile-nav-h)] grid-cols-4">
+        {TABS.map(({ to, label, icon: Icon }) => {
+          const active = isActive(to);
+          return (
+            <Link key={to} to={to} aria-current={active ? 'page' : undefined} className={cn(TAB_CLASS, active ? 'text-primary' : 'text-muted-foreground hover:text-foreground')}>
+              <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
+              <span>{label}</span>
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );

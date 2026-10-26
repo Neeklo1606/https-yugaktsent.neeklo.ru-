@@ -1,3 +1,4 @@
+import { BRAND_PRIMARY_HEX } from '@/redesign/lib/button-styles';
 import { useEffect, useRef, useState } from 'react';
 import { useYandexMapsReady } from '@/shared/hooks/useYandexMapsReady';
 import { useInViewOnce } from '@/shared/hooks/useInViewOnce';
@@ -77,7 +78,7 @@ const ListingLocationMap = ({ address, regionName, height = '300px' }: Props) =>
           },
           {
             preset: 'islands#blueDotIcon',
-            iconColor: '#1d4ed8',
+            iconColor: BRAND_PRIMARY_HEX,
           },
         );
         map.geoObjects.add(placemark);

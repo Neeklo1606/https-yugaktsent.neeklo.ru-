@@ -124,7 +124,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 const STATUS_TONE: Record<string, string> = {
   ACTIVE: 'bg-emerald-100 text-emerald-800',
-  RESERVED: 'bg-amber-100 text-amber-800',
+  RESERVED: 'bg-warning-soft text-warning',
   SOLD: 'bg-muted text-muted-foreground',
   DRAFT: 'bg-muted text-muted-foreground',
   INACTIVE: 'bg-red-100 text-red-800',

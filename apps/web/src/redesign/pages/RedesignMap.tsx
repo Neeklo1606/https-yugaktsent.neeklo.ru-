@@ -638,7 +638,7 @@ const RedesignMap = () => {
                 Нажмите строку, и метка на карте подсветится
               </p>
               {hasPaginationGap && !catalogFetchError ? (
-                <p className="text-[10px] text-amber-700 dark:text-amber-500 mt-1">
+                <p className="text-[10px] text-warning mt-1">
                   Показано {loadedCount} из {catalogTotal} объектов
                 </p>
               ) : null}

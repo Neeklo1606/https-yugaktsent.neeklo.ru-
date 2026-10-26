@@ -1,0 +1,157 @@
+# Redesign v3 — ход работ
+
+Ветка `redesign/v3` (от `main` = `ce62968`). Не закоммичено, не задеплоено. Production API и БД не менялись: всё проверялось через staging-guard, который пускает к прод-API только чтение.
+
+## Фаза 0. Инспекция и безопасная среда
+
+- **Staging-guard** для dev/preview-сервера Vite. Пропускает только чтение, заявки и вход отвечают демо, остальные записи получают 403.
+- **Метка «Демо»** в интерфейсе.
+- **Baseline:** `docs/FRONTEND_BASELINE.md`, скриншоты `docs/redesign-v3/baseline/`.
+- **Скрипты QA:**
+  - `apps/e2e/scripts/capture-screens.mjs` — before/after скриншоты 390/1440 с автопрокруткой;
+  - `apps/e2e/scripts/smoke-routes.mjs` — статус, ошибки консоли и горизонтальный скролл на 320/390/1440.
+
+## Фаза 1. Дизайн-система Re-Apple Emerald 2.0
+
+Документация: `docs/redesign-v3/DESIGN_SYSTEM.md`.
+
+- **Токены** по ТЗ 3.2: фон, поверхности, primary/hover, текст, рамки, фокус, success/warning/error, радиусы 12/20/24, три уровня тени, высота мобильной панели.
+- **Шрифт:** Inter Variable (свой хостинг, кириллица) вместо Rubik.
+- **Типографическая шкала** H1/H2/H3/lead/price. Надзаголовки без капса и разрядки.
+- **Кнопки:** primary, secondary, inverse, inverseOutline, ghost. Поля, select и карточки shadcn приведены к токенам.
+- **Цвета:** синие, фиолетовые и жёлтые классы в публичных компонентах заменены семантическими токенами.
+- **Цены** в русском формате: «7,5 млн ₽» с неразрывными пробелами.
+- **Theme Engine** `shared/theme`: пресеты, HEX→HSL, применение к `<html>`. Источники: опубликованная настройка `theme_tokens` и черновик предпросмотра из localStorage.
+- **Доступность:** глобальный `:focus-visible`, учёт `prefers-reduced-motion`.
+
+## Фаза 2. Персональная страница Владислава
+
+- **Маршрут** `/experts/vladislav-goncharov`. Адрес постоянный, на него ведут QR.
+- **Единый контракт** `ExpertProfile` (`shared/experts/expert-profile.ts`) с подтверждёнными данными из ТЗ 5.3–5.4.
+- **Страница:**
+  - компактная шапка и «← На сайт»;
+  - плашка с инициалами вместо фото (чужого лица нет);
+  - роль, опыт, город;
+  - CTA «Написать в MAX» и «Telegram-канал» — канал не выдаётся за личку;
+  - рубрика, каналы, личная консультация (MAX + форма заявки);
+  - телефоны `tel:`, адрес со ссылкой на Яндекс Карты;
+  - «Скопировать ссылку», QR с абсолютным каноническим URL и скачиванием PNG.
+- **Пустые секции скрыты:** нет гайдов и видео — нет секций.
+- **SEO:** title/description, canonical, OG, JSON-LD `Person`. Пререндер `dist/experts/vladislav-goncharov/index.html` для превью ссылки без JS, адрес в `sitemap.xml`.
+- **«О компании»:**
+  - блок «Команда» с карточкой эксперта;
+  - неподтверждённые цифры (2017, 2300+, 18, 24, «ипотека от 4,9%») убраны — показываются, только если их задали в настройках сайта.
+- **Админка** `/admin/experts` и `/admin/experts/:slug`, пункт меню «Эксперты».
+  - Все поля из ТЗ 5.5: имя, роль, опыт, фото с превью обрезки, описание, рубрики, ссылки (тип, видимость, порядок), видео, PDF-гайды, телефоны, адрес, основное действие, slug с защитой от случайной смены, SEO с превью карточки ссылки, публикация, «Команда», QR, копирование ссылки, проверки ссылок.
+  - Сохранение — только демо-слой в localStorage, с явной плашкой «Демо · ожидает подключения backend». На production-сборке сохранение выключено.
+
+## Фаза 3. Мобильная главная
+
+Главная на 390 px: **9014 → 4838 px** по высоте (−46%).
+
+- **Hero:**
+  - высота `clamp(420px, 64svh, 540px)` на телефоне — заголовок, цена и CTA видны сразу, под ними поиск;
+  - одна главная кнопка и тихая вторая «Подобрать объект»;
+  - счётчик слайдов;
+  - без автопрокрутки при reduced motion и в фокусе;
+  - пока ЖК грузятся — плейсхолдер той же высоты, а не запасной слайд;
+  - фото грузятся только у текущего и следующего слайда;
+  - слайды с битым фото у источника пропускаются.
+- **QuickSearch:**
+  - на телефоне только поиск, «Локация», «Тип», «Показать объекты» и «Параметры»;
+  - в шторке снизу — цена, комнаты, площадь, этаж;
+  - на десктопе одна строка с ценой;
+  - рынки и типы берутся из реальных данных: вторичка только в Анапе и только если есть объекты; для новостроек — квартиры;
+  - query-параметры те же, что у `/catalog`;
+  - выдуманного «N объектов» нет.
+- **Популярные ЖК** — новая `FeaturedComplexCard`:
+  - фото 4:3, название, локация, срок, «от», CTA;
+  - только ЖК с фото; карточка с битым фото убирается из подборки;
+  - лента со snap и намеренным выглядыванием соседней карточки ~10%.
+- **«Купить квартиру»:** плитки по комнатности с живыми цифрами из API — число предложений и минимальная цена. Пустые плитки скрыты.
+- **«О компании»:**
+  - короткий лид и три тезиса без цифр;
+  - карточка эксперта;
+  - YouTube через фасад (iframe только по клику) из настройки `about_youtube_url`, а пока ролика нет — ссылка на канал.
+- **Новости** — журнальный список с миниатюрами, без карусели с обрезками.
+- **Заявка и подвал:**
+  - лид-блок компактнее;
+  - подвал: заголовки колонок без капса, ссылки в две колонки на телефоне, карта-iframe только на десктопе.
+- **Нижняя панель** — 4 раздела: Главная / Каталог / Карта / Контакты. Избранное и карта есть и в мобильном меню. Запас снизу через `.pb-mobile-nav` с safe-area.
+- **Сняты с главной** (компоненты сохранены):
+  - «Горячие предложения» — карточки без фото;
+  - «Старт продаж» — дубль популярных;
+  - квиз — вызывается через «Подобрать объект» как заявка на подбор;
+  - карта — есть в нижнем меню.
+
+## Проверки (26.10.2026)
+
+| Проверка | Baseline | Сейчас |
+|---|---|---|
+| `pnpm typecheck` | 441 | 441 (новых нет) |
+| `pnpm lint` | 68 ошибок / 44 предупреждения | 68 / 44 (новых нет) |
+| `vitest` | 147/150 | 159/162 (+12 новых тестов; падают те же 3 теста шахматки) |
+| `pnpm build` + пререндер | ок | ок; главный чанк 390 КБ (прод 391 КБ), `ExpertPage` 11 КБ, `RedesignIndex` 36 КБ |
+| Smoke 11 маршрутов × 320/390/1440 | — | все 200, переполнения 0 px, ошибок в консоли нет, неизвестный эксперт → 404 |
+| Сценарий эксперта | — | правка в админке → видна на странице; QR = `https://yugaktsent.neeklo.ru/experts/vladislav-goncharov`; `tel:` рабочие |
+
+Скриншоты после: `docs/redesign-v3/after/` — 390 и 1440 для главной, эксперта и «О компании».
+
+## Изменённые файлы
+
+**Новые**
+- `apps/web/staging-guard.ts`
+- `apps/web/src/test/staging-guard.test.ts`
+- `apps/web/src/shared/theme/{theme-engine.ts, theme-engine.test.ts, ThemeBootstrap.tsx}`
+- `apps/web/src/shared/experts/{expert-profile.ts, expert-profile.test.ts, expert-seo.json, useExpert.ts, useQrDataUrl.ts, ExpertAvatar.tsx, ExpertCard.tsx, ExpertLinkIcon.tsx, ExpertQrDialog.tsx}`
+- `apps/web/src/pages/ExpertPage.tsx`
+- `apps/web/src/admin/pages/{AdminExperts.tsx, AdminExpertEditor.tsx}`, `apps/web/src/admin/components/DemoModeNotice.tsx`
+- `apps/web/src/redesign/components/home/{QuickSearch.tsx, FeaturedComplexCard.tsx, SnapRail.tsx, BuyObjectSection.tsx, HomeAboutSection.tsx}`
+- `apps/web/src/redesign/hooks/useHomeFilterOptions.ts`
+- `apps/web/src/shared/components/{StagingBadge.tsx, LazyYouTube.tsx}`, `apps/web/src/shared/lib/youtube.ts`, `apps/web/src/shared/hooks/usePrefersReducedMotion.ts`
+- `apps/e2e/scripts/{capture-screens.mjs, smoke-routes.mjs}`
+- `docs/FRONTEND_BASELINE.md`, `docs/redesign-v3/{DESIGN_SYSTEM.md, PROGRESS.md}`
+
+**Изменённые**
+- Конфиги: `vite.config.ts` (guard, домен по умолчанию yugaktsent вместо livegrid), `tsconfig.node.json`, `tailwind.config.ts`, `package.json` (+`@fontsource-variable/inter`).
+- Основа: `index.css`, `App.tsx` (маршрут эксперта, админ-маршруты, ThemeBootstrap, StagingBadge).
+- UI-кит: `components/ui/{button,card,input,select,textarea}.tsx`, `redesign/lib/button-styles.ts`.
+- Главная: `RedesignIndex.tsx`, `hero/HeroBanner.tsx`, `StableMediaFrame.tsx` (`onImageError`), `MobileTabBar.tsx`, `RedesignHeader.tsx`, `LatestNews.tsx`, `LeadHighlightSection.tsx`, `FooterSection.tsx`, `ApiConnectionStrip.tsx`.
+- Контент и SEO: `pages/AboutCompany.tsx`, `SeoRouteMeta.tsx`, `scripts/prerender-seo.mjs` (эксперт, sitemap без `/belgorod`, `/mortgage`, `/compare`), `display-price.ts` (+тест), `conversion-cta.ts`, `route-registry.ts`, `AdminLayout.tsx`.
+- Только цвета на токены: `Favorites.tsx`, `TrustBadgeRow.tsx`, `PromotionBadge.tsx`, `LeadForm.tsx`, `RedesignApartment.tsx`, `RedesignCatalog.tsx`, `RedesignComplex.tsx`, `RedesignListingDetail.tsx`, `RedesignMap.tsx`, `MapSearch.tsx`, `ChessboardPreview.tsx`, `ApartmentPriceTrust.tsx`, `ApartmentTable.tsx`, `RouteErrorBoundary.tsx`, `ListingLocationMap.tsx`.
+
+## Оставшиеся проблемы
+
+**Frontend, следующие фазы**
+1. **Каталог, ЖК, объект (PROMPT 4) не переделаны.**
+   - На телефоне у каталога и квартиры нет `<h1>`.
+   - «95.5 м²» с точкой.
+   - Метро, «Район», «Адрес —», «Описание появится позже».
+   - Лайк ЖК у гостя ведёт на `/login`.
+   - Карточка каталога со строками цен.
+   - Карта объекта не включается: `hasCoords` в `listing-page-from-api.ts`.
+2. **Админка (PROMPT 5):** legacy-меню LiveGrid, экран «Источники данных», Theme Builder на `shared/theme` (вместо пустышки «Токены»), media-audit.
+3. **Скорость (PROMPT 6):**
+   - глобальный спиннер `Suspense` в `App.tsx`;
+   - цепочка запросов первого экрана `settings` + `regions` → `blocks` (~5 с в dev через прокси);
+   - фото Profitbase отдаются оригиналами без srcset;
+   - измерения Lighthouse на staging не делались.
+4. **Квиз.** `QuizSection` больше не на главной: «Подобрать объект» открывает заявку на подбор. Если квиз нужен, вернуть его в шторке.
+5. **Срок сдачи** в шторке главной не вынесен: его опции приходят из каталога. Он доступен в полном фильтре каталога.
+
+**Данные и backend (не frontend)**
+- Фото «Хозяин Морей»: хост `pb16100.tochno.profitbase.ru` с поддельным TLS-сертификатом — фото не грузятся ни у кого. Нужна серверная загрузка в своё хранилище.
+- Тип «Апартаменты» отсутствует в модели данных. Вторички в базе нет.
+- Новости-заглушки про Москву в БД.
+- Ответы API ~2,5 с через прокси — нужно проверить на сервере.
+- Сохранение эксперта, загрузка фото и PDF, публикация — только после API.
+
+**Нужно от Влада** (ТЗ, раздел 11): портрет, личная ссылка Telegram, MAX-канал / Дзен / Rutube, 1–3 видео, PDF-гайды, подтверждение бренда «ЮЖНЫЙ АКЦЕНТ» vs «ЮГАКЦЕНТ», долгосрочный домен (QR сейчас ведёт на `yugaktsent.neeklo.ru`), цифры для «О компании», ссылка на ролик о компании (`about_youtube_url`).
+
+## Как посмотреть
+
+```bash
+pnpm dev:web
+```
+
+Открыть `http://localhost:5173` — данные с боевого API только на чтение, слева внизу метка «Демо». Админка: `/login` с любыми данными выдаёт демо-сессию, раздел «Эксперты».

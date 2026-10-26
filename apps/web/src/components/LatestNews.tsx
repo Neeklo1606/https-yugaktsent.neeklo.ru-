@@ -4,12 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/lib/api';
 import { useSiteSettings } from '@/redesign/hooks/useSiteSettings';
 import { useDefaultRegionId } from '@/redesign/hooks/useDefaultRegionId';
-import CardShell from './CardShell';
-import PropertyBadge from './PropertyBadge';
-import HorizontalSnapSlider from '@/redesign/components/HorizontalSnapSlider';
-import { btnClass } from '@/redesign/lib/button-styles';
 import { formatNewsDateShort, formatNewsSource } from '@/redesign/lib/news-source';
-import { cn } from '@/lib/utils';
 
 type NewsRow = {
   id: number;
@@ -31,41 +26,36 @@ function newsPerPage(map: Map<string, string> | undefined): number {
   return Number.isFinite(n) && n > 0 && n <= 24 ? n : 4;
 }
 
-function NewsCard({ n, className }: { n: NewsRow; className?: string }) {
+/**
+ * Журнальная карточка: на телефоне — строка с миниатюрой (без карусели и обрезанных
+ * соседей), на десктопе — колонка с фото 16:10.
+ */
+function NewsCard({ n }: { n: NewsRow }) {
   const sourceLabel = formatNewsSource(n.source);
   const dateLabel = formatNewsDateShort(n.publishedAt);
   const hasImage = Boolean(n.imageUrl?.trim());
 
   return (
-    <CardShell className={cn('h-full', className)}>
-      <Link
-        to={`/news/${encodeURIComponent(n.slug)}`}
-        className="flex flex-col flex-1 min-h-0 h-full"
-      >
-        <div className="overflow-hidden aspect-video bg-muted shrink-0">
-          {hasImage ? (
-            <img
-              src={n.imageUrl!}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              className="w-full h-full object-cover group-hover:scale-[1.02] transition-opacity duration-300 opacity-100"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-              <Newspaper className="w-8 h-8 opacity-40" aria-hidden />
-            </div>
-          )}
-        </div>
-        <div className="p-3 flex-1 flex flex-col gap-1 min-h-[88px]">
-          <PropertyBadge label={sourceLabel} type="new" className="self-start" />
-          <h3 className="font-semibold text-sm leading-tight line-clamp-2 flex-1">{n.title}</h3>
-          {dateLabel ? (
-            <span className="text-[11px] text-muted-foreground">{dateLabel}</span>
-          ) : null}
-        </div>
-      </Link>
-    </CardShell>
+    <Link
+      to={`/news/${encodeURIComponent(n.slug)}`}
+      className="group flex gap-3 py-3 lg:h-full lg:flex-col lg:gap-0 lg:overflow-hidden lg:rounded-card lg:border lg:border-border lg:bg-card lg:py-0 lg:transition-shadow lg:hover:shadow-raised"
+    >
+      <div className="h-[72px] w-[96px] shrink-0 overflow-hidden rounded-lg bg-surface-soft lg:aspect-[16/10] lg:h-auto lg:w-full lg:rounded-none">
+        {hasImage ? (
+          <img src={n.imageUrl!} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+            <Newspaper className="h-6 w-6 opacity-40" aria-hidden />
+          </div>
+        )}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col lg:p-4">
+        <p className="truncate text-[12px] text-muted-foreground">
+          {[sourceLabel, dateLabel].filter(Boolean).join(' · ')}
+        </p>
+        <h3 className="mt-0.5 line-clamp-3 text-[15px] font-semibold leading-snug text-foreground group-hover:text-primary lg:mt-1 lg:text-[16px]">{n.title}</h3>
+      </div>
+    </Link>
   );
 }
 
@@ -87,48 +77,40 @@ const LatestNews = () => {
   const items = data?.data ?? [];
   if (!isLoading && items.length === 0) return null;
 
-  const cards = items.map((n) => <NewsCard key={n.id} n={n} />);
-
   return (
-    <section className="section-y">
-      <div className="max-w-[1400px] mx-auto px-4">
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h2 className="text-section-title">Последние новости</h2>
-          <Link to="/news" className={cn(btnClass('secondary'), 'hidden sm:inline-flex')}>
+    <section className="section-y" aria-labelledby="home-news-title">
+      <div className="container-page">
+        <div className="mb-2 flex items-end justify-between gap-4 lg:mb-6">
+          <h2 id="home-news-title" className="text-section-title">
+            Новости
+          </h2>
+          <Link to="/news" className="inline-flex shrink-0 items-center gap-1 text-[15px] font-medium text-primary hover:underline underline-offset-4">
             Все новости
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
         </div>
 
-        {isLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-pulse">
+        {isLoading ? (
+          <ul className="divide-y divide-border lg:grid lg:grid-cols-4 lg:gap-5 lg:divide-y-0" aria-hidden>
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-border overflow-hidden">
-                <div className="aspect-video bg-muted" />
-                <div className="p-3 space-y-2">
-                  <div className="h-3 bg-muted rounded w-1/3" />
-                  <div className="h-4 bg-muted rounded w-full" />
+              <li key={i} className="flex gap-3 py-3 lg:block lg:py-0">
+                <div className="h-[72px] w-[96px] shrink-0 animate-pulse rounded-lg bg-muted lg:aspect-[16/10] lg:h-auto lg:w-full" />
+                <div className="flex-1 space-y-2 pt-1 lg:pt-3">
+                  <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-full animate-pulse rounded bg-muted" />
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
+        ) : (
+          <ul className="divide-y divide-border lg:grid lg:grid-cols-4 lg:gap-5 lg:divide-y-0">
+            {items.map((n) => (
+              <li key={n.id}>
+                <NewsCard n={n} />
+              </li>
+            ))}
+          </ul>
         )}
-
-        {!isLoading && items.length > 0 && (
-          <HorizontalSnapSlider
-            mobileItemClass="w-[calc(100vw-72px)]"
-            desktopGridClass="sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch"
-            showDots
-            showArrows={false}
-          >
-            {cards}
-          </HorizontalSnapSlider>
-        )}
-
-        <Link to="/news" className={cn(btnClass('secondary', { block: true }), 'mt-4 sm:hidden')}>
-          Все новости
-          <ArrowRight className="w-4 h-4" />
-        </Link>
       </div>
     </section>
   );

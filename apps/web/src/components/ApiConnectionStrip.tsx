@@ -45,7 +45,7 @@ export function ApiConnectionStrip() {
       className={
         ok
           ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 text-center text-xs py-1.5 px-4'
-          : 'bg-amber-500/15 text-amber-900 dark:text-amber-100 text-center text-xs py-1.5 px-4'
+          : 'bg-warning-soft text-warning text-center text-xs py-1.5 px-4'
       }
     >
       API: {q.data?.status ?? '—'}

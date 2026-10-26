@@ -51,7 +51,8 @@ export type ConversionSurface =
   | 'map_complex'
   | 'map_listing'
   | 'chessboard'
-  | 'contacts';
+  | 'contacts'
+  | 'expert';
 
 export type ConversionRequestType =
   | 'CONSULTATION'

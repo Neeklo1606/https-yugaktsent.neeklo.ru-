@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Menu, MessageCircle, Phone, Send, Users, X, Youtube } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,11 +26,16 @@ const NAV_ITEMS: { label: string; href: string; match: (path: string, search: st
   { label: 'Контакты', href: '/contacts', match: (p) => p.startsWith('/contacts') },
 ];
 
+/** Только в мобильном меню: в шапке десктопа хватает пяти пунктов */
+const MOBILE_EXTRA_ITEMS: typeof NAV_ITEMS = [
+  { label: 'Карта', href: '/map', match: (p) => p.startsWith('/map') },
+  { label: 'Избранное', href: '/favorites', match: (p) => p.startsWith('/favorites') },
+];
+
 const RedesignHeader = () => {
   const { data: siteSettings } = useSiteSettings();
   const { shortName, logoUrl } = useSiteBrand();
   const location = useLocation();
-  const navigate = useNavigate();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [leadOpen, setLeadOpen] = useState(false);
@@ -179,7 +184,7 @@ const RedesignHeader = () => {
             aria-label="Мобильное меню"
           >
             <div className="flex flex-col">
-              {NAV_ITEMS.map((item) => (
+              {[...NAV_ITEMS, ...MOBILE_EXTRA_ITEMS].map((item) => (
                 <Link
                   key={item.href}
                   to={item.href}
@@ -241,12 +246,7 @@ const RedesignHeader = () => {
         </div>
       ) : null}
 
-      {/* Нижняя панель без этих обработчиков молча ничего не делала */}
-      <MobileTabBar
-        onSearch={() => navigate('/catalog')}
-        onFavorites={() => navigate('/favorites')}
-        onMore={() => setMenuOpen(true)}
-      />
+      <MobileTabBar />
 
       <ConsultationFlow
         open={leadOpen}

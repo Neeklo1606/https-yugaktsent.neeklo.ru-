@@ -146,7 +146,7 @@ async function loadBlockSlugs(apiBase, maxComplex) {
   return slugs;
 }
 
-function buildSitemapXml(siteUrl, complexPaths) {
+function buildSitemapXml(siteUrl, complexPaths, extraPaths = []) {
   const staticPaths = [
     '/',
     '/catalog',
@@ -154,13 +154,13 @@ function buildSitemapXml(siteUrl, complexPaths) {
     '/catalog/houses',
     '/catalog/land',
     '/catalog/commercial',
-    '/belgorod',
     '/map',
-    '/mortgage',
-    '/compare',
     '/news',
+    '/about',
     '/contacts',
     '/privacy',
+    '/terms',
+    ...extraPaths,
   ];
   const urls = [];
   for (const p of staticPaths) {
@@ -195,7 +195,7 @@ async function main() {
     return;
   }
 
-  const siteUrl = trimSlash(process.env.VITE_PUBLIC_SITE_URL || process.env.PUBLIC_SITE_URL || 'https://livegrid.ru');
+  const siteUrl = trimSlash(process.env.VITE_PUBLIC_SITE_URL || process.env.PUBLIC_SITE_URL || 'https://yugaktsent.neeklo.ru');
   const siteBrand = (process.env.VITE_DEFAULT_BRAND || process.env.SITE_BRAND || 'Агентство недвижимости').trim();
   const sitemapIndexUrl = `${siteUrl}/api/v1/sitemap/sitemap-index.xml`;
   const apiBase = trimSlash(process.env.PRERENDER_API_BASE || `${siteUrl}/api/v1`);
@@ -243,9 +243,22 @@ async function main() {
     });
   }
 
+  // Визитки экспертов: превью ссылки в Telegram/MAX должно работать без JS
+  const experts = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '../src/shared/experts/expert-seo.json'), 'utf8'),
+  );
+  for (const e of experts) {
+    writeHtml(`experts/${e.slug}`, baseHtml, {
+      title: `${e.title} | ${siteBrand}`,
+      description: e.description,
+      canonical: `${siteUrl}/experts/${e.slug}`,
+    });
+  }
+
   const sitemap = buildSitemapXml(
     siteUrl,
     complexes.map((c) => c.slug),
+    experts.map((e) => `/experts/${e.slug}`),
   );
   fs.writeFileSync(path.join(distDir, 'sitemap.xml'), sitemap, 'utf8');
 
@@ -258,7 +271,7 @@ Sitemap: ${siteUrl}/sitemap.xml
 `;
   fs.writeFileSync(path.join(distDir, 'robots.txt'), robots, 'utf8');
 
-  console.log('[prerender-seo] Готово: index.html, catalog/, complex/*/, sitemap.xml, robots.txt');
+  console.log('[prerender-seo] Готово: index.html, catalog/, complex/*/, experts/*/, sitemap.xml, robots.txt');
 }
 
 main().catch((e) => {

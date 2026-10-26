@@ -30,7 +30,7 @@ const STATUS_LABEL: Record<AptStatus, string> = {
 
 const STATUS_CLASS: Record<AptStatus, string> = {
   available: 'text-emerald-600',
-  reserved: 'text-amber-600',
+  reserved: 'text-warning',
   sold: 'text-muted-foreground line-through',
 };
 

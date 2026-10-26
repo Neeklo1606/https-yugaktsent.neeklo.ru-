@@ -35,17 +35,18 @@ export function isPriceHidden(value: string | number | null | undefined): boolea
 
 function formatAmountRub(rub: number, withCurrency: boolean): string {
   let amount: string;
+  // Русская десятичная запятая и неразрывные пробелы: «7,5 млн ₽» не рвётся по строкам
   if (rub >= 1_000_000) {
-    amount = `${(rub / 1_000_000).toFixed(1).replace(/\.0$/, '')} млн`;
+    amount = `${(rub / 1_000_000).toFixed(1).replace(/\.0$/, '').replace('.', ',')}\u00a0млн`;
   } else {
-    amount = `${Math.round(rub / 1000)} тыс`;
+    amount = `${Math.round(rub / 1000)}\u00a0тыс`;
   }
-  return withCurrency ? `${amount} ₽` : amount;
+  return withCurrency ? `${amount}\u00a0₽` : amount;
 }
 
 /**
  * Core formatter. Invalid → PRICE_ON_REQUEST.
- * Valid → «6.8 млн ₽» / «350 тыс ₽» (optional prefix «от» / «до»).
+ * Valid → «6,8 млн ₽» / «350 тыс ₽» (optional prefix «от» / «до»).
  */
 export function formatDisplayPrice(
   value: string | number | null | undefined,

@@ -24,7 +24,7 @@ const STATUS_LABEL = {
 
 const STATUS_CLASS = {
   available: 'bg-green-500/15 text-green-700 dark:text-green-400',
-  reserved: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  reserved: 'bg-warning-soft text-warning',
   sold: 'bg-muted text-muted-foreground',
 } as const;
 

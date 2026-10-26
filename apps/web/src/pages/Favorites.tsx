@@ -43,14 +43,14 @@ function FavoriteStatusBadge({ row }: { row: FavoriteRow }) {
   }
   if (unpublished) {
     return (
-      <span className="inline-flex items-center rounded-md bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200 px-2 py-0.5 text-[10px] font-medium">
+      <span className="inline-flex items-center rounded-md bg-warning-soft text-warning px-2 py-0.5 text-[10px] font-medium">
         Не опубликовано
       </span>
     );
   }
   if (reserved) {
     return (
-      <span className="inline-flex items-center rounded-md bg-blue-100 text-blue-900 dark:bg-blue-950/50 dark:text-blue-200 px-2 py-0.5 text-[10px] font-medium">
+      <span className="inline-flex items-center rounded-md bg-accent text-accent-foreground px-2 py-0.5 text-[10px] font-medium">
         Бронь
       </span>
     );

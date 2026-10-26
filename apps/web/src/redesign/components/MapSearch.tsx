@@ -182,7 +182,7 @@ const MapSearch = ({ complexes, activeSlug, onSelect, height = '70vh', compact, 
       {!ready && failure ? <MapUnavailableNotice failure={failure} /> : null}
       {ready && complexes.length > 0 && plottableCount === 0 ? (
         <div
-          className="pointer-events-none absolute inset-x-4 top-4 z-[6] rounded-xl border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs text-amber-900 shadow-sm"
+          className="pointer-events-none absolute inset-x-4 top-4 z-[6] rounded-xl border border-warning/20 bg-warning-soft/95 px-3 py-2 text-xs text-warning shadow-sm"
           role="status"
         >
           У найденных ЖК не заполнены координаты, поэтому на карте их пока нет. Список справа работает.

@@ -680,7 +680,7 @@ const RedesignComplex = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
                       {metroItems.map((m) => (
                         <div key={`${m.name}-${m.distanceTime ?? 'na'}`} className="text-sm text-muted-foreground flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+                          <span className="w-2.5 h-2.5 rounded-full bg-warning shrink-0" />
                           {regionId ? (
                             <Link
                               to={buildCatalogFilterUrl(regionId, { subway: m.name })}

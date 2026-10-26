@@ -23,7 +23,7 @@ const FooterNavColumn = ({
   links: readonly { label: string; to: string }[];
 }) => (
   <div>
-    <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-foreground/40">
+    <h3 className="mb-1 text-[13px] font-semibold text-primary-foreground/50">
       {title}
     </h3>
     <ul className="flex flex-col">
@@ -82,10 +82,10 @@ const FooterSection = React.forwardRef<HTMLElement>((_, ref) => {
 
   return (
     <footer ref={ref} className="bg-foreground text-primary-foreground">
-      <div className="container-page py-10 sm:py-12 lg:py-16">
-        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,0.9fr))] lg:gap-8">
+      <div className="container-page py-8 sm:py-12 lg:py-16">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-10 lg:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,0.9fr))] lg:gap-8">
           {/* Бренд и контакты */}
-          <div className="sm:col-span-2 lg:col-span-1">
+          <div className="col-span-2 lg:col-span-1">
             <Link to="/" className="inline-flex items-center" aria-label={shortName}>
               <img
                 src={logoLightUrl}
@@ -161,12 +161,15 @@ const FooterSection = React.forwardRef<HTMLElement>((_, ref) => {
 
           <FooterNavColumn title="Недвижимость" links={FOOTER_CATALOG_LINKS} />
           <FooterNavColumn title="Компания" links={FOOTER_COMPANY_LINKS} />
-          <FooterNavColumn title="Документы" links={FOOTER_LEGAL_LINKS} />
+          <div className="col-span-2 lg:col-span-1">
+            <FooterNavColumn title="Документы" links={FOOTER_LEGAL_LINKS} />
+          </div>
         </div>
 
         {mapWidgetSrc && mapsUrl ? (
-          <div className="mt-10 sm:mt-12">
-            <div className="h-[260px] w-full overflow-hidden rounded-2xl border border-primary-foreground/10 sm:h-[320px]">
+          <div className="mt-6 lg:mt-12">
+            {/* Карта-iframe весит как вся страница: на телефоне только ссылка */}
+            <div className="hidden h-[320px] w-full overflow-hidden rounded-card border border-primary-foreground/10 lg:block">
               <iframe
                 title={`Офис ${shortName} на Яндекс Картах`}
                 src={mapWidgetSrc}

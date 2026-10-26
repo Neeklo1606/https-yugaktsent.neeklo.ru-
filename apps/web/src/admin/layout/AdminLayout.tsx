@@ -49,6 +49,7 @@ const navItems = [
   { to: '/admin/homepage', icon: LayoutTemplate, label: 'Главная: блоки API', roles: ['admin', 'editor'] },
   { to: '/admin/banners', icon: GalleryHorizontal, label: 'Главная: баннеры', roles: ['admin', 'editor'] },
   { to: '/admin/news', icon: Newspaper, label: 'Новости / парсер', roles: ['admin', 'editor'] },
+  { to: '/admin/experts', icon: UserCircle, label: 'Эксперты', roles: ['admin', 'editor'] },
   { to: '/admin/media', icon: Image, label: 'Медиа', roles: ['admin', 'editor'] },
   { to: '/admin/users', icon: Users, label: 'Пользователи', roles: ['admin'] },
   { to: '/admin/agents', icon: UserCircle, label: 'Сотрудники', roles: ['admin', 'editor', 'manager'] },

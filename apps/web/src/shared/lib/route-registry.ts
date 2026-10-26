@@ -23,6 +23,9 @@ export const LAZY_ROUTE_REGISTRY = [
   { id: 'AdminOpsCenter', path: '@/admin/pages/AdminOpsCenter' },
   { id: 'PublicAgencyPage', path: '@/ecosystem/pages/PublicAgencyPage' },
   { id: 'AccountBillingPage', path: '@/account/pages/AccountBillingPage' },
+  { id: 'ExpertPage', path: '@/pages/ExpertPage' },
+  { id: 'AdminExperts', path: '@/admin/pages/AdminExperts' },
+  { id: 'AdminExpertEditor', path: '@/admin/pages/AdminExpertEditor' },
   { id: 'NotFound', path: '@/pages/NotFound' },
 ] as const;
 

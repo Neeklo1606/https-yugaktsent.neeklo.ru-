@@ -23,7 +23,8 @@ describe('display-price', () => {
 
   it('formats valid prices', () => {
     expect(formatDisplayPrice(5_000_000)).toContain('млн');
-    expect(formatPriceFrom(4_962_342)).toBe('от 5 млн ₽');
+    expect(formatPriceFrom(4_962_342)).toBe('от 5\u00a0млн\u00a0₽');
+    expect(formatDisplayPrice(7_537_500)).toBe('7,5\u00a0млн\u00a0₽');
     expect(formatPriceFromExact(4_269_408).replace(/\s/g, ' ')).toBe('от 4 269 408 ₽');
   });
 

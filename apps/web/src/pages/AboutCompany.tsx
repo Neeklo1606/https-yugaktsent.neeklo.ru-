@@ -6,17 +6,19 @@ import LeadHighlightSection from '@/redesign/components/LeadHighlightSection';
 import { useSiteSettings, settingOptional } from '@/redesign/hooks/useSiteSettings';
 import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
 import aboutMain from '@/assets/about-main.jpg';
+import ExpertCard from '@/shared/experts/ExpertCard';
+import { useExperts } from '@/shared/experts/useExpert';
 
 /**
- * Показатели агентства. Значения берутся из настроек сайта, если заведены;
- * запасные — из согласованного с заказчиком макета.
+ * Показатели агентства — только из настроек сайта, которые заполняет заказчик.
+ * Запасных цифр нет: неподтверждённые «2300+ сделок» на витрине недопустимы (ТЗ v3, 4.7).
  * Нужные ключи перечислены в docs/BACKEND_TODO.md.
  */
 const STAT_KEYS = [
-  { key: 'about_stat_founded', fallback: '2017', caption: 'год основания' },
-  { key: 'about_stat_deals', fallback: '2300+', caption: 'закрытых сделок' },
-  { key: 'about_stat_experts', fallback: '18', caption: 'экспертов' },
-  { key: 'about_stat_developers', fallback: '24', caption: 'застройщика' },
+  { key: 'about_stat_founded', caption: 'год основания' },
+  { key: 'about_stat_deals', caption: 'закрытых сделок' },
+  { key: 'about_stat_experts', caption: 'экспертов' },
+  { key: 'about_stat_developers', caption: 'застройщика' },
 ] as const;
 
 const TRUST_CARDS: { icon: typeof FileCheck2; title: string; text: string }[] = [
@@ -37,7 +39,7 @@ const TRUST_CARDS: { icon: typeof FileCheck2; title: string; text: string }[] = 
   },
   {
     icon: Percent,
-    title: 'Ипотека от 4,9%',
+    title: 'Помощь с ипотекой',
     text: 'Подбираем банк и помогаем собрать документы на одобрение.',
   },
 ];
@@ -47,10 +49,11 @@ export default function AboutCompany() {
   const { shortName } = useSiteBrand();
 
   const heroImage = settingOptional(settings, 'about_platform_image') || aboutMain;
-  const stats = STAT_KEYS.map((s) => ({
-    caption: s.caption,
-    value: settingOptional(settings, s.key) || s.fallback,
-  }));
+  const stats = STAT_KEYS.flatMap((s) => {
+    const value = settingOptional(settings, s.key);
+    return value ? [{ caption: s.caption, value }] : [];
+  });
+  const team = useExperts().filter((e) => e.published && e.showOnTeamPage);
 
   return (
     <div className="min-h-screen bg-background pb-16 lg:pb-0">
@@ -78,10 +81,11 @@ export default function AboutCompany() {
           </h1>
 
           <p className="mt-5 max-w-[620px] text-base leading-relaxed text-white/80 sm:text-lg">
-            {shortName} работает на побережье с 2017 года. Знаем, чем отличается вид на море от
+            {shortName} работает на побережье Анапы. Знаем, чем отличается вид на море от
             «вида на море в рекламе», и какие застройщики держат сроки.
           </p>
 
+          {stats.length > 0 && (
           <ul className="mt-10 grid grid-cols-2 gap-3 sm:mt-14 sm:gap-4 lg:grid-cols-4">
             {stats.map((s) => (
               <li
@@ -95,8 +99,26 @@ export default function AboutCompany() {
               </li>
             ))}
           </ul>
+          )}
         </div>
       </section>
+
+      {team.length > 0 && (
+        <section className="section-y pb-0" aria-labelledby="about-team-title">
+          <div className="container-page">
+            <h2 id="about-team-title" className="text-section-title">
+              Команда
+            </h2>
+            <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:mt-8 lg:grid-cols-4">
+              {team.map((e) => (
+                <li key={e.slug}>
+                  <ExpertCard expert={e} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       <section className="section-y" aria-labelledby="about-trust-title">
         <div className="container-page">
@@ -108,9 +130,9 @@ export default function AboutCompany() {
             {TRUST_CARDS.map(({ icon: Icon, title, text }) => (
               <li
                 key={title}
-                className="rounded-2xl border border-border bg-card p-6 transition-shadow hover:shadow-md"
+                className="surface-card p-6 transition-shadow hover:shadow-raised"
               >
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-mint">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-soft">
                   <Icon className="h-5 w-5 text-primary" aria-hidden />
                 </span>
                 <h3 className="mt-5 text-base font-bold leading-snug">{title}</h3>
@@ -124,21 +146,21 @@ export default function AboutCompany() {
       <section className="section-y bg-mint" aria-labelledby="about-history-title">
         <div className="container-page grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,380px)_1fr] lg:gap-16">
           <div>
-            <p className="text-overline text-primary/70">Наша история</p>
+            <p className="text-overline text-primary">Наш подход</p>
             <h2 id="about-history-title" className="text-section-title mt-3">
-              8 лет на рынке Анапы
+              Знаем побережье изнутри
             </h2>
           </div>
 
+          {/* Без цифр и дат: история компании появится, когда заказчик её подтвердит */}
           <div className="space-y-4 text-sm leading-relaxed text-mint-foreground/80 sm:text-base">
             <p>
-              Начинали втроём в 2017 году с одного офиса и пары объектов. Сегодня в команде
-              18 специалистов: подбор, юристы, ипотечные брокеры и сопровождение сделок.
+              В команде — специалисты по подбору, ипотечные брокеры и сопровождение сделок.
+              Работаем с новостройками Анапы и всего Юга.
             </p>
             <p>
-              За это время закрыли больше 2300 сделок и работаем напрямую с 24 застройщиками
-              побережья. Знаем, где заканчивается городская застройка и начинается санаторная
-              зона, какие дома сдаются в срок и в каких корпусах шумно летом.
+              Знаем, где заканчивается городская застройка и начинается санаторная зона,
+              какие дома сдаются в срок и в каких корпусах шумно летом.
             </p>
           </div>
         </div>

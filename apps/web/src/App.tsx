@@ -12,6 +12,8 @@ import AuthSessionSync from "@/shared/components/AuthSessionSync";
 import { RequireAuth } from "@/shared/components/RequireAuth";
 import SeoRouteMeta from "@/shared/components/SeoRouteMeta";
 import SeoJsonLd from "@/shared/components/SeoJsonLd";
+import StagingBadge from "@/shared/components/StagingBadge";
+import ThemeBootstrap from "@/shared/theme/ThemeBootstrap";
 
 // Main pages
 const RedesignIndex = lazyWithReload(() => import("./redesign/pages/RedesignIndex"));
@@ -33,6 +35,7 @@ const Contacts = lazy(() => import("./pages/Contacts"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const AboutCompany = lazy(() => import("./pages/AboutCompany"));
+const ExpertPage = lazyWithReload(() => import("./pages/ExpertPage"));
 const SelectionPage = lazy(() => import("./pages/SelectionPage"));
 const SharedSelectionPage = lazyWithReload(() => import("./pages/SharedSelectionPage"));
 
@@ -90,6 +93,8 @@ const AdminRegions = lazyWithReload('AdminRegions', () => import("./admin/pages/
 const AdminHomepage = lazyWithReload('AdminHomepage', () => import("./admin/pages/AdminHomepage"));
 const AdminBanners = lazyWithReload('AdminBanners', () => import("./admin/pages/AdminBanners"));
 const AdminReference = lazyWithReload('AdminReference', () => import("./admin/pages/AdminReference"));
+const AdminExperts = lazyWithReload('AdminExperts', () => import("./admin/pages/AdminExperts"));
+const AdminExpertEditor = lazyWithReload('AdminExpertEditor', () => import("./admin/pages/AdminExpertEditor"));
 const EditorPage = lazyWithReload('EditorPage', () => import("./admin/components/editor/EditorPage"));
 
 const NotFound = lazyWithReload(() => import("./pages/NotFound"));
@@ -138,6 +143,8 @@ const AppRoutes = () => (
     <Route path="/account/*" element={<Navigate to="/favorites" replace />} />
     <Route path="/contacts" element={<Contacts />} />
     <Route path="/about" element={<AboutCompany />} />
+    {/* Постоянный адрес визитки эксперта: на него ведут QR-коды, slug не менять */}
+    <Route path="/experts/:slug" element={<ExpertPage />} />
     <Route path="/selection" element={<SelectionPage />} />
     <Route path="/selections/:token" element={<SharedSelectionPage />} />
     <Route path="/privacy" element={<Privacy />} />
@@ -202,6 +209,8 @@ const AppRoutes = () => (
       <Route path="reference" element={<RequireAuth roles={['admin', 'editor']}><AdminReference /></RequireAuth>} />
       <Route path="homepage" element={<RequireAuth roles={['admin', 'editor']}><AdminHomepage /></RequireAuth>} />
       <Route path="banners" element={<RequireAuth roles={['admin', 'editor']}><AdminBanners /></RequireAuth>} />
+      <Route path="experts" element={<RequireAuth roles={['admin', 'editor']}><AdminExperts /></RequireAuth>} />
+      <Route path="experts/:slug" element={<RequireAuth roles={['admin', 'editor']}><AdminExpertEditor /></RequireAuth>} />
       <Route path="media" element={<RequireAuth roles={['admin', 'editor']}><AdminMedia /></RequireAuth>} />
       <Route path="users" element={<RequireAuth roles={['admin']}><AdminUsers /></RequireAuth>} />
       <Route path="agents" element={<RequireAuth roles={['admin', 'editor', 'manager']}><AdminAgentsListPage /></RequireAuth>} />
@@ -230,6 +239,7 @@ const AppWithAuth = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthSessionSync />
+    <ThemeBootstrap />
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -237,6 +247,7 @@ const App = () => (
         <ScrollToTop />
         <SeoRouteMeta />
         <SeoJsonLd />
+        <StagingBadge />
         <Suspense fallback={<Loading />}>
           <RouteErrorBoundary
             scope="auth-boot"
