@@ -1,3 +1,4 @@
+import { formatArea } from '@/redesign/lib/listing-format';
 import { memo, useEffect, useMemo, useRef, type KeyboardEvent } from 'react';import { Link } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
@@ -67,7 +68,7 @@ function listingHeadline(l: ListingMapItem): string {
       : l.rooms === 0
         ? 'Студия'
         : `${l.rooms}-к.кв`;
-  const area = l.area && l.area > 0 ? `${l.area} м²` : null;
+  const area = l.area && l.area > 0 ? formatArea(l.area) : null;
   const parts = [rooms, area].filter(Boolean);
   if (parts.length > 0) return parts.join(' · ');
   return l.title ?? l.address ?? `Объект #${l.id}`;

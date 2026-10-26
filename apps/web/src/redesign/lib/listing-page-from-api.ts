@@ -53,18 +53,22 @@ export function mapListingDetailToApartmentPage(listing: ApiListingDetail): {
   if (!apartment) return null;
 
   const metro = block.subways?.[0];
-  const addr = block.addresses?.[0]?.address ?? listing.apartment.blockAddress ?? '—';
+  const addr = block.addresses?.[0]?.address ?? listing.apartment.blockAddress ?? '';
+  const lat = num(block.latitude);
+  const lng = num(block.longitude);
+  // Без координат карту не рисуем вовсе: раньше подставлялась Москва и флаг hasCoords не ставился
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0);
   const imgs = block.images?.length ? block.images.map((i) => i.url) : [PLACEHOLDER];
 
   const complex: ResidentialComplex = {
     id: String(block.id),
     slug: block.slug,
     name: block.name,
-    description: block.description?.trim() || `Жилой комплекс «${block.name}».`,
-    builder: listing.builder?.name ?? '—',
-    district: listing.district?.name ?? '—',
-    subway: metro?.subway.name ?? '—',
-    subwayDistance: metro?.distanceTime != null ? `${metro.distanceTime} мин` : '—',
+    description: block.description?.trim() || '',
+    builder: listing.builder?.name ?? '',
+    district: listing.district?.name ?? '',
+    subway: metro?.subway.name ?? '',
+    subwayDistance: metro?.distanceTime != null ? `${metro.distanceTime} мин` : '',
     address: addr,
     deadline: deadlineFromApartment(
       listing.apartment.buildingDeadline ? String(listing.apartment.buildingDeadline) : undefined,
@@ -73,7 +77,8 @@ export function mapListingDetailToApartmentPage(listing: ApiListingDetail): {
     priceFrom: apartment.price,
     priceTo: apartment.price,
     images: imgs,
-    coords: [num(block.latitude) || 55.75, num(block.longitude) || 37.62],
+    coords: hasCoords ? [lat, lng] : [0, 0],
+    hasCoords,
     advantages: [],
     infrastructure: [],
     buildings: [],

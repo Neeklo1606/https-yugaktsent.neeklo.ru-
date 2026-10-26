@@ -49,7 +49,7 @@ export default function ComplexStickySidebar({ complex, availableCount, onConsul
       )}
     >
       <div>
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 font-medium">Цена от</p>
+        <p className="text-[13px] text-muted-foreground mb-1 font-medium">Цена от</p>
         <p
           className={cn('text-2xl font-bold tabular-nums leading-tight', isPriceFallbackText(priceText) && PRICE_ON_REQUEST_CLASS)}
           aria-label={priceAriaLabel(priceText)}
@@ -96,7 +96,7 @@ export default function ComplexStickySidebar({ complex, availableCount, onConsul
         {availableCount > 0 ? (
           <div className="flex justify-between gap-2">
             <dt className="text-muted-foreground">Свободных кв.</dt>
-            <dd className="font-semibold tabular-nums text-emerald-600">{availableCount}</dd>
+            <dd className="font-semibold tabular-nums text-success">{availableCount}</dd>
           </div>
         ) : null}
       </dl>

@@ -1,3 +1,4 @@
+import { formatArea } from '@/redesign/lib/listing-format';
 import { Link } from 'react-router-dom';
 import { Building2, Layers, MapPin, Paintbrush, Ruler, ChefHat } from 'lucide-react';
 import type { Apartment, Building, ResidentialComplex } from '@/redesign/data/types';
@@ -26,8 +27,8 @@ function clean(value: string | null | undefined): string | null {
 const ApartmentCharacteristics = ({ apartment, building, complex, roomLabel }: Props) => {
   const primary: SpecItem[] = [
     { icon: Layers, label: 'Комнатность', value: roomLabel },
-    { icon: Ruler, label: 'Общая площадь', value: `${apartment.area} м²` },
-    apartment.kitchenArea > 0 ? { icon: ChefHat, label: 'Кухня', value: `${apartment.kitchenArea} м²` } : null,
+    { icon: Ruler, label: 'Общая площадь', value: formatArea(apartment.area) },
+    apartment.kitchenArea > 0 ? { icon: ChefHat, label: 'Кухня', value: formatArea(apartment.kitchenArea) } : null,
     apartment.floor > 0
       ? { icon: Building2, label: 'Этаж', value: `${apartment.floor} из ${apartment.totalFloors}` }
       : null,
@@ -45,10 +46,8 @@ const ApartmentCharacteristics = ({ apartment, building, complex, roomLabel }: P
   const locationRows = [
     { label: 'ЖК', value: complex.name, href: `/complex/${complex.slug}` },
     { label: 'Адрес', value: clean(complex.address) },
-    { label: 'Район', value: clean(complex.district) },
-    complex.subway !== '—'
-      ? { label: 'Метро', value: `${complex.subway}${complex.subwayDistance !== '—' ? ` · ${complex.subwayDistance}` : ''}` }
-      : null,
+    // Метро не выводим (ТЗ v3); район подписываем как «Локация»
+    { label: 'Локация', value: clean(complex.district) },
   ].filter((r): r is { label: string; value: string; href?: string } => Boolean(r?.value));
 
   return (

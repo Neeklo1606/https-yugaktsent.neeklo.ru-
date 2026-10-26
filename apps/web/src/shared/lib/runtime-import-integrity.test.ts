@@ -7,11 +7,15 @@ import { LAZY_ROUTE_REGISTRY, RUNTIME_HOOK_REGISTRY } from '@/shared/lib/route-r
 const CARD_VISUAL_EXPORTS = ['cardVisual', 'cardBadgeClass', 'metaDotLine'] as const;
 
 describe('runtime import integrity', () => {
-  it('ListingCard imports card-visual helpers', () => {
+  it('ListingCard imports card-visual helpers it uses', () => {
     const src = readFileSync(resolve(__dirname, '../../redesign/components/ListingCard.tsx'), 'utf8');
     expect(src).toMatch(/from\s+['"]@\/redesign\/lib\/card-visual['"]/);
+    // Карточка на токенах дизайн-системы может не использовать эти хелперы вовсе;
+    // но если символ встречается в коде, он обязан быть импортирован, а не взят «из воздуха»
+    const importLine = src.match(/import\s*\{([^}]*)\}\s*from\s+['"]@\/redesign\/lib\/card-visual['"]/)?.[1] ?? '';
     for (const sym of CARD_VISUAL_EXPORTS) {
-      expect(src).toMatch(new RegExp(`\\b${sym}\\b`));
+      const used = new RegExp(`\\b${sym}\\b`).test(src.replace(importLine, ''));
+      if (used) expect(importLine).toMatch(new RegExp(`\\b${sym}\\b`));
     }
   });
 

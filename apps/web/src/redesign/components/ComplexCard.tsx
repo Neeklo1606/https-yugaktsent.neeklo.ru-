@@ -1,284 +1,144 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Heart, GitCompare, MapPin, Building2 } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, CalendarDays, Heart, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ResidentialComplex } from '@/redesign/data/types';
-import { useAuth } from '@/shared/hooks/useAuth';
 import { parseApiBlockId, useFavorites } from '@/shared/hooks/useFavorites';
-import { useCompare } from '@/shared/hooks/useCompare';
 import StableMediaFrame from '@/redesign/components/StableMediaFrame';
-import CardDottedPriceRow from '@/redesign/components/CardDottedPriceRow';
-import {
-  cardVisual,
-  complexPopularCompletionLine,
-  complexFallbackPriceRow,
-  complexImageOverlayLines,
-  complexInventoryLine,
-  complexMetroDisplayLine,
-  complexPriceBandRows,
-  complexYieldLabel,
-} from '@/redesign/lib/card-visual';
+import { complexMinPrice, complexPopularCompletionLine, complexTotalUnits } from '@/redesign/lib/card-visual';
+import { formatPriceFrom } from '@/redesign/lib/display-price';
 
 interface Props {
   complex: ResidentialComplex;
   variant?: 'grid' | 'list' | 'compact';
   coverAspect?: '16/9' | '4/3';
-  /** Тег в подвале карточки */
+  /** Подпись рынка: на карточке не выводится, оставлено для совместимости вызовов */
   tag?: 'new' | 'secondary';
   /** Карточка на первом экране: обложка грузится без lazy */
   priority?: boolean;
+  /** Город региона — если у ЖК нет района и адреса */
+  cityFallback?: string;
+}
+
+const realValue = (v?: string) => (v && v.trim() && v.trim() !== '—' ? v.trim() : '');
+
+function statusBadge(c: ResidentialComplex): string | null {
+  if (c.status === 'completed') return 'Сдан';
+  if (c.isPromoted) return 'Новый ЖК';
+  if (c.salesStartDate && new Date(c.salesStartDate).getTime() > Date.now()) return 'Старт продаж';
+  if (c.status === 'building') return 'Строится';
+  return null;
+}
+
+function flatsLabel(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  const word = m10 === 1 && m100 !== 11 ? 'квартира' : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? 'квартиры' : 'квартир';
+  return `${n.toLocaleString('ru-RU')} ${word}`;
 }
 
 /**
- * Карточка ЖК: обложка с двумя действиями, под ней — вся информация.
- * Поверх фото ничего, кроме иконок и точек-переключателей.
+ * Карточка ЖК каталога (ТЗ v3, 4.4): фото, статус, название, локация, срок, цена «от»
+ * и число квартир. Цены по комнатности — на странице ЖК. Метро не выводим.
  */
-const ComplexCard = ({
-  complex,
-  variant = 'grid',
-  coverAspect = '16/9',
-  tag = 'new',
-  priority = false,
-}: Props) => {
-  const isCompact = variant === 'compact';
-  const cardVariant = isCompact ? 'grid' : variant;
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { isAuthenticated } = useAuth();
+const ComplexCard = ({ complex, variant = 'grid', coverAspect = '4/3', priority = false, cityFallback }: Props) => {
   const { isBlockFavorite, toggleBlock } = useFavorites();
-  const { isCompared, toggle: toggleCompare } = useCompare();
   const blockNum = parseApiBlockId(complex.id);
   const liked = blockNum != null && isBlockFavorite(blockNum);
   const slug = complex.slug?.trim() ?? '';
-  const inCompare = Boolean(slug) && isCompared(slug);
-  const coverImages = complex.images.filter((src) => Boolean(src?.trim()));
-  const coverImage = coverImages[currentImageIndex] ?? coverImages[0] ?? '';
-  const builderName = complex.builder?.trim();
-  const hasBuilder = Boolean(builderName && builderName !== '—');
-  const addressLine = complex.address?.trim();
-  const hasAddress = Boolean(addressLine && addressLine !== '—');
-  const metroLine = complexMetroDisplayLine(complex);
-  const completion = complexPopularCompletionLine(complex);
-  const priceBandRows = complexPriceBandRows(complex);
-  const fallbackPrice = priceBandRows.length === 0 ? complexFallbackPriceRow(complex)?.price : null;
-  const inventoryLine = complexInventoryLine(complex);
-  const yieldLabel = complexYieldLabel(complex);
-  const districtLine =
-    complex.district && complex.district !== '—' ? complex.district.trim() : '';
-  const fullAddressLine = [districtLine, hasAddress ? addressLine : ''].filter(Boolean).join(', ');
-  /** Статус ЖК показываем в подвале, а не поверх обложки */
-  const statusNote = complexImageOverlayLines(complex).primary ?? (complex.isPromoted ? 'Новый ЖК' : null);
-  const tagLabel = tag === 'secondary' ? 'Вторичка' : 'Новостройки';
+  const cover = complex.images.find((src) => Boolean(src?.trim())) ?? null;
+  const location = realValue(complex.district) || realValue(complex.address) || cityFallback || '';
+  const rawCompletion = complexPopularCompletionLine(complex) || realValue(complex.deadline);
+  // В поле срока у части ЖК лежит статус («Строится») — он уже на бейдже, второй раз не пишем
+  const completion = /^(строится|сдан|проект)$/i.test(rawCompletion) ? '' : rawCompletion;
+  const minPrice = complexMinPrice(complex);
+  const units = complexTotalUnits(complex);
+  const badge = statusBadge(complex);
+  const isList = variant === 'list';
 
+  // Избранное гостя живёт в localStorage — вход для него не нужен (ТЗ v3, 4.1)
   const handleLike = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (blockNum == null) return;
-    if (!isAuthenticated) {
-      navigate('/login', { state: { from: location } });
-      return;
-    }
-    void toggleBlock(blockNum);
+    if (blockNum != null) void toggleBlock(blockNum);
   };
 
-  const handleCompare = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!slug) return;
-    toggleCompare(slug);
-  };
-
-  const actionButtons = (
-    <div className="absolute top-2.5 right-2.5 z-10 flex flex-col gap-1.5">
-      {slug ? (
-        <button
-          type="button"
-          title={inCompare ? 'Убрать из сравнения' : 'В сравнение'}
-          aria-label={inCompare ? 'Убрать из сравнения' : 'Добавить в сравнение'}
-          className={cn(cardVisual.complexActionBtn, 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary')}
-          onClick={handleCompare}
-        >
-          <GitCompare className={cn('h-3.5 w-3.5', inCompare ? 'text-primary' : 'text-muted-foreground')} />
-        </button>
-      ) : null}
-      <button
-        type="button"
-        title="Избранное"
-        aria-label={liked ? 'Убрать из избранного' : 'Добавить в избранное'}
-        className={cn(cardVisual.complexActionBtn, 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary')}
-        onClick={handleLike}
-      >
-        <Heart className={cn('h-3.5 w-3.5', liked ? 'fill-destructive text-destructive' : 'text-muted-foreground')} />
-      </button>
-    </div>
-  );
-
-  const contentMain = (
-    <>
-      <h3
-        className={cn(
-          isCompact
-            ? 'text-base font-bold leading-snug tracking-tight text-foreground line-clamp-2 min-h-[2.5rem]'
-            : cardVisual.complexTitle,
-          'group-hover:text-primary transition-colors',
-        )}
-      >
-        {complex.name}
-      </h3>
-
-      {metroLine ? (
-        <div className={cardVisual.complexMetaRow}>
-          <span className={cardVisual.complexMetroDot} aria-hidden />
-          <span className="min-w-0 line-clamp-1 text-foreground/85">{metroLine}</span>
-        </div>
-      ) : null}
-
-      {fullAddressLine ? (
-        <div className={cardVisual.complexMetaRow}>
-          <MapPin className={cardVisual.complexMetaIcon} aria-hidden />
-          <span className="min-w-0 line-clamp-2 text-muted-foreground/90">{fullAddressLine}</span>
-        </div>
-      ) : null}
-
-      {hasBuilder ? (
-        <div className={cardVisual.complexMetaRow}>
-          <Building2 className={cardVisual.complexMetaIcon} aria-hidden />
-          <span className="min-w-0 line-clamp-1">
-            <span className="text-muted-foreground">Застройщик: </span>
-            <span className="font-semibold text-foreground/85">{builderName}</span>
-          </span>
-        </div>
-      ) : null}
-
-      {completion ? (
-        <p
-          className={cn(cardVisual.complexCompletion, isCompact && 'line-clamp-1')}
-          aria-label={`Срок сдачи: ${completion}`}
-        >
-          {completion}
-        </p>
-      ) : null}
-
-      {priceBandRows.length > 0 ? (
-        <div className={cardVisual.dottedBlock} role="list" aria-label="Цены по типам квартир">
-          {priceBandRows.map((row) => (
-            <CardDottedPriceRow key={row.rooms} label={row.label} price={row.price} />
-          ))}
-        </div>
-      ) : fallbackPrice ? (
-        <p className="pt-1 text-sm font-semibold tabular-nums text-foreground leading-none">
-          {fallbackPrice}
-        </p>
-      ) : null}
-
-      {inventoryLine ? <p className={cardVisual.complexInventory}>{inventoryLine}</p> : null}
-    </>
-  );
-
-  const contentFooter = (
-    <div className={cn(cardVisual.complexFooter, 'mt-auto shrink-0')}>
-      <span className={cardVisual.complexFooterPill}>{tagLabel}</span>
-      <div className="flex min-w-0 items-center gap-2">
-        {statusNote ? (
-          <span className="truncate text-[11px] font-medium text-muted-foreground">{statusNote}</span>
-        ) : null}
-        {yieldLabel ? (
-          <span className={cardVisual.complexYield} aria-label={`Доходность ${yieldLabel}`}>
-            <span aria-hidden>🏦</span>
-            {yieldLabel}
-          </span>
-        ) : null}
-      </div>
-    </div>
-  );
-
-  const mediaAspectProp = coverAspect === '16/9' ? '16/9' : '4/3';
-
-  const photoDots =
-    coverImages.length > 1 ? (
-      <div className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 gap-1">
-        {coverImages.map((_, index) => (
-          <button
-            key={index}
-            type="button"
-            aria-label={`Фото ${index + 1}`}
-            className={cn(
-              'h-1.5 w-1.5 rounded-full transition-colors',
-              index === currentImageIndex ? 'bg-background shadow-sm' : 'bg-background/50',
-            )}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setCurrentImageIndex(index);
-            }}
-          />
-        ))}
-      </div>
-    ) : null;
-
-  const coverMedia = (
-    <div className={cn(cardVisual.complexMedia, 'relative')}>
+  const media = (
+    <div className={cn('relative overflow-hidden bg-surface-soft', isList ? 'w-[132px] shrink-0 sm:w-[220px]' : coverAspect === '16/9' ? 'aspect-video' : 'aspect-[4/3]')}>
       <StableMediaFrame
-        src={coverImage || null}
+        src={cover}
         altContext={complex.name}
-        decorative={false}
-        aspect={mediaAspectProp}
         loading={priority ? 'eager' : 'lazy'}
         fetchPriority={priority ? 'high' : undefined}
-        className="w-full rounded-t-[20px]"
-        imgClassName="object-cover object-center transition-transform duration-200 group-hover:scale-[1.02]"
+        fixedHeightClass="h-full w-full"
+        className="h-full w-full"
+        imgClassName="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
       />
-      {actionButtons}
-      {photoDots}
+      {badge ? (
+        <span className="absolute left-2.5 top-2.5 rounded-full bg-card/95 px-2.5 py-1 text-[12px] font-medium text-foreground shadow-card">{badge}</span>
+      ) : null}
+      {blockNum != null ? (
+        <button
+          type="button"
+          onClick={handleLike}
+          aria-pressed={liked}
+          aria-label={liked ? 'Убрать из избранного' : 'В избранное'}
+          className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-card/95 shadow-card transition-transform hover:scale-105"
+        >
+          <Heart className={cn('h-[18px] w-[18px]', liked ? 'fill-destructive text-destructive' : 'text-foreground/70')} />
+        </button>
+      ) : null}
     </div>
   );
 
-  const shell = (children: ReactNode, extraClass: string) => {
-    const className = cn(cardVisual.complexShell, 'group', extraClass, !slug && 'cursor-default');
-    return slug ? (
-      <Link to={`/complex/${slug}`} className={className}>
-        {children}
-      </Link>
-    ) : (
-      <div className={className}>{children}</div>
-    );
-  };
-
-  if (cardVariant === 'list') {
-    return shell(
-      <>
-        <div className="relative w-[200px] shrink-0 overflow-hidden bg-muted sm:w-[220px]">
-          <StableMediaFrame
-            src={coverImages[0] || null}
-            altContext={complex.name}
-            decorative={false}
-            aspect="4/3"
-            loading={priority ? 'eager' : 'lazy'}
-            fetchPriority={priority ? 'high' : undefined}
-            className="h-full w-full rounded-none"
-            imgClassName="object-cover object-center transition-transform duration-200 group-hover:scale-[1.02]"
-          />
-          {actionButtons}
+  const body = (
+    <div className={cn('flex min-w-0 flex-1 flex-col', isList ? 'p-3 sm:p-4' : 'p-4')}>
+      <h3 className="line-clamp-1 text-[17px] font-semibold leading-snug tracking-tight text-foreground transition-colors group-hover:text-primary">
+        {complex.name}
+      </h3>
+      <ul className="mt-1.5 grid gap-1 text-[14px] text-muted-foreground">
+        {location ? (
+          <li className="flex min-w-0 items-center gap-1.5">
+            <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="truncate">{location}</span>
+          </li>
+        ) : null}
+        {completion ? (
+          <li className="flex min-w-0 items-center gap-1.5">
+            <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="truncate">{completion}</span>
+          </li>
+        ) : null}
+      </ul>
+      <div className="mt-auto flex items-end justify-between gap-3 pt-3">
+        <div className="min-w-0">
+          {minPrice != null ? <p className="text-price text-[17px] text-foreground">{formatPriceFrom(minPrice)}</p> : null}
+          {units != null && units > 0 ? <p className="text-[13px] text-muted-foreground">{flatsLabel(units)} в продаже</p> : null}
         </div>
-        <div className={cn(cardVisual.complexBody, 'flex flex-1 flex-col')}>
-          <div className="flex flex-1 flex-col gap-2.5">{contentMain}</div>
-          {contentFooter}
-        </div>
-      </>,
-      'flex',
-    );
-  }
-
-  return shell(
-    <>
-      {coverMedia}
-      <div className={cn(cardVisual.complexBody, isCompact && 'p-3 gap-2', 'flex flex-1 flex-col min-h-0')}>
-        <div className="flex flex-1 flex-col gap-2.5 min-h-0">{contentMain}</div>
-        {contentFooter}
+        {!isList ? (
+          <span className="inline-flex shrink-0 items-center gap-1 text-[14px] font-medium text-primary">
+            Квартиры
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+          </span>
+        ) : null}
       </div>
-    </>,
-    'flex h-full w-full flex-col',
+    </div>
+  );
+
+  const className = cn(
+    'group flex h-full w-full overflow-hidden rounded-card border border-border bg-card transition-[box-shadow,border-color] hover:border-primary/25 hover:shadow-raised',
+    isList ? 'flex-row' : 'flex-col',
+  );
+
+  return slug ? (
+    <Link to={`/complex/${slug}`} className={className}>
+      {media}
+      {body}
+    </Link>
+  ) : (
+    <div className={className}>
+      {media}
+      {body}
+    </div>
   );
 };
 

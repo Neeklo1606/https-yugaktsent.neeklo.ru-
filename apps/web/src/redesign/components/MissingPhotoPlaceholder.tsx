@@ -6,9 +6,9 @@ type Props = {
   label?: string;
 };
 
-const MissingPhotoPlaceholder = ({ className, label = 'Фото отсутствует' }: Props) => (
-  <div className={cn('flex h-full w-full flex-col items-center justify-center gap-2 bg-muted text-muted-foreground', className)}>
-    <Home className="h-8 w-8" aria-hidden="true" />
+const MissingPhotoPlaceholder = ({ className, label = 'Фото появится позже' }: Props) => (
+  <div className={cn('flex h-full w-full flex-col items-center justify-center gap-2 bg-surface-soft text-muted-foreground/70', className)}>
+    <Home className="h-7 w-7" aria-hidden="true" />
     <span className="text-xs font-medium">{label}</span>
   </div>
 );

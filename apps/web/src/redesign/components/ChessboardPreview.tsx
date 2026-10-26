@@ -1,3 +1,4 @@
+import { formatArea } from '@/redesign/lib/listing-format';
 import { Link } from 'react-router-dom';
 import { Building2, ExternalLink, Layers, MapPin } from 'lucide-react';
 import type { Apartment } from '@/redesign/data/types';
@@ -15,10 +16,6 @@ type Props = {
   compact?: boolean;
   onClose?: () => void;
 };
-
-function formatArea(value: number): string {
-  return `${Number(value || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} м²`;
-}
 
 const ChessboardPreview = ({
   apartment,
@@ -137,7 +134,7 @@ export function ChessboardPreviewInline({
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold truncate">
-          {roomLabel}, {apartment.area} м² · {formatDisplayPrice(apartment.price)}
+          {roomLabel}, {formatArea(apartment.area)} · {formatDisplayPrice(apartment.price)}
         </p>
         <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
           <MapPin className="h-3 w-3 shrink-0" />

@@ -32,7 +32,8 @@ function statusBadge(c: ResidentialComplex): string | null {
 const FeaturedComplexCard = ({ complex, cityFallback, priority = false, className, onCoverError }: Props) => {
   const cover = complex.images.find((src) => Boolean(src?.trim()));
   const location = realValue(complex.district) || realValue(complex.address) || cityFallback || '';
-  const completion = complexPopularCompletionLine(complex) || realValue(complex.deadline);
+  const rawCompletion = complexPopularCompletionLine(complex) || realValue(complex.deadline);
+  const completion = /^(строится|сдан|проект)$/i.test(rawCompletion) ? '' : rawCompletion;
   const price = hasValidPrice(complex.priceFrom) ? formatPriceFrom(complex.priceFrom) : null;
   const badge = statusBadge(complex);
 

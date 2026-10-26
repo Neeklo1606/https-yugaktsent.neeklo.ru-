@@ -5,7 +5,10 @@ import StableMediaFrame from '@/redesign/components/StableMediaFrame';
 import PromotionBadge from '@/redesign/components/PromotionBadge';
 import TrustBadgeRow, { type TrustBadgeView } from '@/redesign/components/TrustBadgeRow';
 import { listingFreshnessBadge } from '@lg/shared';
-import { cardBadgeClass, cardVisual, formatQuarterFromDate, metaDotLine } from '@/redesign/lib/card-visual';
+import { formatQuarterFromDate } from '@/redesign/lib/card-visual';
+import { formatArea, shortRoomLabel } from '@/redesign/lib/listing-format';
+import { Heart } from 'lucide-react';
+import { useFavorites } from '@/shared/hooks/useFavorites';
 
 export type ListingPromotionView = {
   tier: string;
@@ -126,7 +129,7 @@ function buildTitle(l: ApiListingCardRow): string {
   switch (l.kind) {
     case 'HOUSE': {
       const area = plausibleArea(l.house?.areaTotal);
-      return area > 0 ? `Дом · ${area} м²` : 'Дом';
+      return area > 0 ? `Дом · ${formatArea(area)}` : 'Дом';
     }
     case 'LAND': {
       const sotki = num(l.land?.areaSotki);
@@ -136,19 +139,19 @@ function buildTitle(l: ApiListingCardRow): string {
       const t = l.commercial?.commercialType?.trim();
       const area = plausibleArea(l.commercial?.area);
       const head = t || 'Коммерция';
-      return area > 0 ? `${head} · ${area} м²` : head;
+      return area > 0 ? `${head} · ${formatArea(area)}` : head;
     }
     case 'PARKING': {
       const t = l.parking?.parkingType?.trim();
       const area = num(l.parking?.area);
       const head = t || 'Машиноместо';
-      return area > 0 ? `${head} · ${area} м²` : head;
+      return area > 0 ? `${head} · ${formatArea(area)}` : head;
     }
     case 'APARTMENT':
     default: {
-      const rooms = l.apartment?.roomType?.name?.trim();
+      const rooms = shortRoomLabel(l.apartment?.roomType?.name);
       const area = plausibleArea(l.apartment?.areaTotal);
-      const parts = [rooms, area > 0 ? `${area} м²` : null].filter(Boolean);
+      const parts = [rooms, area > 0 ? formatArea(area) : null].filter(Boolean);
       // Нет ни комнатности, ни правдоподобной площади — называем вещь своим именем
       return parts.length ? parts.join(' · ') : 'Квартира';
     }
@@ -162,81 +165,87 @@ function buildSubtitle(l: ApiListingCardRow): string {
   return block || region || '—';
 }
 
-const STATUS_BADGE: Record<string, { label: string; variant: 'primary' | 'secondary' | 'outline'; accent?: 'emerald' | 'amber' | 'muted' | 'red' }> = {
-  ACTIVE: { label: 'Свободно', variant: 'secondary', accent: 'emerald' },
-  RESERVED: { label: 'Бронь', variant: 'secondary', accent: 'amber' },
-  SOLD: { label: 'Продано', variant: 'outline', accent: 'muted' },
-  DRAFT: { label: 'Черновик', variant: 'outline', accent: 'muted' },
-  INACTIVE: { label: 'Снято', variant: 'outline', accent: 'red' },
+const STATUS_CHIP: Record<string, { label: string; className: string }> = {
+  ACTIVE: { label: 'Свободно', className: 'bg-success/10 text-success' },
+  RESERVED: { label: 'Бронь', className: 'bg-warning-soft text-warning' },
+  SOLD: { label: 'Продано', className: 'bg-muted text-muted-foreground' },
+  DRAFT: { label: 'Черновик', className: 'bg-muted text-muted-foreground' },
+  INACTIVE: { label: 'Снято', className: 'bg-muted text-muted-foreground' },
 };
 
+/**
+ * Карточка объекта (ТЗ v3, 4.4): фото/планировка, чипы «Свободно» и «Актуально», цена,
+ * «3-к.кв · 78,3 м²», ЖК и город, этаж и срок сдачи, сердечко. Кликабельна целиком.
+ */
 const ListingCard = ({ listing, variant = 'grid', trustBadges }: Props) => {
+  const { isListingFavorite, toggleListing } = useFavorites();
+  const liked = isListingFavorite(listing.id);
   const formatted = formatDisplayPrice(listing.price);
   const img = pickImage(listing);
   const title = buildTitle(listing);
   const subtitle = buildSubtitle(listing);
   const priceIsFallback = isPriceFallbackText(formatted);
-  const status = STATUS_BADGE[listing.status] ?? { label: listing.status, variant: 'outline' as const, accent: 'muted' as const };
-  const locationLine = metaDotLine([subtitle !== '—' ? subtitle : null, listing.address?.trim()]);
-
+  const status = STATUS_CHIP[listing.status] ?? null;
   const linkTo = listing.kind === 'APARTMENT' ? `/apartment/${listing.id}` : `/listing/${listing.id}`;
-
   const isList = variant === 'list';
-  const isHome = variant === 'home';
   const isApartment = listing.kind === 'APARTMENT';
+  const usesPlan = isApartment && !listing.apartment?.finishingPhotoUrl && Boolean(listing.apartment?.planUrl);
   const completionLine = formatQuarterFromDate(listing.apartment?.buildingDeadline ?? null);
+  const floor = listing.apartment?.floor;
+  const floorsTotal = listing.apartment?.floorsTotal;
+  const floorLine = floor ? `${floor}${floorsTotal ? ` из ${floorsTotal}` : ''} этаж` : null;
+  const facts = [floorLine, completionLine ? `сдача ${completionLine}` : null].filter(Boolean).join(' · ');
   const freshness = listingFreshnessBadge({
     dataSource: listing.dataSource,
     lastActivityAt: listing.lastActivityAt,
     updatedAt: listing.updatedAt,
   });
 
+  const handleLike = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    void toggleListing(listing.id);
+  };
+
   return (
     <Link
       to={linkTo}
       className={cn(
-        isHome ? cardVisual.complexShell : cardVisual.cardShell,
-        'group',
-        isList ? 'sm:flex sm:items-stretch' : '',
-        isHome && 'h-full w-full flex flex-col',
+        'group flex h-full w-full overflow-hidden rounded-card border border-border bg-card transition-[box-shadow,border-color] hover:border-primary/25 hover:shadow-raised',
+        isList ? 'flex-row' : 'flex-col',
       )}
     >
       <div
         className={cn(
-          'relative w-full shrink-0 overflow-hidden bg-muted',
-          isList ? 'sm:w-56 sm:shrink-0 aspect-[4/3] sm:aspect-video' : 'aspect-video w-full',
-          isHome && 'rounded-t-[20px]',
+          'relative shrink-0 overflow-hidden',
+          usesPlan ? 'bg-white' : 'bg-surface-soft',
+          isList ? 'w-[132px] sm:w-[220px]' : 'aspect-[4/3] w-full',
         )}
       >
         <StableMediaFrame
           src={img}
           aspect="none"
-          fit={isApartment ? 'contain' : 'cover'}
+          fit={usesPlan ? 'contain' : 'cover'}
           decorative={false}
           altContext={title}
-          className="absolute inset-0 h-full w-full"
-          imgClassName={isApartment ? '' : 'group-hover:scale-[1.02] transition-transform duration-200'}
+          className={cn('absolute inset-0 h-full w-full', usesPlan && 'p-4')}
+          imgClassName={usesPlan ? '' : 'transition-transform duration-300 group-hover:scale-[1.02]'}
         />
-        <span
-          className={cn(
-            'absolute top-1.5 left-1.5',
-            cardBadgeClass(status.variant, status.accent),
-          )}
+        <div className="absolute left-2.5 top-2.5 flex flex-wrap gap-1">
+          {status ? <span className={cn('rounded-full px-2 py-0.5 text-[12px] font-medium', status.className)}>{status.label}</span> : null}
+          {freshness?.tone === 'recent' ? (
+            <span className="rounded-full bg-card/95 px-2 py-0.5 text-[12px] font-medium text-foreground shadow-card">Актуально</span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={handleLike}
+          aria-pressed={liked}
+          aria-label={liked ? 'Убрать из избранного' : 'В избранное'}
+          className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-card/95 shadow-card transition-transform hover:scale-105"
         >
-          {status.label}
-        </span>
-        {freshness ? (
-          <span
-            className={cn(
-              'absolute top-1.5 right-1.5 rounded-md bg-background/90 backdrop-blur-sm border px-1.5 py-0.5 text-[9px] font-medium',
-              freshness.tone === 'recent'
-                ? 'text-emerald-700 border-emerald-200'
-                : 'text-muted-foreground',
-            )}
-          >
-            {freshness.label}
-          </span>
-        ) : null}
+          <Heart className={cn('h-[18px] w-[18px]', liked ? 'fill-destructive text-destructive' : 'text-foreground/70')} />
+        </button>
         <PromotionBadge promotion={listing.promotion ?? null} />
         {trustBadges?.length ? (
           <div className="absolute bottom-1.5 left-1.5 right-1.5">
@@ -244,43 +253,16 @@ const ListingCard = ({ listing, variant = 'grid', trustBadges }: Props) => {
           </div>
         ) : null}
       </div>
-      <div
-        className={cn(
-          isHome ? cn(cardVisual.complexBody, 'flex-1 p-3 gap-2') : cardVisual.cardBody,
-        )}
-      >
+      <div className={cn('flex min-w-0 flex-1 flex-col gap-1', isList ? 'p-3 sm:p-4' : 'p-4')}>
         <p
-          className={cn(
-            isHome
-              ? priceIsFallback
-                ? cardVisual.priceGridFallback
-                : cardVisual.priceGrid
-              : priceIsFallback
-                ? cardVisual.priceFallback
-                : cardVisual.price,
-          )}
+          className={cn('text-price text-[19px] leading-tight', priceIsFallback ? 'text-muted-foreground text-[15px] font-medium' : 'text-foreground')}
           aria-label={priceAriaLabel(formatted)}
         >
           {formatted}
         </p>
-        <h3
-          className={cn(
-            isHome ? 'text-base font-bold leading-snug tracking-tight text-foreground line-clamp-2 min-h-[2.5rem]' : cardVisual.title,
-            'line-clamp-2',
-          )}
-        >
-          {title}
-        </h3>
-        {locationLine ? (
-          <p className={isHome ? cardVisual.metaDot : cardVisual.metaMuted}>{locationLine}</p>
-        ) : null}
-        {completionLine ? (
-          <p className={cn(cardVisual.complexCompletion, 'line-clamp-1')}>{completionLine}</p>
-        ) : isHome ? (
-          <p className={cn(cardVisual.complexCompletion, 'invisible min-h-[1.125rem] select-none')} aria-hidden>
-            &nbsp;
-          </p>
-        ) : null}
+        <h3 className="line-clamp-1 text-[15px] font-semibold leading-snug text-foreground group-hover:text-primary">{title}</h3>
+        {subtitle !== '—' ? <p className="line-clamp-1 text-[14px] text-muted-foreground">{subtitle}</p> : null}
+        {facts ? <p className="line-clamp-1 text-[13px] text-muted-foreground">{facts}</p> : null}
       </div>
     </Link>
   );

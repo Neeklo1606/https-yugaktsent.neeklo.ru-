@@ -159,7 +159,8 @@ export function mapApiBlockListRowToResidentialComplex(b: ApiBlockListRow): Resi
     id: String(b.id),
     slug: b.slug,
     name: b.name,
-    description: b.description?.trim() || 'Описание появится позже.',
+    // Пустое описание — пустая строка: страница скрывает блок, а не пишет «появится позже»
+    description: b.description?.trim() || '',
     builder: b.builder?.name ?? '',
     district: b.district?.name ?? '',
     subway: metro?.subway.name ?? '',
@@ -464,12 +465,13 @@ export function mapApiBlockDetailToResidentialComplex(
   const inSalePrices = allApts
     .filter((a) => a.status !== 'sold' && normalizePriceValue(a.price) != null)
     .map((a) => a.price);
-  const priceFrom = inSalePrices.length ? Math.min(...inSalePrices) : base.priceFrom;
-  const priceTo = inSalePrices.length ? Math.max(...inSalePrices) : base.priceTo;
-  // «В продаже» = свободные + забронированные. Так совпадает с layouts и с табом квартир.
+  // Страница грузит только первую порцию квартир (per_page), поэтому «от», «до» и число
+  // в продаже берём из агрегатов API по всему ЖК — те же, что у карточки каталога.
+  // Посчитанное по загруженным — только запасной вариант, если агрегатов нет.
+  const priceFrom = base.priceFrom > 0 ? base.priceFrom : inSalePrices.length ? Math.min(...inSalePrices) : 0;
+  const priceTo = base.priceTo > 0 ? base.priceTo : inSalePrices.length ? Math.max(...inSalePrices) : 0;
   const inSaleFromLoaded = allApts.filter((a) => a.status !== 'sold').length;
-  const listingCount =
-    inSaleFromLoaded > 0 ? inSaleFromLoaded : (base.listingCount ?? 0);
+  const listingCount = base.listingCount && base.listingCount > 0 ? base.listingCount : inSaleFromLoaded;
   const quarterDates = [
     ...(b.buildings ?? []).map((x) => quarterLabel(x.deadline)).filter((x): x is string => Boolean(x)),
     ...listingRows

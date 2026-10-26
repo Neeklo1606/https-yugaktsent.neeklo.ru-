@@ -344,3 +344,15 @@ export function complexFallbackPriceRow(complex: ResidentialComplex): ComplexPri
   if (isPriceFallbackText(price)) return null;
   return { rooms: -1, label: 'Цены от', price };
 }
+
+/**
+ * Единая «цена от» ЖК: минимум по действующим предложениям (price_ranges), иначе priceFrom.
+ * Карточка каталога, подборки и страница ЖК берут цену отсюда — иначе «от 7,5» и «от 8,5» расходятся.
+ */
+export function complexMinPrice(complex: ResidentialComplex): number | null {
+  const candidates = [
+    ...(complex.priceRanges ?? []).map((r) => normalizePriceValue(r.priceMin)),
+    normalizePriceValue(complex.priceFrom),
+  ].filter((v): v is number => v != null && v > 0);
+  return candidates.length ? Math.min(...candidates) : null;
+}

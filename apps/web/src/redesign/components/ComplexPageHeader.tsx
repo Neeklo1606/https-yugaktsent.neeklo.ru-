@@ -11,7 +11,7 @@ type Props = {
 function statusBadge(status: ResidentialComplex['status']) {
   if (status === 'completed') {
     return (
-      <span className="inline-flex rounded-md bg-emerald-500/12 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+      <span className="inline-flex rounded-md bg-success/10 px-2 py-0.5 text-[12px] font-medium text-success">
         Сдан
       </span>
     );

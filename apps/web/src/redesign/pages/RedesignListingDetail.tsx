@@ -1,3 +1,4 @@
+import { formatArea } from '@/redesign/lib/listing-format';
 import { useParams, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -167,7 +168,7 @@ function buildTitle(l: ApiListingDetailUniversal): string {
     case 'APARTMENT': {
       const rooms = l.apartment?.roomType?.name?.trim();
       const area = num(l.apartment?.areaTotal);
-      const parts = [rooms || 'Квартира', area > 0 ? `${area} м²` : null].filter(Boolean);
+      const parts = [rooms || 'Квартира', area > 0 ? formatArea(area) : null].filter(Boolean);
       return parts.join(' · ');
     }
     case 'HOUSE': {
@@ -175,7 +176,7 @@ function buildTitle(l: ApiListingDetailUniversal): string {
       const land = num(l.house?.areaLand);
       const head = 'Дом';
       const tail = [
-        area > 0 ? `${area} м²` : null,
+        area > 0 ? formatArea(area) : null,
         land > 0 ? `участок ${land} сот.` : null,
       ].filter(Boolean);
       return tail.length ? `${head} · ${tail.join(' · ')}` : head;

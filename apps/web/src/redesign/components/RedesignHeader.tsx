@@ -32,7 +32,15 @@ const MOBILE_EXTRA_ITEMS: typeof NAV_ITEMS = [
   { label: 'Избранное', href: '/favorites', match: (p) => p.startsWith('/favorites') },
 ];
 
-const RedesignHeader = () => {
+type HeaderProps = {
+  /**
+   * Нижняя панель навигации на телефоне. На страницах ЖК и объекта у них своя
+   * липкая панель действий — второй слой снизу не нужен (ТЗ v3, 4.1).
+   */
+  mobileTabBar?: boolean;
+};
+
+const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
   const { data: siteSettings } = useSiteSettings();
   const { shortName, logoUrl } = useSiteBrand();
   const location = useLocation();
@@ -246,7 +254,7 @@ const RedesignHeader = () => {
         </div>
       ) : null}
 
-      <MobileTabBar />
+      {mobileTabBar ? <MobileTabBar /> : null}
 
       <ConsultationFlow
         open={leadOpen}

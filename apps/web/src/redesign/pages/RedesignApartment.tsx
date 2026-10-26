@@ -1,4 +1,5 @@
-import { useParams, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { formatArea } from '@/redesign/lib/listing-format';
+import { useParams, Link, useLocation, Navigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -6,7 +7,6 @@ import {
   Building2,
   Heart,
   Share2,
-  GitCompare,
   FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,12 +29,9 @@ import { mapListingRowToApartment, type ApiListingRow } from '@/redesign/lib/blo
 import { mapListingDetailToApartmentPage, type ApiListingDetail } from '@/redesign/lib/listing-page-from-api';
 import { formatDisplayPrice } from '@/redesign/lib/display-price';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/shared/hooks/useAuth';
 import { useFavorites } from '@/shared/hooks/useFavorites';
-import { useCompare } from '@/shared/hooks/useCompare';
 import { shareCurrentPage } from '@/lib/share-page';
 import { useEntitySeoMeta } from '@/shared/hooks/useEntitySeoMeta';
-import { toast } from '@/components/ui/sonner';
 import { useYandexMapsReady } from '@/shared/hooks/useYandexMapsReady';
 import { useInViewOnce } from '@/shared/hooks/useInViewOnce';
 import { buildCatalogFilterUrl } from '@/redesign/lib/catalog-filter-links';
@@ -73,10 +70,7 @@ function sectionHeading(title: string, subtitle?: string) {
 const RedesignApartment = () => {
   const { id: idParam } = useParams<{ id: string }>();
   const location = useLocation();
-  const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
   const { isListingFavorite, toggleListing } = useFavorites();
-  const { isCompared, toggle: toggleCompare, count: compareCount } = useCompare();
   const { data: defaultRegionId } = useDefaultRegionId();
   const { shortName } = useSiteBrand();
   const mapRef = useRef<HTMLDivElement>(null);
@@ -146,10 +140,10 @@ const RedesignApartment = () => {
     const roomsLabel =
       apt.rooms == null ? 'Квартира' : apt.rooms === 0 ? 'Студия' : `${apt.rooms}-комн.`;
     const priceLabel = formatDisplayPrice(apt.price);
-    const title = [apt.area ? `${roomsLabel}, ${apt.area} м²` : roomsLabel, complex?.name]
+    const title = [apt.area ? `${roomsLabel}, ${formatArea(apt.area)}` : roomsLabel, complex?.name]
       .filter(Boolean)
       .join(' · ');
-    const description = [priceLabel, complex?.name, apt.area ? `${apt.area} м²` : '']
+    const description = [priceLabel, complex?.name, apt.area ? `${formatArea(apt.area)}` : '']
       .filter(Boolean)
       .join(' · ')
       .slice(0, 160);
@@ -276,7 +270,7 @@ const RedesignApartment = () => {
 
   useEffect(() => {
     if (listingId == null || !apt || !complex) return;
-    const title = `${complex.name} · ${apt.area} м²`;
+    const title = `${complex.name} · ${formatArea(apt.area)}`;
     void recordBrowseHistory(
       'LISTING',
       listingId,
@@ -304,7 +298,7 @@ const RedesignApartment = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <RedesignHeader />
+        <RedesignHeader mobileTabBar={false} />
         <div className="max-w-[1400px] mx-auto px-4 py-16 text-center text-muted-foreground text-sm">Загрузка…</div>
       </div>
     );
@@ -313,7 +307,7 @@ const RedesignApartment = () => {
   if (apiFailed || !apt || !complex || !building) {
     return (
       <div className="min-h-screen bg-background">
-        <RedesignHeader />
+        <RedesignHeader mobileTabBar={false} />
         <div className="max-w-[1400px] mx-auto px-4 py-16 text-center">
           <p className="text-muted-foreground">Квартира не найдена</p>
           <Link to="/catalog" className="text-primary text-sm mt-2 inline-block">
@@ -327,30 +321,17 @@ const RedesignApartment = () => {
   const roomLabel = apt.rooms === 0 ? 'Студия' : `${apt.rooms}-комнатная`;
   /** Без настоящих координат ЖК карту рисовать нечем — прячем и кнопку, и саму карту */
   const hasCoords = complex.hasCoords === true;
+  const hasAddress = Boolean(complex.address?.trim() && complex.address !== '—');
   const isSold = apt.status === 'sold';
   const isReserved = apt.status === 'reserved';
 
   const listingLiked = listingId != null && isListingFavorite(listingId);
-  const listingCompareKey = listingId != null ? `l:${listingId}` : complex.slug;
-  const inCompare = isCompared(listingCompareKey);
 
   const handleListingFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
     if (listingId == null) return;
-    if (!isAuthenticated) {
-      navigate('/login', { state: { from: location } });
-      return;
-    }
+    // Гостю — в localStorage, без входа (ТЗ v3, 4.1)
     void toggleListing(listingId);
-  };
-
-  const handleCompare = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!inCompare && compareCount >= 3) {
-      toast.error('В сравнении не более 3 объектов');
-      return;
-    }
-    toggleCompare(listingCompareKey);
   };
 
   const handleShare = (e: React.MouseEvent) => {
@@ -365,17 +346,13 @@ const RedesignApartment = () => {
     listingId: listingId ?? undefined,
     sold: isSold,
     requestType: isSold ? 'CONSULTATION' : 'CONSULTATION',
-    contextFooter: `${roomLabel}, ${apt.area} м² · ${complex.name}`,
+    contextFooter: `${roomLabel}, ${formatArea(apt.area)} · ${complex.name}`,
   };
 
   const regionId = defaultRegionId ?? null;
   const districtCatalogUrl =
     regionId && complex.district && complex.district !== '—'
       ? buildCatalogFilterUrl(regionId, { district: complex.district })
-      : null;
-  const subwayCatalogUrl =
-    regionId && complex.subway && complex.subway !== '—'
-      ? buildCatalogFilterUrl(regionId, { subway: complex.subway })
       : null;
   const catalogUrl = regionId ? buildCatalogFilterUrl(regionId) : '/catalog';
 
@@ -385,19 +362,19 @@ const RedesignApartment = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-32 lg:pb-8">
-      <RedesignHeader />
+    <div className="min-h-screen bg-background pb-24 lg:pb-8">
+      <RedesignHeader mobileTabBar={false} />
 
       <div className="max-w-[1400px] mx-auto px-4 py-4 sm:py-6">
         <div className="flex items-center justify-between gap-2 mb-4">
-          <nav className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground min-w-0 flex-wrap">
+          <nav aria-label="Хлебные крошки" className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] text-muted-foreground sm:text-sm">
             <Link to="/" className="inline-flex min-h-8 items-center hover:text-foreground">Главная</Link>
             <span>/</span>
             <Link to={catalogUrl} className="inline-flex min-h-8 items-center hover:text-foreground">Каталог</Link>
             {districtCatalogUrl ? (
               <>
-                <span>/</span>
-                <Link to={districtCatalogUrl} className="inline-flex min-h-8 items-center truncate max-w-[100px] hover:text-foreground sm:max-w-none">
+                <span className="hidden sm:inline">/</span>
+                <Link to={districtCatalogUrl} className="hidden min-h-8 items-center truncate hover:text-foreground sm:inline-flex">
                   {complex.district}
                 </Link>
               </>
@@ -406,9 +383,10 @@ const RedesignApartment = () => {
             <Link to={`/complex/${complex.slug}`} className="inline-flex min-h-8 items-center truncate max-w-[140px] hover:text-foreground sm:max-w-none">
               {complex.name}
             </Link>
-            <span>/</span>
-            <span className="text-foreground font-medium truncate">
-              {roomLabel}, {apt.area} м²
+            {/* Текущая страница — в заголовке ниже; на телефоне крошки в одну строку */}
+            <span className="hidden sm:inline">/</span>
+            <span className="hidden truncate font-medium text-foreground sm:inline">
+              {roomLabel}, {formatArea(apt.area)}
             </span>
           </nav>
           <ObjectPageActionBar
@@ -420,13 +398,6 @@ const RedesignApartment = () => {
                 disabled: listingId == null,
                 active: listingLiked,
                 onClick: handleListingFavorite as unknown as () => void,
-              },
-              {
-                key: 'compare',
-                icon: <GitCompare className="w-4 h-4" />,
-                label: inCompare ? 'В сравнении' : 'Сравнить',
-                active: inCompare,
-                onClick: handleCompare as unknown as () => void,
               },
               {
                 key: 'pdf',
@@ -446,7 +417,7 @@ const RedesignApartment = () => {
 
         <div className="mb-3">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight leading-tight">
-            {roomLabel}, {apt.area} м²
+            {roomLabel}, {formatArea(apt.area)}
           </h1>
           <Link to={`/complex/${complex.slug}`} className="text-xs text-muted-foreground hover:text-primary mt-1 inline-block">
             {complex.name}
@@ -472,7 +443,7 @@ const RedesignApartment = () => {
               planSrc={apt.planImage}
               finishingSrc={apt.finishingImage}
               gallerySrcs={mediaImages}
-              title={`${roomLabel}, ${apt.area} м²`}
+              title={`${roomLabel}, ${formatArea(apt.area)}`}
             />
 
             <ComplexAnchorNav
@@ -537,38 +508,10 @@ const RedesignApartment = () => {
             {sectionHeading('О квартире')}
             <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
               <p className="text-sm text-muted-foreground leading-relaxed">
-                {roomLabel} площадью {apt.area} м²
+                {roomLabel} площадью {formatArea(apt.area)}
                 {apt.floor > 0 ? ` на ${apt.floor} этаже ${apt.totalFloors}-этажного дома` : ''} в ЖК «{complex.name}».
                 {apt.finishing !== 'без отделки' ? ` Отделка: ${apt.finishing}.` : ' Без отделки.'}
-                {complex.district && complex.district !== '—' ? (
-                  <>
-                    {' '}
-                    Район:{' '}
-                    {districtCatalogUrl ? (
-                      <Link to={districtCatalogUrl} className="text-primary hover:underline">
-                        {complex.district}
-                      </Link>
-                    ) : (
-                      complex.district
-                    )}
-                    .
-                  </>
-                ) : null}
-                {complex.subway && complex.subway !== '—' ? (
-                  <>
-                    {' '}
-                    Метро{' '}
-                    {subwayCatalogUrl ? (
-                      <Link to={subwayCatalogUrl} className="text-primary hover:underline">
-                        {complex.subway}
-                      </Link>
-                    ) : (
-                      complex.subway
-                    )}
-                    {complex.subwayDistance !== '—' ? ` (${complex.subwayDistance})` : ''}.
-                  </>
-                ) : null}
-                {apt.kitchenArea > 0 ? ` Кухня ${apt.kitchenArea} м².` : ''}
+                {apt.kitchenArea > 0 ? ` Кухня ${formatArea(apt.kitchenArea)}.` : ''}
               </p>
               {complex.description?.trim() && complex.description !== `Жилой комплекс «${complex.name}».` ? (
                 <p className="text-sm text-muted-foreground leading-relaxed mt-4 pt-4 border-t border-border">
@@ -579,6 +522,8 @@ const RedesignApartment = () => {
             </div>
           </section>
 
+          {/* Нет ни адреса, ни координат — секции нет: пустой контейнер карты не рисуем (ТЗ v3, 4.6) */}
+          {hasAddress || hasCoords ? (
           <section id="map" className="scroll-mt-28">
             {sectionHeading('Расположение')}
             <div className="rounded-xl border border-border overflow-hidden bg-card">
@@ -588,15 +533,10 @@ const RedesignApartment = () => {
                   <span className="font-medium">{complex.address}</span>
                 </div>
               ) : null}
-              {hasCoords ? (
-                <div ref={mapRef} className="h-[min(360px,45vh)] min-h-[220px] bg-muted" />
-              ) : (
-                <p className="px-4 py-6 text-sm text-muted-foreground">
-                  Координаты ЖК пока не указаны. Карта появится, когда их заполнят в админке.
-                </p>
-              )}
+              {hasCoords ? <div ref={mapRef} className="h-[min(360px,45vh)] min-h-[220px] bg-muted" /> : null}
             </div>
           </section>
+          ) : null}
 
           {listingId != null ? (
             <RelatedListingsCarousel
@@ -620,7 +560,7 @@ const RedesignApartment = () => {
                   >
                     <StableMediaFrame
                       src={a.planImage}
-                      altContext={`${a.rooms === 0 ? 'Студия' : `${a.rooms}-комн`}, ${a.area} м²`}
+                      altContext={`${a.rooms === 0 ? 'Студия' : `${a.rooms}-комн`}, ${formatArea(a.area)}`}
                       aspect="4/3"
                       fallback="branded"
                       loading="lazy"
@@ -628,7 +568,7 @@ const RedesignApartment = () => {
                     />
                     <div className="p-3 space-y-1 border-t border-border">
                       <h4 className="font-semibold text-sm">
-                        {a.rooms === 0 ? 'Студия' : `${a.rooms}-комн`}, {a.area} м²
+                        {a.rooms === 0 ? 'Студия' : `${a.rooms}-комн`}, {formatArea(a.area)}
                       </h4>
                       <p className="text-xs text-muted-foreground">
                         Этаж {a.floor}/{a.totalFloors} · {a.finishing}
@@ -661,7 +601,7 @@ const RedesignApartment = () => {
                 requestType={isSold ? 'CONSULTATION' : 'CONSULTATION'}
                 contextFooter={
                   isSold
-                    ? `Запрос по проданной квартире ${roomLabel}, ${apt.area} м² · ${complex.name}`
+                    ? `Запрос по проданной квартире ${roomLabel}, ${formatArea(apt.area)} · ${complex.name}`
                     : undefined
                 }
               />
@@ -715,9 +655,10 @@ const RedesignApartment = () => {
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom,0px))] z-40 border-t border-border bg-background/95 backdrop-blur-sm p-3 lg:hidden min-h-14">
+      {/* Один липкий слой снизу: панель действий вместо нижнего меню (ТЗ v3, 4.1) */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm lg:hidden">
         <ConversionCTABar
-          layout="stack"
+          layout="bar"
           context={baseConsultContext}
           onConsultation={openConsultation}
           consultationLabel={isSold ? CONVERSION_CTA.consultation : CONVERSION_CTA.viewing}

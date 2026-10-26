@@ -1,3 +1,4 @@
+import { formatArea } from '@/redesign/lib/listing-format';
 import { useNavigate } from 'react-router-dom';
 import type { LayoutGroup } from '@/redesign/data/types';
 import { formatPriceFrom, isPriceFallbackText } from '@/redesign/lib/display-price';
@@ -42,7 +43,7 @@ const LayoutCard = ({ layout }: { layout: LayoutGroup }) => {
           {layout.rooms === 0 ? 'Студия' : `${layout.rooms}-комнатная`}
         </h4>
         <div className="flex items-center justify-between gap-2">
-          <p className={cardVisual.metaMuted}>{layout.area} м²</p>
+          <p className={cardVisual.metaMuted}>{formatArea(layout.area)}</p>
           <span className={cn(cardVisual.metaMuted, 'font-medium text-foreground/70 shrink-0')}>
             {layout.availableCount} шт.
           </span>

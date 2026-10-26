@@ -81,8 +81,8 @@ const FilterSection = ({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border-b border-border last:border-0">
-      <button className="flex items-center justify-between w-full py-2 group" onClick={() => setOpen(!open)}>
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground group-hover:text-foreground transition-colors">
+      <button type="button" aria-expanded={open} className="flex min-h-11 items-center justify-between w-full py-2 group" onClick={() => setOpen(!open)}>
+        <span className="text-[14px] font-semibold text-foreground transition-colors group-hover:text-primary">
           {title}
           {count !== undefined && count > 0 && (
             <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold align-middle">
@@ -589,8 +589,9 @@ const FilterSidebar = ({
         </FilterSection>
       )}
 
-      {/* 10. Район — show only if there are districts */}
-      {districts.length > 0 && (
+      {/* 10. Район: глобального фильтра по районам в ТЗ нет (вместо него — «Локация»-город).
+          Показываем, только если район уже пришёл в ссылке — чтобы его можно было снять */}
+      {districts.length > 0 && filters.district.length > 0 && (
         <FilterSection title="Район" defaultOpen={false} count={filters.district.length}>
           <SearchableCheckboxList
             items={districts}

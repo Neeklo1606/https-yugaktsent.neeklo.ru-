@@ -1,13 +1,14 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useSearchParams, Link } from 'react-router-dom';
-import { LayoutGrid, List, Map, SlidersHorizontal, X, Search, MapPin } from 'lucide-react';
+import { AlertCircle, Info, LayoutGrid, List, Map, MapPin, Search, SearchX, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { apiGet } from '@/lib/api';
 import RedesignHeader from '@/redesign/components/RedesignHeader';
+import FooterSection from '@/components/FooterSection';
 import ComplexCard from '@/redesign/components/ComplexCard';
 import ListingCard, { type ApiListingCardRow } from '@/redesign/components/ListingCard';
 import FilterSidebar from '@/redesign/components/FilterSidebar';
@@ -30,11 +31,10 @@ import {
   syncDebouncedSearchInUrl,
 } from '@/redesign/lib/catalog-interaction';
 import { useDebouncedValue } from '@/redesign/hooks/useDebouncedValue';
-import { useBodyScrollLock } from '@/redesign/hooks/useBodyScrollLock';
 import SaveSearchButton from '@/account/components/SaveSearchButton';
 import CatalogActiveFilterChips from '@/redesign/components/CatalogActiveFilterChips';
 import CatalogFilterPresets from '@/redesign/components/CatalogFilterPresets';
-import PublicTrustStrip from '@/redesign/components/PublicTrustStrip';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import CatalogLandingPanel from '@/redesign/components/CatalogLandingPanel';
 import SessionResumeBanner from '@/redesign/components/SessionResumeBanner';
 import SavedSearchReminder from '@/redesign/components/SavedSearchReminder';
@@ -116,7 +116,18 @@ function parseCatalogSort(raw: string | null): CatalogSort {
   if (raw && (CATALOG_SORT_VALUES as readonly string[]).includes(raw)) {
     return raw as CatalogSort;
   }
-  return 'name_asc';
+  return DEFAULT_CATALOG_SORT;
+}
+
+/** Сортировка по умолчанию: покупателю важнее цена, чем алфавит (ТЗ v3, 4.3) */
+const DEFAULT_CATALOG_SORT: CatalogSort = 'price_asc';
+
+function pluralRu(n: number, one: string, few: string, many: string): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
 }
 
 const RedesignCatalog = () => {
@@ -202,7 +213,6 @@ const RedesignCatalog = () => {
 
   const debouncedSearch = useDebouncedValue(filters.search, CATALOG_SEARCH_DEBOUNCE_MS);
   const isSearchPending = filters.search !== debouncedSearch;
-  useBodyScrollLock(showMobileFilters);
 
   useEffect(() => {
     syncDebouncedSearchInUrl(setSearchParams, filters.search, debouncedSearch);
@@ -266,8 +276,11 @@ const RedesignCatalog = () => {
       filterKeyPart(filters.houseMaterials),
       filterKeyPart(filters.district),
       filters.marketType,
+      catalogSort,
     ],
     initialPageParam: 1,
+    // Пока грузится новая выдача, показываем прежнюю, а не скелетон на весь экран
+    placeholderData: keepPreviousData,
     queryFn: async ({ pageParam }) => {
       const sp = buildListingsSearchParams({
         filters: { ...filters, search: debouncedSearch },
@@ -276,6 +289,8 @@ const RedesignCatalog = () => {
         page: pageParam,
         perPage: PER_PAGE,
       });
+      // API объявлений умеет price/area/floor/created — раньше сортировка сюда не доходила
+      if (catalogSort !== 'name_asc' && catalogSort !== 'name_desc' && catalogSort !== 'sales_start_asc') sp.set('sort', catalogSort);
       return apiGet<{
         data: ApiListingCardRow[];
         meta: { page: number; per_page: number; total: number; total_pages: number };
@@ -355,6 +370,7 @@ const RedesignCatalog = () => {
     },
     enabled: useBlocksCatalog && regionId != null,
     staleTime: 300_000,
+    placeholderData: keepPreviousData,
   });
 
   // Pass listing kind to districts query so only relevant districts are shown
@@ -486,7 +502,7 @@ const RedesignCatalog = () => {
       const next = parseCatalogSort(value);
       setSearchParams((prev) => {
         const p = new URLSearchParams(prev);
-        if (next === 'name_asc') p.delete('sort');
+        if (next === DEFAULT_CATALOG_SORT) p.delete('sort');
         else p.set('sort', next);
         return p;
       }, { replace: true });
@@ -530,60 +546,83 @@ const RedesignCatalog = () => {
     return `/map${params.toString() ? `?${params.toString()}` : ''}`;
   }, [filters, regionId]);
 
+  const refreshing = showBlocks ? blocksInfinite.isPlaceholderData : listingsInfinite.isPlaceholderData;
+  const unitWord = showBlocks
+    ? pluralRu(totalRemote ?? 0, 'жилой комплекс', 'жилых комплекса', 'жилых комплексов')
+    : pluralRu(totalRemote ?? 0, 'объект', 'объекта', 'объектов');
+  const foundLine = loading
+    ? 'Ищем…'
+    : loadError
+      ? null
+      : totalRemote != null
+        ? `Найдено ${totalRemote.toLocaleString('ru-RU')} ${unitWord}`
+        : null;
+  const activeFilterCount = [
+    filters.priceMin != null || filters.priceMax != null,
+    filters.rooms.length > 0,
+    filters.areaMin != null || filters.areaMax != null,
+    filters.floorMin != null || filters.floorMax != null,
+    filters.deadline.length > 0,
+    filters.status.length > 0,
+    filters.builder.length > 0,
+    filters.district.length > 0,
+  ].filter(Boolean).length;
+  const heading = regionName && isApartmentMode ? `${pageTitle} в ${regionName === 'Анапа' ? 'Анапе' : regionName}` : pageTitle;
+
+  const sidebarProps = {
+    filters,
+    onChange: handleFiltersChange,
+    totalCount: filtered.length,
+    districtOptions: districtsQuery.data,
+    subwayOptions: subwaysQuery.data,
+    builderOptions: buildersQuery.data,
+    deadlineOptions: deadlinesQuery.data,
+    objectTypeOptions: OBJECT_TYPE_TABS.map((x) => x.type),
+    showMetro: moscowMetro,
+    hasBlocks: showBlocks,
+  };
+
   return (
-    <div className="min-h-screen bg-background pb-16 lg:pb-0">
+    <div className="min-h-screen bg-background pb-mobile-nav">
       <RedesignHeader />
 
-      <div className="border-b border-border bg-muted/30">
-        <div className="max-w-[1400px] 2xl:max-w-[1760px] mx-auto px-4 py-3">
-          <div className="flex items-center gap-3 max-w-[800px]">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+      <div className="border-b border-border bg-card">
+        <div className="container-page py-3">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 lg:max-w-[640px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
-                placeholder="Метро, район, ЖК, улица, застройщик"
-                className={cn(
-                  'pl-9 h-10 bg-background text-sm',
-                  isSearchPending && 'border-primary/40',
-                )}
+                type="search"
+                aria-label="Поиск по каталогу"
+                placeholder="ЖК, улица или застройщик"
+                className={cn('h-11 pl-10', isSearchPending && 'border-focus')}
                 value={filters.search}
                 onChange={(e) => handleSearchInputChange(e.target.value)}
                 aria-busy={isSearchPending}
               />
             </div>
-            <Link
-              to={mapHref}
-              className="hidden sm:flex items-center gap-1.5 h-10 px-4 rounded-xl border border-border bg-background text-sm font-medium hover:bg-secondary transition-colors shrink-0"
-            >
-              <MapPin className="w-4 h-4 text-primary" />
-              На карте
+            <Link to={mapHref} className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[14px] font-medium hover:bg-surface-soft sm:px-4">
+              <MapPin className="h-4 w-4 text-primary" aria-hidden />
+              <span className="hidden sm:inline">На карте</span>
+              <span className="sr-only sm:hidden">На карте</span>
             </Link>
           </div>
-          <RegionSelector
-            regions={regionRows}
-            selectedRegionId={regionId}
-            onSelect={handleRegionSelect}
-            className="mt-3 max-w-[900px]"
-          />
+          {(regionRows?.length ?? 0) > 1 ? (
+            <RegionSelector regions={regionRows} selectedRegionId={regionId} onSelect={handleRegionSelect} className="mt-3 max-w-[900px]" />
+          ) : null}
         </div>
       </div>
 
-      <div className="max-w-[1400px] 2xl:max-w-[1760px] mx-auto px-4 py-3">
+      <div className="container-page py-4 lg:py-6">
         <SessionResumeBanner className="mb-2" />
         <SavedSearchReminder className="mb-2" />
 
-        <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-bold leading-tight">{pageTitle}</h1>
-            <PublicTrustStrip regionId={regionId ?? undefined} catalogHeader className="mt-1" />
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {loading
-                ? 'Загрузка…'
-                : loadError
-                  ? 'Ошибка загрузки'
-                  : `${totalShown} загружено${totalRemote != null ? ` · всего в каталоге ${totalRemote}` : ''}`}
-            </p>
+            <h1 className="text-[26px] font-semibold leading-tight tracking-tight lg:text-[32px]">{heading}</h1>
+            {foundLine ? <p className="mt-1 text-[14px] text-muted-foreground tabular-nums" aria-live="polite">{foundLine}</p> : null}
           </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-2">
             <SaveSearchButton
               filters={filters}
               regionId={regionId}
@@ -595,30 +634,36 @@ const RedesignCatalog = () => {
                 geo_preset: geoPreset ?? undefined,
               }}
             />
-            <Button variant="outline" size="sm" className="lg:hidden h-11 sm:h-9" onClick={() => setShowMobileFilters(true)}>
-              <SlidersHorizontal className="w-4 h-4 mr-1.5" /> Фильтры
-            </Button>
+            <button
+              type="button"
+              onClick={() => setShowMobileFilters(true)}
+              className="relative inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-3.5 text-[14px] font-medium hover:bg-surface-soft lg:hidden"
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden />
+              Фильтры
+              {activeFilterCount ? (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-primary-foreground">{activeFilterCount}</span>
+              ) : null}
+            </button>
             <Select value={catalogSort} onValueChange={handleSortChange}>
-              <SelectTrigger className="h-11 sm:h-9 w-[min(200px,42vw)] sm:w-[220px] text-xs bg-background">
+              <SelectTrigger aria-label="Сортировка" className="h-11 min-w-0 flex-1 text-[14px] sm:w-[230px] sm:flex-none">
                 <SelectValue placeholder="Сортировка" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name_asc">Название, А → Я</SelectItem>
-                <SelectItem value="name_desc">Название, Я → А</SelectItem>
-                <SelectItem value="created_desc">Сначала новые по дате</SelectItem>
-                <SelectItem value="price_asc">Цена: сначала дешевле</SelectItem>
-                <SelectItem value="price_desc">Цена: сначала дороже</SelectItem>
-                {showBlocks ? (
-                  <SelectItem value="sales_start_asc">Старт продаж (раньше)</SelectItem>
-                ) : (
+                <SelectItem value="price_asc">Сначала дешевле</SelectItem>
+                <SelectItem value="price_desc">Сначала дороже</SelectItem>
+                {showBlocks ? null : (
                   <>
-                    <SelectItem value="area_asc">Площадь: сначала меньше</SelectItem>
-                    <SelectItem value="area_desc">Площадь: сначала больше</SelectItem>
+                    <SelectItem value="area_asc">Площадь: меньше</SelectItem>
+                    <SelectItem value="area_desc">Площадь: больше</SelectItem>
                   </>
                 )}
+                <SelectItem value="created_desc">Сначала новые</SelectItem>
+                {showBlocks ? <SelectItem value="sales_start_asc">Старт продаж</SelectItem> : null}
+                <SelectItem value="name_asc">По названию</SelectItem>
               </SelectContent>
             </Select>
-            <div className="hidden sm:flex items-center gap-0.5 border border-border rounded-xl p-1 bg-muted/50">
+            <div className="hidden items-center gap-0.5 rounded-lg border border-border bg-card p-1 sm:flex" role="group" aria-label="Вид">
               {(
                 [
                   ['grid', LayoutGrid, 'Плитка'],
@@ -629,35 +674,22 @@ const RedesignCatalog = () => {
                 <button
                   key={mode}
                   title={title}
+                  aria-label={title}
+                  aria-pressed={view === mode}
                   type="button"
                   onClick={() => handleViewChange(mode)}
-                  className={cn(
-                    'p-2 rounded-lg transition-all duration-200',
-                    view === mode ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-                  )}
+                  className={cn('flex h-9 w-9 items-center justify-center rounded-md transition-colors', view === mode ? 'bg-surface-soft text-foreground' : 'text-muted-foreground hover:text-foreground')}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="h-4 w-4" />
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        <CatalogFilterPresets
-          filters={filters}
-          onChange={handleFiltersChange}
-          showNewBuildPresets={showBlocks}
-          className="mb-2"
-        />
-
-        <CatalogActiveFilterChips filters={filters} onChange={handleFiltersChange} className="mb-2" />
-
-        {!regionId && !regionLoading && (
-          <p className="text-sm text-muted-foreground mb-4">Нет регионов в базе. Добавьте регион и ЖК в админке.</p>
-        )}
-
-        {isApartmentMode && marketTabs.length > 1 && (
-          <div className="mb-3 flex flex-wrap items-center gap-2" role="tablist" aria-label="Тип рынка">
+        {/* «Все / Новостройки» без вторички — выбор без выбора: вкладки только когда вторичка есть */}
+        {isApartmentMode && (hasSecondary || filters.marketType === 'secondary') && (
+          <div className="mb-3 inline-flex rounded-lg bg-surface-soft p-1" role="tablist" aria-label="Рынок">
             {marketTabs.map((tab) => (
               <button
                 key={tab.value}
@@ -666,10 +698,8 @@ const RedesignCatalog = () => {
                 aria-selected={filters.marketType === tab.value}
                 onClick={() => handleFiltersChange({ ...filters, marketType: tab.value })}
                 className={cn(
-                  'h-11 sm:h-9 rounded-full px-4 text-sm font-medium transition-colors',
-                  filters.marketType === tab.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-foreground hover:bg-secondary/70',
+                  'h-9 rounded-md px-4 text-[14px] font-medium transition-colors',
+                  filters.marketType === tab.value ? 'bg-card text-foreground shadow-card' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 {tab.label}
@@ -679,84 +709,68 @@ const RedesignCatalog = () => {
         )}
 
         {showKindSwitcher && (
-          <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted-foreground mr-1">Тип объекта:</span>
+          <div className="mb-3 flex flex-wrap items-center gap-1.5" aria-label="Тип объекта">
             {objectKindLinks.map((x) => (
               <button
                 key={x.type}
                 type="button"
+                aria-pressed={filters.objectType === x.type}
                 onClick={() => {
                   if (x.type === filters.objectType) return;
                   handleFiltersChange(resetFiltersForObjectType(filters, x.type));
                 }}
                 className={cn(
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-colors',
-                  filters.objectType === x.type
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-card text-foreground border-border hover:bg-muted/60',
+                  'inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[14px] transition-colors',
+                  filters.objectType === x.type ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:border-primary/40',
                 )}
               >
                 {x.label}
-                <span className="opacity-70">({x.count})</span>
+                <span className="tabular-nums opacity-70">{x.count.toLocaleString('ru-RU')}</span>
               </button>
             ))}
           </div>
         )}
 
-        <div className="flex gap-4">
-          <aside className="hidden lg:block w-[260px] shrink-0">
-            <div className="sticky top-20">
-              <FilterSidebar
-                filters={filters}
-                onChange={handleFiltersChange}
-                totalCount={filtered.length}
-                districtOptions={districtsQuery.data}
-                subwayOptions={subwaysQuery.data}
-                builderOptions={buildersQuery.data}
-                deadlineOptions={deadlinesQuery.data}
-                objectTypeOptions={OBJECT_TYPE_TABS.map(x => x.type)}
-                showObjectTypeSwitcher={false}
-                showMetro={moscowMetro}
-                hasBlocks={showBlocks}
-              />
+        <CatalogFilterPresets filters={filters} onChange={handleFiltersChange} showNewBuildPresets={showBlocks} className="mb-2" />
+        <CatalogActiveFilterChips filters={filters} onChange={handleFiltersChange} className="mb-3" />
+
+        {!regionId && !regionLoading && <p className="mb-4 text-sm text-muted-foreground">Каталог временно недоступен.</p>}
+
+        <div className="flex gap-6">
+          <aside className="hidden w-[272px] shrink-0 lg:block" aria-label="Фильтры">
+            <div className="sticky top-24 rounded-card border border-border bg-card px-4 py-2">
+              <FilterSidebar {...sidebarProps} showObjectTypeSwitcher={false} />
             </div>
           </aside>
 
-          <div className="flex-1 min-w-0">
+          <div className={cn('min-w-0 flex-1 transition-opacity', refreshing && 'opacity-60')} aria-busy={refreshing || loading}>
             {loadError && (
-              <p className="text-sm text-destructive mb-4">Не удалось загрузить каталог. Проверьте API и прокси /api.</p>
-            )}
-            {apartmentsAsListings && (
-              <div className="mb-4 flex items-start gap-2 rounded-xl border border-warning/20 bg-warning-soft px-3 py-2 text-xs text-warning">
-                <span className="mt-0.5">ℹ️</span>
-                <span>
-                  В этом регионе пока нет жилых комплексов. Показываем отдельные квартиры от собственников и агентств.
-                </span>
+              <div className="mb-4 flex flex-col items-start gap-3 rounded-card border border-destructive/20 bg-destructive/5 p-4 sm:flex-row sm:items-center">
+                <AlertCircle className="h-5 w-5 shrink-0 text-destructive" aria-hidden />
+                <p className="flex-1 text-[14px] text-foreground">Не удалось загрузить каталог. Проверьте соединение и попробуйте ещё раз.</p>
+                <Button variant="secondary" size="sm" onClick={() => void (showBlocks ? blocksInfinite.refetch() : listingsInfinite.refetch())}>
+                  Повторить
+                </Button>
               </div>
             )}
-            {loading && totalShown === 0 && view !== 'map' && (
-              <CardGridSkeleton count={8} variant={view === 'list' ? 'list' : 'grid'} />
+            {apartmentsAsListings && (
+              <div className="mb-4 flex items-start gap-2 rounded-card border border-border bg-surface-soft px-4 py-3 text-[14px] text-foreground">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                <span>Жилых комплексов здесь пока нет — показываем отдельные квартиры.</span>
+              </div>
             )}
+            {loading && totalShown === 0 && view !== 'map' && <CardGridSkeleton count={6} variant={view === 'list' ? 'list' : 'grid'} />}
             {view === 'grid' && !(loading && totalShown === 0) && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
+              <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {showBlocks
-                  ? filtered.map((c, index) => (
-                      <div key={c.id} className="flex h-full min-h-0">
-                        <ComplexCard
-                          complex={c}
-                          variant="compact"
-                          coverAspect="16/9"
-                          priority={index < 4}
-                        />
-                      </div>
-                    ))
+                  ? filtered.map((c, index) => <ComplexCard key={c.id} complex={c} priority={index < 2} cityFallback={regionName ?? undefined} />)
                   : listingRows.map((l) => <ListingCard key={l.id} listing={l} />)}
               </div>
             )}
             {view === 'list' && !(loading && totalShown === 0) && (
               <div className="space-y-3">
                 {showBlocks
-                  ? filtered.map((c) => <ComplexCard key={c.id} complex={c} variant="list" />)
+                  ? filtered.map((c) => <ComplexCard key={c.id} complex={c} variant="list" cityFallback={regionName ?? undefined} />)
                   : listingRows.map((l) => <ListingCard key={l.id} listing={l} variant="list" />)}
               </div>
             )}
@@ -795,8 +809,8 @@ const RedesignCatalog = () => {
                 .filter((l): l is ListingMapItem => l != null);
               if (mapItems.length === 0) {
                 return (
-                  <div className="h-[calc(100vh-220px)] min-h-[400px] flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground border border-dashed border-border rounded-xl p-6 text-center">
-                    <span className="text-2xl">🗺️</span>
+                  <div className="h-[calc(100vh-220px)] min-h-[400px] flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground border border-dashed border-border rounded-card p-6 text-center">
+                    <MapPin className="h-6 w-6 text-muted-foreground" aria-hidden />
                     <p className="font-medium text-foreground">Нет объектов с координатами для отображения на карте</p>
                     <button onClick={() => handleViewChange('grid')} className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
                       Показать плиткой
@@ -821,9 +835,8 @@ const RedesignCatalog = () => {
               <div className="flex flex-col items-center gap-2 mt-8">
                 {hasMore ? (
                   <Button
-                    variant="outline"
-                    size="sm"
-                    className="min-w-[200px]"
+                    variant="secondary"
+                    className="min-w-[220px]"
                     disabled={fetchingMore}
                     onClick={fetchNext}
                   >
@@ -838,12 +851,12 @@ const RedesignCatalog = () => {
             )}
             {!loading && totalShown === 0 && view !== 'map' && (
               <div className="text-center py-16">
-                <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-                  <SlidersHorizontal className="w-5 h-5 text-muted-foreground" />
+                <div className="w-14 h-14 rounded-full bg-surface-soft flex items-center justify-center mx-auto mb-3">
+                  <SearchX className="w-6 h-6 text-muted-foreground" aria-hidden />
                 </div>
-                <p className="text-muted-foreground text-sm mb-1">Ничего не найдено</p>
-                <p className="text-muted-foreground text-xs mb-4">
-                  Попробуйте изменить параметры фильтров, быстрые пресеты или строку поиска
+                <p className="text-foreground text-[17px] font-semibold mb-1">Ничего не нашлось</p>
+                <p className="text-muted-foreground text-[14px] mb-4">
+                  Попробуйте расширить цену или убрать часть фильтров
                 </p>
                 <Button variant="outline" size="sm" onClick={handleResetFilters}>
                   Сбросить фильтры
@@ -882,37 +895,30 @@ const RedesignCatalog = () => {
         </div>
       </div>
 
-      {showMobileFilters && (
-        <div className="fixed inset-0 z-[60] bg-background overflow-y-auto animate-in slide-in-from-bottom">
-          <div className="flex items-center justify-between h-14 px-4 border-b border-border sticky top-0 bg-background z-10">
-            <span className="font-semibold text-sm">Фильтры</span>
-            <button type="button" onClick={() => setShowMobileFilters(false)} className="w-10 h-10 flex items-center justify-center">
-              <X className="w-5 h-5" />
-            </button>
+      <Sheet open={showMobileFilters} onOpenChange={setShowMobileFilters}>
+        <SheetContent side="bottom" className="flex max-h-[92svh] flex-col rounded-t-sheet p-0">
+          <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-border" aria-hidden />
+          <SheetHeader className="shrink-0 px-4 pb-1 pt-2 text-left">
+            <SheetTitle>Фильтры</SheetTitle>
+            <SheetDescription className="sr-only">Параметры поиска по каталогу</SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
+            {/* Типы и рынок выбираются над выдачей — там только те, где есть объекты */}
+            <FilterSidebar {...sidebarProps} showObjectTypeSwitcher={false} />
           </div>
-          <div className="p-4 pb-24">
-            <FilterSidebar
-              filters={filters}
-              onChange={handleFiltersChange}
-              totalCount={filtered.length}
-              districtOptions={districtsQuery.data}
-              subwayOptions={subwaysQuery.data}
-              builderOptions={buildersQuery.data}
-              deadlineOptions={deadlinesQuery.data}
-              objectTypeOptions={OBJECT_TYPE_TABS.map(x => x.type)}
-              showMetro={moscowMetro}
-              hasBlocks={showBlocks}
-            />
-          </div>
-          <div className="fixed bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-background border-t border-border">
-            <Button className="w-full h-11" onClick={() => setShowMobileFilters(false)}>
-              Показать {totalShown} объектов
+          <div className="flex shrink-0 gap-2 border-t border-border bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <Button variant="secondary" onClick={handleResetFilters}>
+              Сбросить
+            </Button>
+            <Button className="flex-1" onClick={() => setShowMobileFilters(false)}>
+              {loading || refreshing || totalRemote == null ? 'Показать объекты' : `Показать ${totalRemote.toLocaleString('ru-RU')}`}
             </Button>
           </div>
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
 
       <CompareSessionChip />
+      <FooterSection />
     </div>
   );
 };

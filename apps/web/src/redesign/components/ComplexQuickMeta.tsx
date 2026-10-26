@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { MapPin, TrainFront, Building2 } from 'lucide-react';
+import { MapPin, Building2 } from 'lucide-react';
 import type { ResidentialComplex } from '@/redesign/data/types';
 
 type Props = {
@@ -9,33 +9,17 @@ type Props = {
   className?: string;
 };
 
-export default function ComplexQuickMeta({ complex, districtCatalogUrl, subwayCatalogUrl, className = '' }: Props) {
+export default function ComplexQuickMeta({ complex, districtCatalogUrl, className = '' }: Props) {
   const rows: { icon: typeof MapPin; label: string; value: React.ReactNode }[] = [];
 
   if (complex.address && complex.address !== '—') {
     rows.push({ icon: MapPin, label: 'Адрес', value: complex.address });
   }
-  if (complex.subway && complex.subway !== '—') {
-    rows.push({
-      icon: TrainFront,
-      label: 'Метро',
-      value: subwayCatalogUrl ? (
-        <Link to={subwayCatalogUrl} className="hover:text-primary hover:underline">
-          м. {complex.subway}
-          {complex.subwayDistance && complex.subwayDistance !== '—' ? ` · ${complex.subwayDistance}` : ''}
-        </Link>
-      ) : (
-        <>
-          м. {complex.subway}
-          {complex.subwayDistance && complex.subwayDistance !== '—' ? ` · ${complex.subwayDistance}` : ''}
-        </>
-      ),
-    });
-  }
+  // Метро в Анапе нет и в ТЗ оно запрещено — не выводим, даже если пришло из фида
   if (complex.district && complex.district !== '—') {
     rows.push({
       icon: MapPin,
-      label: 'Район',
+      label: 'Локация',
       value: districtCatalogUrl ? (
         <Link to={districtCatalogUrl} className="hover:text-primary hover:underline">
           {complex.district}

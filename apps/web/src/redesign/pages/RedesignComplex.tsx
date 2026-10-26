@@ -1,7 +1,7 @@
-import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MapPin, Heart, Share2, GitCompare, FileText, Building2 } from 'lucide-react';
+import { MapPin, Heart, Share2, FileText, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ComplexCard from '@/redesign/components/ComplexCard';
 import RedesignHeader from '@/redesign/components/RedesignHeader';
@@ -35,12 +35,9 @@ import {
 } from '@/redesign/lib/display-price';
 import type { Apartment, ResidentialComplex, SortField, SortDir } from '@/redesign/data/types';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/shared/hooks/useAuth';
 import { parseApiBlockId, useFavorites } from '@/shared/hooks/useFavorites';
-import { useCompare } from '@/shared/hooks/useCompare';
 import { shareCurrentPage } from '@/lib/share-page';
 import { useEntitySeoMeta } from '@/shared/hooks/useEntitySeoMeta';
-import { toast } from '@/components/ui/sonner';
 import { useYandexMapsReady } from '@/shared/hooks/useYandexMapsReady';
 import { useInViewOnce } from '@/shared/hooks/useInViewOnce';
 import { prefersReducedMotion } from '@/redesign/lib/map-sidebar-scroll-utils';
@@ -68,11 +65,9 @@ const COMPLEX_SLUG_ALIASES: Record<string, string> = {
 
 function sectionHeading(title: string, subtitle?: string) {
   return (
-    <div className="mb-4 flex items-baseline gap-3">
-      <h2 className="text-base sm:text-lg font-semibold tracking-tight">{title}</h2>
-      {subtitle ? (
-        <span className="text-xs text-muted-foreground font-normal">{subtitle}</span>
-      ) : null}
+    <div className="mb-4">
+      <h2 className="text-[22px] font-semibold leading-tight tracking-tight lg:text-2xl">{title}</h2>
+      {subtitle ? <p className="mt-1 text-[14px] text-muted-foreground">{subtitle}</p> : null}
     </div>
   );
 }
@@ -80,10 +75,7 @@ function sectionHeading(title: string, subtitle?: string) {
 const RedesignComplex = () => {
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
-  const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
   const { isBlockFavorite, toggleBlock } = useFavorites();
-  const { isCompared, toggle: toggleCompare, count: compareCount } = useCompare();
   const { shortName } = useSiteBrand();
   const resolvedSlug = useMemo(() => {
     const raw = (slug || '').trim();
@@ -120,11 +112,27 @@ const RedesignComplex = () => {
     staleTime: 60_000,
   });
 
+  // Детальный ответ API не содержит цен по комнатности, а загружаем мы лишь первые 48 квартир.
+  // Берём price_ranges из списочного ответа — те же цифры, что на карточке каталога.
+  const priceRangesQuery = useQuery({
+    queryKey: ['block', 'price-ranges', apiBlockQuery.data?.id],
+    queryFn: async () => {
+      const b = apiBlockQuery.data!;
+      const sp = new URLSearchParams({ per_page: '10', search: b.name });
+      if (b.region?.id != null) sp.set('region_id', String(b.region.id));
+      const res = await apiGet<{ data: ApiBlockListRow[] }>(`/blocks?${sp}`);
+      return res.data.find((row) => row.id === b.id)?.priceRanges ?? null;
+    },
+    enabled: Boolean(apiBlockQuery.data?.id),
+    staleTime: 600_000,
+  });
+
   const apiComplex = useMemo(() => {
     if (!apiBlockQuery.data) return null;
     const rows = listingsQuery.data?.data ?? [];
-    return mapApiBlockDetailToResidentialComplex(apiBlockQuery.data, rows);
-  }, [apiBlockQuery.data, listingsQuery.data]);
+    const mapped = mapApiBlockDetailToResidentialComplex(apiBlockQuery.data, rows);
+    return priceRangesQuery.data?.length ? { ...mapped, priceRanges: priceRangesQuery.data } : mapped;
+  }, [apiBlockQuery.data, listingsQuery.data, priceRangesQuery.data]);
 
   const complex = apiComplex ?? null;
   const fromApi = Boolean(apiComplex);
@@ -316,6 +324,7 @@ const RedesignComplex = () => {
   const hasInfra = (complex?.infrastructure.length ?? 0) > 0;
   const hasMap =
     complex != null &&
+    complex.hasCoords !== false &&
     Array.isArray(complex.coords) &&
     complex.coords.length === 2 &&
     Number.isFinite(complex.coords[0]) &&
@@ -433,7 +442,6 @@ const RedesignComplex = () => {
     }));
   };
 
-  const inCompare = complex ? isCompared(complex.slug) : false;
 
   const openComplexConsult = useCallback(
     (source: string) => {
@@ -454,28 +462,38 @@ const RedesignComplex = () => {
     [buildings],
   );
 
-  const metroItems = (complex?.nearbySubways ?? []).slice(0, 8);
   const availableCount = useMemo(() => {
     if (!complex) return 0;
     return (
-      complex.buildings.reduce((s, b) => s + b.apartments.filter((a) => a.status === 'available').length, 0) ||
+      // Агрегат API по всему ЖК; по загруженной порции (первые 48) — только если агрегата нет
       complex.listingCount ||
+      complex.buildings.reduce((s, b) => s + b.apartments.filter((a) => a.status === 'available').length, 0) ||
       0
     );
   }, [complex]);
+
+  const complexFacts: [string, string][] = complex
+    ? ([
+        ['Адрес', complex.address?.trim()],
+        ['Срок сдачи', complex.deadline?.trim()],
+        ['Застройщик', hasDeveloper ? complex.builder.trim() : ''],
+        ['Корпусов', buildings.length > 0 ? String(buildings.length) : ''],
+        ['Цена', !isPriceHidden(complex.priceFrom) ? formatPriceRangeDisplay(complex.priceFrom, complex.priceTo) : ''],
+      ] as [string, string | undefined][]).filter((row): row is [string, string] => Boolean(row[1] && row[1] !== '—'))
+    : [];
 
   if (!complex) {
     if (slug && apiBlockQuery.isPending) {
       return (
         <div className="min-h-screen bg-background">
-          <RedesignHeader />
+          <RedesignHeader mobileTabBar={false} />
           <div className="max-w-[1400px] mx-auto px-4 py-16 text-center text-muted-foreground text-sm">Загрузка…</div>
         </div>
       );
     }
     return (
       <div className="min-h-screen bg-background">
-        <RedesignHeader />
+        <RedesignHeader mobileTabBar={false} />
         <div className="max-w-[1400px] mx-auto px-4 py-16 text-center">
           <p className="text-muted-foreground">Комплекс не найден</p>
           <Link to="/catalog" className="text-primary text-sm mt-2 inline-block">
@@ -488,7 +506,7 @@ const RedesignComplex = () => {
 
   return (
     <div className="min-h-screen bg-background pb-32 lg:pb-8">
-      <RedesignHeader />
+      <RedesignHeader mobileTabBar={false} />
 
       <div className="max-w-[1400px] 2xl:max-w-[1680px] mx-auto px-4 py-4 sm:py-6">
         <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3 min-w-0 flex-wrap">
@@ -520,26 +538,10 @@ const RedesignComplex = () => {
               label: blockLiked ? 'В избранном' : 'В избранное',
               disabled: blockNum == null,
               active: blockLiked,
+              // Гостю избранное в localStorage — без входа (ТЗ v3, 4.1)
               onClick: () => {
                 if (blockNum == null) return;
-                if (!isAuthenticated) {
-                  navigate('/login', { state: { from: location } });
-                  return;
-                }
                 void toggleBlock(blockNum);
-              },
-            },
-            {
-              key: 'compare',
-              icon: <GitCompare className="w-4 h-4" />,
-              label: inCompare ? 'В сравнении' : 'Сравнить',
-              active: inCompare,
-              onClick: () => {
-                if (!inCompare && compareCount >= 3) {
-                  toast.error('В сравнении не более 3 ЖК');
-                  return;
-                }
-                toggleCompare(complex.slug);
               },
             },
             {
@@ -674,36 +676,6 @@ const RedesignComplex = () => {
                 ) : hasDescription ? (
                   <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line max-w-prose">{complex.description}</p>
                 ) : null}
-                {metroItems.length > 0 ? (
-                  <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-3">
-                    <p className="text-sm font-medium">{complex.address}</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
-                      {metroItems.map((m) => (
-                        <div key={`${m.name}-${m.distanceTime ?? 'na'}`} className="text-sm text-muted-foreground flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-warning shrink-0" />
-                          {regionId ? (
-                            <Link
-                              to={buildCatalogFilterUrl(regionId, { subway: m.name })}
-                              className="hover:text-primary hover:underline"
-                            >
-                              {m.name}
-                              {m.distanceTime != null
-                                ? `, ${m.distanceTime} минут ${m.distanceType === 1 ? 'пешком' : 'транспортом'}`
-                                : ''}
-                            </Link>
-                          ) : (
-                            <span>
-                              {m.name}
-                              {m.distanceTime != null
-                                ? `, ${m.distanceTime} минут ${m.distanceType === 1 ? 'пешком' : 'транспортом'}`
-                                : ''}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
                 {hasInfra ? (
                   <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground">
                     {complex.infrastructure.map((item, i) => (
@@ -714,31 +686,17 @@ const RedesignComplex = () => {
                     ))}
                   </ul>
                 ) : null}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1 text-sm">
-                  {[
-                    ['Адрес', complex.address || '—'],
-                    ['Район', complex.district || '—'],
-                    ['Метро', complex.subway && complex.subway !== '—' ? `${complex.subway} (${complex.subwayDistance})` : '—'],
-                    ['Срок сдачи', complex.deadline || '—'],
-                    ['Корпусов', String(buildings.length)],
-                    ['Цена', formatPriceRangeDisplay(complex.priceFrom, complex.priceTo)],
-                  ].map(([label, value]) => (
-                    <div key={label} className="space-y-1">
-                      <p className="text-xs text-muted-foreground">{label}</p>
-                      {label === 'Район' && districtCatalogUrl ? (
-                        <Link to={districtCatalogUrl} className="text-sm font-medium hover:text-primary hover:underline">
-                          {value}
-                        </Link>
-                      ) : label === 'Метро' && subwayCatalogUrl ? (
-                        <Link to={subwayCatalogUrl} className="text-sm font-medium hover:text-primary hover:underline">
-                          {value}
-                        </Link>
-                      ) : (
-                        <p className="text-sm font-medium">{value}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                {/* Только заполненные факты: никаких «—» и метро в публичном интерфейсе (ТЗ v3, 4.5) */}
+                {complexFacts.length > 0 ? (
+                  <dl className="grid grid-cols-2 gap-3 pt-1 text-sm sm:grid-cols-3">
+                    {complexFacts.map(([label, value]) => (
+                      <div key={label} className="space-y-0.5">
+                        <dt className="text-[13px] text-muted-foreground">{label}</dt>
+                        <dd className="text-[15px] font-medium">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
               </div>
             </section>
           ) : null}
@@ -765,22 +723,7 @@ const RedesignComplex = () => {
                 </div>
                 <div>
                   <p className="font-semibold text-base">{complex.builder}</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {complex.district && complex.district !== '—' ? (
-                      districtCatalogUrl ? (
-                        <>
-                          Район:{' '}
-                          <Link to={districtCatalogUrl} className="hover:text-primary hover:underline">
-                            {complex.district}
-                          </Link>
-                        </>
-                      ) : (
-                        `Район: ${complex.district}`
-                      )
-                    ) : (
-                      'Застройщик проекта'
-                    )}
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">Застройщик проекта</p>
                   {!isPriceHidden(complex.priceFrom) ? (
                     <p className="text-sm mt-2" aria-label={priceAriaLabel(formatPriceFrom(complex.priceFrom))}>
                       Квартиры от {formatPriceFrom(complex.priceFrom)}
@@ -792,9 +735,9 @@ const RedesignComplex = () => {
           ) : null}
 
           <section id="lead" className="scroll-mt-32">
-            {sectionHeading('Получить консультацию', 'Оставьте заявку, и менеджер свяжется с вами')}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5 sm:p-6">
+            {sectionHeading('Получить консультацию', 'Оставьте заявку — менеджер перезвонит и расскажет о свободных квартирах')}
+            <div className="max-w-2xl">
+              <div className="rounded-card border border-border bg-card p-5 sm:p-6">
                 <LeadForm
                   title=""
                   embedded
@@ -802,25 +745,6 @@ const RedesignComplex = () => {
                   blockId={fromApi && apiBlockQuery.data ? apiBlockQuery.data.id : undefined}
                   requestType="CONSULTATION"
                 />
-              </div>
-              <div className="rounded-xl border border-border bg-muted/30 p-5 space-y-3 h-fit">
-                <p className="text-xs text-muted-foreground">Сводка</p>
-                <p className={cn("text-xl font-bold", isPriceFallbackText(formatPriceFrom(complex.priceFrom)) && PRICE_ON_REQUEST_CLASS)} aria-label={priceAriaLabel(formatPriceFrom(complex.priceFrom))}>
-                  {formatPriceFrom(complex.priceFrom)}
-                </p>
-                {!isPriceHidden(complex.priceTo) ? (
-                  <p className="text-xs text-muted-foreground">{formatDisplayPrice(complex.priceTo, { prefix: 'до' })}</p>
-                ) : null}
-                <div className="border-t border-border pt-3 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Свободных кв.</span>
-                    <span className="font-medium">{availableCount}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Срок сдачи</span>
-                    <span className="font-medium">{complex.deadline}</span>
-                  </div>
-                </div>
               </div>
             </div>
           </section>
@@ -837,10 +761,10 @@ const RedesignComplex = () => {
           {similarComplexes.length > 0 ? (
             <section id="similar" className="scroll-mt-32">
               {sectionHeading('Похожие жилые комплексы')}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
                 {similarComplexes.map((c) => (
                   <div key={c.id} className="flex h-full min-h-0">
-                    <ComplexCard complex={c} variant="compact" coverAspect="16/9" />
+                    <ComplexCard complex={c} />
                   </div>
                 ))}
               </div>

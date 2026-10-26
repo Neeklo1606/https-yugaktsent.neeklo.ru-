@@ -1,3 +1,4 @@
+import { formatArea } from '@/redesign/lib/listing-format';
 import { Link } from 'react-router-dom';
 import { Calculator, MapPin } from 'lucide-react';
 import type { Apartment } from '@/redesign/data/types';
@@ -64,7 +65,7 @@ const ApartmentPriceTrust = ({
             </Link>
             {buildingName ? ` · ${buildingName}` : ''}
           </p>
-          <p className="text-xl sm:text-2xl font-bold">{roomLabel}, {apartment.area} м²</p>
+          <p className="text-xl sm:text-2xl font-bold">{roomLabel}, {formatArea(apartment.area)}</p>
           {address ? (
             <p className="mt-1.5 flex items-center gap-1 text-sm text-muted-foreground">
               <MapPin className="h-3.5 w-3.5 shrink-0" />

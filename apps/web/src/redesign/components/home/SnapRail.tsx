@@ -11,7 +11,7 @@ type Props = {
 
 /**
  * Горизонтальная лента карточек на телефоне и сетка на десктопе.
- * Ширина карточки 86% — соседняя выглядывает намеренно (~10%), с прилипанием;
+ * Ширина карточки 90% контента — соседняя выглядывает намеренно (~10% экрана), с прилипанием;
  * поле контейнера сохранено через scroll-padding, чтобы первая карточка не липла к краю.
  */
 const SnapRail = ({ children, desktopCols = 3, label, className }: Props) => (
@@ -27,7 +27,7 @@ const SnapRail = ({ children, desktopCols = 3, label, className }: Props) => (
       )}
     >
       {Children.map(children, (child) => (
-        <li className="w-[86%] max-w-[360px] shrink-0 snap-start sm:w-[46%] lg:w-auto lg:max-w-none">{child}</li>
+        <li className="w-[90%] max-w-[360px] shrink-0 snap-start sm:w-[46%] lg:w-auto lg:max-w-none">{child}</li>
       ))}
     </ul>
   </div>

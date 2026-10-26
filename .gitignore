@@ -76,3 +76,4 @@ deployment/tmp-lg-work/
 # Скриншоты before/after редизайна — локальные артефакты QA, в репозиторий не кладём
 docs/redesign-v3/baseline/
 docs/redesign-v3/after/
+docs/redesign-v3/after-p4/

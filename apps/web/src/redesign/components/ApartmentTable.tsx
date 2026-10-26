@@ -1,3 +1,4 @@
+import { formatArea } from '@/redesign/lib/listing-format';
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Eye, ArrowUpDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -283,8 +284,8 @@ const ApartmentTable = ({ apartments, sort, onSort }: Props) => {
                             <td className="px-3 py-2 text-muted-foreground">{a.section}</td>
                             <td className="px-3 py-2">{a.floor}</td>
                             <td className="px-3 py-2 text-muted-foreground">{a.number || '—'}</td>
-                            <td className="px-3 py-2 font-medium">{a.area} м²</td>
-                            <td className="px-3 py-2 text-muted-foreground">{a.kitchenArea ? `${a.kitchenArea} м²` : '—'}</td>
+                            <td className="px-3 py-2 font-medium">{formatArea(a.area)}</td>
+                            <td className="px-3 py-2 text-muted-foreground">{a.kitchenArea ? formatArea(a.kitchenArea) : '—'}</td>
                             <td className="px-3 py-2 capitalize text-muted-foreground">{a.finishing || '—'}</td>
                             <td className={cn('px-3 py-2 font-semibold', isPriceFallbackText(formatDisplayPrice(a.price)) && PRICE_ON_REQUEST_CLASS)}>
                               {formatDisplayPrice(a.price)}
@@ -338,9 +339,9 @@ const ApartmentTable = ({ apartments, sort, onSort }: Props) => {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <div className="font-semibold text-sm">{a.area} м² · {a.floor} эт.</div>
+                              <div className="font-semibold text-sm">{formatArea(a.area)} · {a.floor} эт.</div>
                               <div className="text-xs text-muted-foreground mt-0.5">
-                                {a.kitchenArea ? `Кухня ${a.kitchenArea} м² · ` : ''}{a.finishing || ''}
+                                {a.kitchenArea ? `Кухня ${formatArea(a.kitchenArea)} · ` : ''}{a.finishing || ''}
                               </div>
                             </div>
                             <div className={cn('text-xs font-medium shrink-0', STATUS_CLASS[a.status])}>
