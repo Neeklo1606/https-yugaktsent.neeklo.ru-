@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom';
-import {
-  LayoutDashboard, FileText, Image, Users, Settings, ChevronLeft,
-  ChevronRight, Palette, BookOpen, ClipboardList, ClipboardCheck, Crown, Building2, Building, Download, Newspaper, Home, History, HardHat,
-  Globe, LayoutTemplate, GalleryHorizontal, BellRing, ExternalLink, LogOut, Contact, Radar, Menu, X, MessageSquare, ListTodo, Shield, Activity, CreditCard, Sparkles, UserCircle, Link2,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, LogOut, Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/shared/hooks/useAuth';
 import CrmNotificationBell from '@/admin/components/CrmNotificationBell';
@@ -19,45 +15,7 @@ import { CrmRefreshProvider } from '@/admin/context/CrmRefreshContext';
 import { useCrmRouteFocusRefresh } from '@/admin/hooks/useCrmRouteFocusRefresh';
 import { useCrmRuntimeMetrics } from '@/admin/hooks/useCrmRuntimeMetrics';
 import { isAdminNavVisible } from '@/admin/lib/admin-governance-nav';
-import { isDemoAdminNavRoute } from '@/admin/lib/admin-demo-nav';
-
-const navItems = [
-  { to: '/admin', icon: LayoutDashboard, label: 'Дашборд', end: true, roles: ['admin', 'editor', 'manager'] },
-  { to: '/admin/pages', icon: FileText, label: 'Страницы', roles: ['admin', 'editor'] },
-  { to: '/admin/ops', icon: Radar, label: 'Ops Center', roles: ['admin', 'editor', 'manager'] },
-  { to: '/admin/requests', icon: ClipboardList, label: 'Заявки', roles: ['admin', 'editor', 'manager'] },
-  { to: '/admin/tasks', icon: ListTodo, label: 'Задачи', roles: ['admin', 'editor', 'manager'] },
-  { to: '/admin/conversations', icon: MessageSquare, label: 'Переписки', roles: ['admin', 'editor', 'manager', 'agent'] },
-  { to: '/admin/moderation/listings', icon: ClipboardCheck, label: 'Модерация', roles: ['admin', 'editor', 'manager'] },
-  { to: '/admin/trust', icon: Shield, label: 'Trust', roles: ['admin', 'editor', 'manager'] },
-  { to: '/admin/system', icon: Activity, label: 'System', roles: ['admin', 'editor'] },
-  { to: '/admin/billing', icon: CreditCard, label: 'Billing', roles: ['admin', 'editor', 'manager'] },
-  { to: '/admin/ecosystem', icon: Building2, label: 'Ecosystem', roles: ['admin', 'editor', 'manager'] },
-  { to: '/admin/listings/promotions', icon: Crown, label: 'Продвижение', roles: ['admin', 'editor', 'manager'] },
-  { to: '/admin/my-listings', icon: Home, label: 'Мои объявления', roles: ['agent', 'manager'] },
-  { to: '/admin/telegram-notify', icon: BellRing, label: 'Telegram уведомления команды', roles: ['admin'] },
-  { to: '/admin/audit', icon: History, label: 'Журнал действий', roles: ['admin'] },
-  { to: '/admin/blocks', icon: Building2, label: 'ЖК', roles: ['admin', 'editor'] },
-  { to: '/admin/builders', icon: HardHat, label: 'Застройщики', roles: ['admin', 'editor'] },
-  { to: '/admin/buildings', icon: Building, label: 'Корпуса', roles: ['admin', 'editor'] },
-  { to: '/admin/listings', icon: Home, label: 'Объявления', roles: ['admin', 'editor', 'manager', 'agent'] },
-  { to: '/admin/sellers', icon: Contact, label: 'Продавцы', roles: ['admin', 'editor', 'manager', 'agent'] },
-  { to: '/admin/feed-import', icon: Download, label: 'Импорт фидов', roles: ['admin', 'editor'] },
-  { to: '/admin/feed-links', icon: Link2, label: 'Ссылки на фиды', roles: ['admin', 'editor'] },
-  { to: '/admin/reference', icon: BookOpen, label: 'Справочники', roles: ['admin', 'editor'] },
-  { to: '/admin/regions', icon: Globe, label: 'Регионы', roles: ['admin', 'editor'] },
-  { to: '/admin/homepage', icon: LayoutTemplate, label: 'Главная: блоки API', roles: ['admin', 'editor'] },
-  { to: '/admin/banners', icon: GalleryHorizontal, label: 'Главная: баннеры', roles: ['admin', 'editor'] },
-  { to: '/admin/news', icon: Newspaper, label: 'Новости / парсер', roles: ['admin', 'editor'] },
-  { to: '/admin/experts', icon: UserCircle, label: 'Эксперты', roles: ['admin', 'editor'] },
-  { to: '/admin/media', icon: Image, label: 'Медиа', roles: ['admin', 'editor'] },
-  { to: '/admin/users', icon: Users, label: 'Пользователи', roles: ['admin'] },
-  { to: '/admin/agents', icon: UserCircle, label: 'Сотрудники', roles: ['admin', 'editor', 'manager'] },
-  { to: '/admin/tokens', icon: Palette, label: 'Токены', roles: ['admin'] },
-  { to: '/admin/docs', icon: BookOpen, label: 'Документация' },
-  { to: '/admin/settings', icon: Settings, label: 'Настройки', roles: ['admin'] },
-  { to: '/admin/settings/ai', icon: Sparkles, label: 'AI интеграции', roles: ['admin'] },
-];
+import { adminNavForRole } from '@/admin/lib/admin-nav';
 
 export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -68,14 +26,9 @@ export default function AdminLayout() {
   useCrmRouteFocusRefresh();
   useCrmRuntimeMetrics();
 
-  const availableNavItems = navItems.filter((item) => {
-    if (!isDemoAdminNavRoute(item.to)) return false;
-    if (!isAdminNavVisible(item.to)) return false;
-    if (!item.roles?.length) return true;
-    const role = user?.role;
-    if (!role) return false;
-    return item.roles.includes(role);
-  });
+  const navGroups = adminNavForRole(user?.role)
+    .map((g) => ({ ...g, items: g.items.filter((item) => isAdminNavVisible(item.to)) }))
+    .filter((g) => g.items.length > 0);
 
   const handleLogout = async () => {
     try {
@@ -115,29 +68,37 @@ export default function AdminLayout() {
       >
         <div className="flex items-center gap-2 px-4 h-14 border-b shrink-0">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
-            <span className="text-primary-foreground font-bold text-xs">LG</span>
+            <span className="text-primary-foreground font-bold text-xs">ЮА</span>
           </div>
-          {!collapsed && <span className="font-bold text-sm truncate">ЮгАкцент CMS</span>}
+          {!collapsed && <span className="font-semibold text-sm truncate">ЮгАкцент · админка</span>}
         </div>
-        <nav className="flex-1 py-2 space-y-0.5 px-2 overflow-y-auto">
-          {availableNavItems.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              onClick={() => setMobileNavOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors min-h-[44px]',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )
-              }
-            >
-              <item.icon className="w-4 h-4 shrink-0" />
-              {!collapsed && <span className="truncate">{item.label}</span>}
-            </NavLink>
+        <nav className="flex-1 overflow-y-auto px-2 py-2" aria-label="Разделы админки">
+          {navGroups.map((group) => (
+            <div key={group.title} className="mb-2">
+              {!collapsed && group.items.length > 1 ? (
+                <p className="px-3 pb-1 pt-2 text-[12px] font-medium text-muted-foreground">{group.title}</p>
+              ) : null}
+              <div className="space-y-0.5">
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    title={collapsed ? item.label : undefined}
+                    onClick={() => setMobileNavOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex min-h-[40px] items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors',
+                        isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-surface-soft hover:text-foreground',
+                      )
+                    }
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
         {!collapsed ? (

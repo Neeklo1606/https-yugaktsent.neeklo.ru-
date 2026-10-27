@@ -57,7 +57,6 @@ const AdminAgentsListPage = lazyWithReload('AdminAgentsListPage', () => import("
 const AdminAgentEditPage = lazyWithReload('AdminAgentEditPage', () => import("./admin/pages/AdminAgentEditPage"));
 const AdminSettings = lazyWithReload('AdminSettings', () => import("./admin/pages/AdminSettings"));
 const AdminAiSettings = lazyWithReload('AdminAiSettings', () => import("./admin/pages/AdminAiSettings"));
-const AdminTokens = lazyWithReload('AdminTokens', () => import("./admin/pages/AdminTokens"));
 const AdminDocs = lazyWithReload('AdminDocs', () => import("./admin/pages/AdminDocs"));
 const AdminAudit = lazyWithReload('AdminAudit', () => import("./admin/pages/AdminAudit"));
 const AdminRequests = lazyWithReload('AdminRequests', () => import("./admin/pages/AdminRequests"));
@@ -93,6 +92,8 @@ const AdminRegions = lazyWithReload('AdminRegions', () => import("./admin/pages/
 const AdminHomepage = lazyWithReload('AdminHomepage', () => import("./admin/pages/AdminHomepage"));
 const AdminBanners = lazyWithReload('AdminBanners', () => import("./admin/pages/AdminBanners"));
 const AdminReference = lazyWithReload('AdminReference', () => import("./admin/pages/AdminReference"));
+const AdminDataSources = lazyWithReload('AdminDataSources', () => import("./admin/pages/AdminDataSources"));
+const AdminThemeBuilder = lazyWithReload('AdminThemeBuilder', () => import("./admin/pages/AdminThemeBuilder"));
 const AdminExperts = lazyWithReload('AdminExperts', () => import("./admin/pages/AdminExperts"));
 const AdminExpertEditor = lazyWithReload('AdminExpertEditor', () => import("./admin/pages/AdminExpertEditor"));
 const EditorPage = lazyWithReload('EditorPage', () => import("./admin/components/editor/EditorPage"));
@@ -209,6 +210,8 @@ const AppRoutes = () => (
       <Route path="reference" element={<RequireAuth roles={['admin', 'editor']}><AdminReference /></RequireAuth>} />
       <Route path="homepage" element={<RequireAuth roles={['admin', 'editor']}><AdminHomepage /></RequireAuth>} />
       <Route path="banners" element={<RequireAuth roles={['admin', 'editor']}><AdminBanners /></RequireAuth>} />
+      <Route path="data-sources" element={<RequireAuth roles={['admin', 'editor']}><AdminDataSources /></RequireAuth>} />
+      <Route path="theme" element={<RequireAuth roles={['admin', 'editor']}><AdminThemeBuilder /></RequireAuth>} />
       <Route path="experts" element={<RequireAuth roles={['admin', 'editor']}><AdminExperts /></RequireAuth>} />
       <Route path="experts/:slug" element={<RequireAuth roles={['admin', 'editor']}><AdminExpertEditor /></RequireAuth>} />
       <Route path="media" element={<RequireAuth roles={['admin', 'editor']}><AdminMedia /></RequireAuth>} />
@@ -217,7 +220,8 @@ const AppRoutes = () => (
       <Route path="agents/:userId" element={<RequireAuth roles={['admin', 'editor', 'manager']}><AdminAgentEditPage /></RequireAuth>} />
       <Route path="settings" element={<RequireAuth roles={['admin', 'editor']}><AdminSettings /></RequireAuth>} />
       <Route path="settings/ai" element={<RequireAuth roles={['admin']}><AdminAiSettings /></RequireAuth>} />
-      <Route path="tokens" element={<RequireAuth roles={['admin']}><AdminTokens /></RequireAuth>} />
+      {/* «Токены» не сохраняли даже черновик — раздел заменён темой сайта */}
+      <Route path="tokens" element={<Navigate to="/admin/theme" replace />} />
       <Route path="docs" element={<AdminDocs />} />
     </Route>
     <Route path="/admin/editor/:pageId" element={<RequireAuth roles={['admin', 'editor']}><EditorPage /></RequireAuth>} />

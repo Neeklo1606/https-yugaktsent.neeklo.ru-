@@ -18,7 +18,15 @@ export type ThemeTokenKey =
   | 'border'
   | 'focus';
 
-export type ThemeOverrides = Partial<Record<ThemeTokenKey, string>>;
+/** Не цветовые токены: радиусы кнопок/полей и карточек, в пикселях */
+export type ThemeShapeKey = 'radius' | 'radius-card';
+
+export type ThemeOverrides = Partial<Record<ThemeTokenKey | ThemeShapeKey, string>>;
+
+export const THEME_SHAPES: { key: ThemeShapeKey; label: string; px: number; min: number; max: number }[] = [
+  { key: 'radius', label: 'Скругление кнопок и полей', px: 12, min: 6, max: 20 },
+  { key: 'radius-card', label: 'Скругление карточек', px: 20, min: 8, max: 32 },
+];
 
 export interface ThemeTokenMeta {
   key: ThemeTokenKey;
@@ -65,6 +73,14 @@ export const THEME_SETTING_KEY = 'theme_tokens';
 export const THEME_DRAFT_STORAGE_KEY = 'yug_theme_draft';
 
 const HEX_RE = /^#?([0-9a-f]{6})$/i;
+const PX_RE = /^(\d{1,2})px$/;
+const SHAPE_KEYS = new Set<string>(THEME_SHAPES.map((x) => x.key));
+
+function validShape(key: string, value: string): boolean {
+  const m = PX_RE.exec(value.trim());
+  const meta = THEME_SHAPES.find((x) => x.key === key);
+  return Boolean(m && meta && Number(m[1]) >= meta.min && Number(m[1]) <= meta.max);
+}
 
 /** `#165447` → `167 58% 21%` (формат переменных shadcn/Tailwind) */
 export function hexToHslTriplet(hex: string): string | null {
@@ -98,9 +114,9 @@ export function parseThemeOverrides(raw: string | null | undefined): ThemeOverri
     const allowed = new Set(THEME_TOKENS.map((t) => t.key));
     const out: ThemeOverrides = {};
     for (const [k, v] of Object.entries(obj)) {
-      if (allowed.has(k as ThemeTokenKey) && typeof v === 'string' && HEX_RE.test(v.trim())) {
-        out[k as ThemeTokenKey] = v.trim();
-      }
+      if (typeof v !== 'string') continue;
+      if (allowed.has(k as ThemeTokenKey) && HEX_RE.test(v.trim())) out[k as ThemeTokenKey] = v.trim();
+      else if (SHAPE_KEYS.has(k) && validShape(k, v)) out[k as ThemeShapeKey] = v.trim();
     }
     return out;
   } catch {
@@ -108,13 +124,21 @@ export function parseThemeOverrides(raw: string | null | undefined): ThemeOverri
   }
 }
 
-const applied = new Set<string>();
+/** Что применено к каждому корню — чтобы снимать только своё (<html> и контейнер предпросмотра) */
+const appliedByRoot = new WeakMap<HTMLElement, Set<string>>();
 
 /** Ставит переопределения на <html>; ранее применённые, но отсутствующие ключи снимает */
 export function applyThemeOverrides(overrides: ThemeOverrides, root: HTMLElement = document.documentElement): void {
   const next = new Set<string>();
-  for (const [key, hex] of Object.entries(overrides)) {
-    const hsl = hex ? hexToHslTriplet(hex) : null;
+  for (const [key, value] of Object.entries(overrides)) {
+    if (!value) continue;
+    if (SHAPE_KEYS.has(key)) {
+      if (!validShape(key, value)) continue;
+      root.style.setProperty(`--${key}`, value);
+      next.add(key);
+      continue;
+    }
+    const hsl = hexToHslTriplet(value);
     if (!hsl) continue;
     root.style.setProperty(`--${key}`, hsl);
     next.add(key);
@@ -124,6 +148,7 @@ export function applyThemeOverrides(overrides: ThemeOverrides, root: HTMLElement
     if (key === 'card') root.style.setProperty('--popover', hsl);
     if (key === 'foreground') root.style.setProperty('--card-foreground', hsl);
   }
+  const applied = appliedByRoot.get(root) ?? new Set<string>();
   for (const key of applied) {
     if (!next.has(key)) root.style.removeProperty(`--${key}`);
   }
@@ -131,8 +156,7 @@ export function applyThemeOverrides(overrides: ThemeOverrides, root: HTMLElement
   if (!next.has('focus')) root.style.removeProperty('--ring');
   if (!next.has('card')) root.style.removeProperty('--popover');
   if (!next.has('foreground')) root.style.removeProperty('--card-foreground');
-  applied.clear();
-  next.forEach((k) => applied.add(k));
+  appliedByRoot.set(root, next);
 }
 
 export function readThemeDraft(): ThemeOverrides | null {
@@ -142,4 +166,15 @@ export function readThemeDraft(): ThemeOverrides | null {
   } catch {
     return null;
   }
+}
+
+/** Сохранить черновик предпросмотра: тема применится ко всему сайту, но только в этом браузере */
+export function writeThemeDraft(overrides: ThemeOverrides | null): void {
+  try {
+    if (overrides && Object.keys(overrides).length) localStorage.setItem(THEME_DRAFT_STORAGE_KEY, JSON.stringify(overrides));
+    else localStorage.removeItem(THEME_DRAFT_STORAGE_KEY);
+  } catch {
+    /* приватный режим: предпросмотр просто не сохранится */
+  }
+  window.dispatchEvent(new Event('yug:theme-draft'));
 }

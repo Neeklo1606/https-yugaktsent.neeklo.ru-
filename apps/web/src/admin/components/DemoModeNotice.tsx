@@ -6,7 +6,7 @@ import { isExpertDemoEditingEnabled } from '@/shared/experts/expert-profile';
  * Честная плашка для экранов без backend: что сохраняется, где и что не произойдёт.
  * В ТЗ v3 отдельно требуется не изображать работающую синхронизацию или публикацию.
  */
-const DemoModeNotice = ({ className, children }: { className?: string; children?: React.ReactNode }) => {
+const DemoModeNotice = ({ className, children, description }: { className?: string; children?: React.ReactNode; description?: string }) => {
   const editable = isExpertDemoEditingEnabled();
   return (
     <div className={cn('flex gap-3 rounded-card border border-warning/25 bg-warning-soft p-4 text-sm text-foreground', className)} role="note">
@@ -14,9 +14,10 @@ const DemoModeNotice = ({ className, children }: { className?: string; children?
       <div>
         <p className="font-semibold">Демо · ожидает подключения backend</p>
         <p className="mt-1 text-muted-foreground">
-          {editable
-            ? 'Изменения сохраняются только в этом браузере и видны на публичной странице только вам. На сервер ничего не отправляется.'
-            : 'На этом сервере редактирование выключено: сохранять пока некуда. Изменения появятся после подключения API.'}
+          {description ??
+            (editable
+              ? 'Изменения сохраняются только в этом браузере и видны на публичной странице только вам. На сервер ничего не отправляется.'
+              : 'На этом сервере редактирование выключено: сохранять пока некуда. Изменения появятся после подключения API.')}
         </p>
         {children}
       </div>

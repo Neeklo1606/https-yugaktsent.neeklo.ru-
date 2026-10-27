@@ -23,4 +23,18 @@ describe('theme-engine', () => {
     applyThemeOverrides({});
     expect(root.style.getPropertyValue('--primary')).toBe('');
   });
+
+  it('радиусы — только пиксели в допустимых пределах', () => {
+    expect(parseThemeOverrides('{"radius":"14px","radius-card":"99px","primary":"#165447"}')).toEqual({ radius: '14px', primary: '#165447' });
+    const root = document.documentElement;
+    applyThemeOverrides({ 'radius-card': '24px' });
+    expect(root.style.getPropertyValue('--radius-card')).toBe('24px');
+  });
+
+  it('предпросмотр в контейнере не трогает <html>', () => {
+    const box = document.createElement('div');
+    applyThemeOverrides({ primary: '#26302F' }, box);
+    expect(box.style.getPropertyValue('--primary')).not.toBe('');
+    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('');
+  });
 });

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCMSStore } from '../store/cms-store';
 import { useContentStore } from '../store/content-store';
-import { FileText, Image, Users, Building2, Home, Layers, Plus, ClipboardList, HardHat } from 'lucide-react';
+import { FileText, Image, Users, Building2, Home, Layers, ClipboardList, HardHat } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { apiGet } from '@/lib/api';
 import { crmApiGet } from '@/admin/lib/crm-api';
@@ -11,6 +11,7 @@ import { CRM_CACHE_DASHBOARD, CRM_CACHE_OPERATIONAL } from '@/admin/lib/crm-cach
 import { useSmartPollInterval, useCrmPollMeta } from '@/admin/hooks/useSmartPollInterval';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { adminAuthQueryOptions } from '@/shared/lib/admin-auth-query';
+import DataQualityPanel from '@/admin/components/DataQualityPanel';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { CartesianGrid, Line, LineChart, XAxis, YAxis, Bar, BarChart } from 'recharts';
 
@@ -92,19 +93,21 @@ export default function AdminDashboard() {
     <div className="p-6 max-w-6xl">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold">Дашборд</h1>
-          <p className="text-muted-foreground text-sm mt-1">Обзор платформы</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Обзор</h1>
+          <p className="text-muted-foreground text-sm mt-1">Каталог, заявки и качество данных</p>
         </div>
         {canEditContent ? (
           <Link
-            to="/admin/pages"
-            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
+            to="/admin/data-sources"
+            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-primary-hover transition-colors"
           >
-            <Plus className="w-4 h-4" />
-            Управление страницами
+            Источники данных
           </Link>
         ) : null}
       </div>
+
+      {/* Работает на публичных данных каталога — виден и там, где админ-API недоступен */}
+      <DataQualityPanel variant="compact" className="mb-6" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {stats.map(s => (

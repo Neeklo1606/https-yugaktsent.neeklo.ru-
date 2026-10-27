@@ -26,6 +26,8 @@ export const LAZY_ROUTE_REGISTRY = [
   { id: 'ExpertPage', path: '@/pages/ExpertPage' },
   { id: 'AdminExperts', path: '@/admin/pages/AdminExperts' },
   { id: 'AdminExpertEditor', path: '@/admin/pages/AdminExpertEditor' },
+  { id: 'AdminDataSources', path: '@/admin/pages/AdminDataSources' },
+  { id: 'AdminThemeBuilder', path: '@/admin/pages/AdminThemeBuilder' },
   { id: 'NotFound', path: '@/pages/NotFound' },
 ] as const;
 
