@@ -508,7 +508,7 @@ const RedesignComplex = () => {
     <div className="min-h-screen bg-background pb-32 lg:pb-8">
       <RedesignHeader mobileTabBar={false} />
 
-      <div className="max-w-[1400px] 2xl:max-w-[1680px] mx-auto px-4 py-4 sm:py-6">
+      <main id="main" className="max-w-[1400px] 2xl:max-w-[1680px] mx-auto px-4 py-4 sm:py-6">
         <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3 min-w-0 flex-wrap">
             <Link to="/" className="inline-flex min-h-8 shrink-0 items-center hover:text-foreground">Главная</Link>
             <span>/</span>
@@ -780,7 +780,7 @@ const RedesignComplex = () => {
             />
           </aside>
         </div>
-      </div>
+      </main>
 
       <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-sm p-3 lg:hidden safe-area-pb">
         <div className="flex gap-2 max-w-[1400px] mx-auto">

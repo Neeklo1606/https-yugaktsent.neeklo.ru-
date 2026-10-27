@@ -365,7 +365,7 @@ const RedesignApartment = () => {
     <div className="min-h-screen bg-background pb-24 lg:pb-8">
       <RedesignHeader mobileTabBar={false} />
 
-      <div className="max-w-[1400px] mx-auto px-4 py-4 sm:py-6">
+      <main id="main" className="max-w-[1400px] mx-auto px-4 py-4 sm:py-6">
         <div className="flex items-center justify-between gap-2 mb-4">
           <nav aria-label="Хлебные крошки" className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] text-muted-foreground sm:text-sm">
             <Link to="/" className="inline-flex min-h-8 items-center hover:text-foreground">Главная</Link>
@@ -653,7 +653,7 @@ const RedesignApartment = () => {
             )}
           </aside>
         </div>
-      </div>
+      </main>
 
       {/* Один липкий слой снизу: панель действий вместо нижнего меню (ТЗ v3, 4.1) */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm lg:hidden">

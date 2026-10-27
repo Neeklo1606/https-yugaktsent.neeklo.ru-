@@ -108,9 +108,10 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Только для самой первой загрузки: тонкая полоса сверху вместо спиннера на весь экран */
 const Loading = () => (
-  <div className="h-screen flex items-center justify-center">
-    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+  <div role="progressbar" aria-label="Загрузка" className="fixed inset-x-0 top-0 z-[200] h-0.5 overflow-hidden bg-primary/15">
+    <div className="h-full w-1/3 animate-[loading-bar_1.1s_ease-in-out_infinite] bg-primary" />
   </div>
 );
 
@@ -247,7 +248,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      {/* startTransition: при переходе остаётся текущий экран, пока грузится следующий — без спиннера на весь экран */}
+      <BrowserRouter future={{ v7_startTransition: true }}>
         <ScrollToTop />
         <SeoRouteMeta />
         <SeoJsonLd />

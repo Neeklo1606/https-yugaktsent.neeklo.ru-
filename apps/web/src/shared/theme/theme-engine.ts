@@ -42,7 +42,7 @@ export const THEME_TOKENS: ThemeTokenMeta[] = [
   { key: 'card', label: 'Карточки и поля', hex: '#FFFFFF' },
   { key: 'surface-soft', label: 'Лёгкая подложка', hex: '#EDF3F1' },
   { key: 'foreground', label: 'Основной текст', hex: '#20282D' },
-  { key: 'muted-foreground', label: 'Второстепенный текст', hex: '#64716E' },
+  { key: 'muted-foreground', label: 'Второстепенный текст', hex: '#5B6865' },
   { key: 'border', label: 'Разделители', hex: '#DEE6E3' },
   { key: 'focus', label: 'Контур фокуса', hex: '#3D907D' },
 ];

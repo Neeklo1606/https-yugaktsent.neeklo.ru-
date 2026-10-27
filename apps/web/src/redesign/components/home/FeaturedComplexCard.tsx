@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import StableMediaFrame from '@/redesign/components/StableMediaFrame';
 import type { ResidentialComplex } from '@/redesign/data/types';
 import { complexPopularCompletionLine } from '@/redesign/lib/card-visual';
+import { prefetchHandlers } from '@/shared/lib/route-prefetch';
 import { formatPriceFrom, hasValidPrice } from '@/redesign/lib/display-price';
 
 type Props = {
@@ -40,6 +41,7 @@ const FeaturedComplexCard = ({ complex, cityFallback, priority = false, classNam
   return (
     <Link
       to={`/complex/${complex.slug}`}
+      {...prefetchHandlers('/complex/')}
       className={cn(
         'group flex h-full flex-col overflow-hidden rounded-card border border-border bg-card transition-[box-shadow,border-color] hover:border-primary/25 hover:shadow-raised',
         className,

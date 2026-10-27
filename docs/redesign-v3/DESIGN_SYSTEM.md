@@ -16,7 +16,7 @@
 | `--primary` | `bg-primary`, `text-primary` | `#165447` | главное действие экрана |
 | `--primary-hover` | `bg-primary-hover` | `#103E36` | hover основного |
 | `--foreground` | `text-foreground` | `#20282D` | основной текст |
-| `--muted-foreground` | `text-muted-foreground` | `#64716E` | второстепенный текст (контраст 4.8:1 на фоне) |
+| `--muted-foreground` | `text-muted-foreground` | `#5B6865` | второстепенный текст: 5,6:1 на фоне, 5,2:1 на подложке (было `#64716E` из ТЗ — после округления не дотягивало до 4,5:1) |
 | `--border` | `border-border` | `#DEE6E3` | разделители, рамки |
 | `--focus` | `ring-focus`, `border-focus` | `#3D907D` | контур фокуса с клавиатуры |
 | `--success` | `text-success` | `#20795F` | успех, «Свободно» |

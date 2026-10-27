@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/lib/api';
+import { persistedQueryOptions, writePersisted } from '@/shared/lib/persisted-query';
 
 type SettingRow = { key: string; value: string };
 type SettingsResponse = Record<string, SettingRow[]>;
@@ -10,8 +11,10 @@ type SettingsResponse = Record<string, SettingRow[]>;
 export function useSiteSettings() {
   return useQuery({
     queryKey: ['content', 'settings'],
-    queryFn: () => apiGet<SettingsResponse>('/content/settings'),
+    queryFn: async () => writePersisted('content-settings', await apiGet<SettingsResponse>('/content/settings')),
     staleTime: 10 * 60_000,
+    // Повторный визит: логотип, контакты и баннеры — сразу из кэша, свежие подтягиваются в фоне
+    ...persistedQueryOptions<SettingsResponse>('content-settings'),
     select: (grouped) => {
       const flat = new Map<string, string>();
       for (const rows of Object.values(grouped)) {

@@ -8,6 +8,7 @@ import { listingFreshnessBadge } from '@lg/shared';
 import { formatQuarterFromDate } from '@/redesign/lib/card-visual';
 import { formatArea, shortRoomLabel } from '@/redesign/lib/listing-format';
 import { Heart } from 'lucide-react';
+import { prefetchHandlers } from '@/shared/lib/route-prefetch';
 import { useFavorites } from '@/shared/hooks/useFavorites';
 
 export type ListingPromotionView = {
@@ -210,6 +211,7 @@ const ListingCard = ({ listing, variant = 'grid', trustBadges }: Props) => {
   return (
     <Link
       to={linkTo}
+      {...prefetchHandlers(linkTo)}
       className={cn(
         'group flex h-full w-full overflow-hidden rounded-card border border-border bg-card transition-[box-shadow,border-color] hover:border-primary/25 hover:shadow-raised',
         isList ? 'flex-row' : 'flex-col',

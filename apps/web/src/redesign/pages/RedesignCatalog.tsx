@@ -613,7 +613,7 @@ const RedesignCatalog = () => {
         </div>
       </div>
 
-      <div className="container-page py-4 lg:py-6">
+      <main id="main" className="container-page py-4 lg:py-6">
         <SessionResumeBanner className="mb-2" />
         <SavedSearchReminder className="mb-2" />
 
@@ -744,6 +744,7 @@ const RedesignCatalog = () => {
           </aside>
 
           <div className={cn('min-w-0 flex-1 transition-opacity', refreshing && 'opacity-60')} aria-busy={refreshing || loading}>
+            <h2 className="sr-only">Результаты поиска</h2>
             {loadError && (
               <div className="mb-4 flex flex-col items-start gap-3 rounded-card border border-destructive/20 bg-destructive/5 p-4 sm:flex-row sm:items-center">
                 <AlertCircle className="h-5 w-5 shrink-0 text-destructive" aria-hidden />
@@ -893,7 +894,7 @@ const RedesignCatalog = () => {
             />
           </div>
         </div>
-      </div>
+      </main>
 
       <Sheet open={showMobileFilters} onOpenChange={setShowMobileFilters}>
         <SheetContent side="bottom" className="flex max-h-[92svh] flex-col rounded-t-sheet p-0">

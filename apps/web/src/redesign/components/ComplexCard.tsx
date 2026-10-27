@@ -5,6 +5,7 @@ import type { ResidentialComplex } from '@/redesign/data/types';
 import { parseApiBlockId, useFavorites } from '@/shared/hooks/useFavorites';
 import StableMediaFrame from '@/redesign/components/StableMediaFrame';
 import { complexMinPrice, complexPopularCompletionLine, complexTotalUnits } from '@/redesign/lib/card-visual';
+import { prefetchHandlers } from '@/shared/lib/route-prefetch';
 import { formatPriceFrom } from '@/redesign/lib/display-price';
 
 interface Props {
@@ -130,7 +131,7 @@ const ComplexCard = ({ complex, variant = 'grid', coverAspect = '4/3', priority 
   );
 
   return slug ? (
-    <Link to={`/complex/${slug}`} className={className}>
+    <Link to={`/complex/${slug}`} className={className} {...prefetchHandlers('/complex/')}>
       {media}
       {body}
     </Link>

@@ -82,12 +82,21 @@ const HeroBanner = () => {
   const total = slides.length;
   const go = useCallback((next: number) => setIndex(((next % total) + total) % total), [total]);
   const reducedMotion = usePrefersReducedMotion();
-  /** Слайды, чьё фото уже можно грузить: текущий и следующий. Остальные не конкурируют с первым кадром */
-  const [warmed, setWarmed] = useState<Set<number>>(() => new Set([0, 1]));
+  /**
+   * Слайды, чьё фото уже можно грузить. Сначала только текущий — он и есть LCP;
+   * следующий подтягиваем через паузу, чтобы он не делил канал с первым кадром.
+   */
+  const [warmed, setWarmed] = useState<Set<number>>(() => new Set([0]));
 
   useEffect(() => {
     if (index >= total) setIndex(0);
-    setWarmed((prev) => (prev.has(index) && prev.has((index + 1) % total) ? prev : new Set([...prev, index, (index + 1) % total])));
+    setWarmed((prev) => (prev.has(index) ? prev : new Set([...prev, index])));
+    if (total < 2) return;
+    const t = window.setTimeout(() => {
+      const next = (index + 1) % total;
+      setWarmed((prev) => (prev.has(next) ? prev : new Set([...prev, next])));
+    }, 2500);
+    return () => window.clearTimeout(t);
   }, [index, total]);
 
   useEffect(() => {

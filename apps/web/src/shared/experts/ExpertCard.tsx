@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ExpertAvatar from './ExpertAvatar';
+import { prefetchHandlers } from '@/shared/lib/route-prefetch';
 import { expertPath, type ExpertProfile } from './expert-profile';
 
 type Props = {
@@ -15,6 +16,7 @@ type Props = {
 const ExpertCard = ({ expert, variant = 'card', className }: Props) => (
   <Link
     to={expertPath(expert.slug)}
+    {...prefetchHandlers('/experts/')}
     className={cn(
       'surface-card group flex gap-4 p-4 transition-[box-shadow,border-color] hover:border-primary/30 hover:shadow-raised sm:p-5',
       variant === 'card' ? 'flex-row items-center sm:flex-col sm:items-start' : 'flex-row items-center',

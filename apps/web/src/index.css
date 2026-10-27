@@ -26,7 +26,7 @@
     --secondary-foreground: 203 17% 15%;
     --surface-soft: 160 20% 94%;
     --muted: 160 16% 95%;
-    --muted-foreground: 166 6% 42%; /* #64716E второстепенный текст */
+    --muted-foreground: 166 7% 38%; /* #5B6865 второстепенный текст: ≥5:1 и на подложке */
     --accent: 160 24% 92%;
     --accent-foreground: 167 58% 21%;
     --destructive: 0 46% 48%;       /* #B34343 */
@@ -298,4 +298,9 @@
     border: 1px solid hsl(var(--border));
     border-radius: var(--radius-card);
   }
+}
+
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
 }

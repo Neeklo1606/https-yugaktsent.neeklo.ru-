@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/lib/api';
+import { persistedQueryOptions, writePersisted } from '@/shared/lib/persisted-query';
 
 export type RegionRow = {
   id: number;
@@ -71,8 +72,10 @@ export function useDefaultRegionId() {
 
   const base = useQuery({
     queryKey: ['regions'],
-    queryFn: () => apiGet<RegionRow[]>('/regions'),
+    queryFn: async () => writePersisted('regions', await apiGet<RegionRow[]>('/regions')),
     staleTime: 60 * 60 * 1000,
+    // Повторный визит: регион известен сразу, запрос ЖК не ждёт /regions
+    ...persistedQueryOptions<RegionRow[]>('regions'),
   });
 
   const rows = base.data;

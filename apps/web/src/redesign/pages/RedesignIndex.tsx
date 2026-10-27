@@ -48,6 +48,7 @@ const RedesignIndex = () => {
     <div className="min-h-screen bg-background pb-mobile-nav">
       <RedesignHeader />
       <ApiConnectionStrip />
+      <main id="main">
       <HeroBanner />
       <QuickSearch />
 
@@ -74,6 +75,7 @@ const RedesignIndex = () => {
       <HomeAboutSection />
       <LatestNews />
       <LeadHighlightSection />
+      </main>
       <FooterSection />
     </div>
   );
