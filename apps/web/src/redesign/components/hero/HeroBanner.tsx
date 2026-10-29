@@ -172,6 +172,7 @@ const HeroBanner = () => {
           {slide.image && warmed.has(i) ? (
             <StableMediaFrame
               src={slide.image}
+              sizes="100vw"
               altContext={slide.title || 'Баннер'}
               decorative
               loading={i === 0 ? 'eager' : 'lazy'}

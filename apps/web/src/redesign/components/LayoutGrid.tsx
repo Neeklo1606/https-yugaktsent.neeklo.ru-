@@ -39,9 +39,9 @@ const LayoutCard = ({ layout }: { layout: LayoutGroup }) => {
         <p className={cn(isPriceFallbackText(formatPriceFrom(layout.priceFrom)) ? cardVisual.priceFallback : cardVisual.price)}>
           {formatPriceFrom(layout.priceFrom)}
         </p>
-        <h4 className={cardVisual.title}>
+        <h3 className={cardVisual.title}>
           {layout.rooms === 0 ? 'Студия' : `${layout.rooms}-комнатная`}
-        </h4>
+        </h3>
         <div className="flex items-center justify-between gap-2">
           <p className={cardVisual.metaMuted}>{formatArea(layout.area)}</p>
           <span className={cn(cardVisual.metaMuted, 'font-medium text-foreground/70 shrink-0')}>

@@ -70,7 +70,7 @@ export default function PublicTrustStrip({
               </span>
             ) : null}
             {objectCount != null && blocks != null ? (
-              <span className="mx-1.5 text-muted-foreground/70">·</span>
+              <span className="mx-1.5 text-muted-foreground">·</span>
             ) : null}
             {blocks != null ? (
               <span className="font-semibold text-foreground tabular-nums">

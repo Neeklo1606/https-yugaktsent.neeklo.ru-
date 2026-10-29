@@ -191,7 +191,7 @@ const FooterSection = React.forwardRef<HTMLElement>((_, ref) => {
       </div>
 
       <div className="border-t border-primary-foreground/10">
-        <div className="container-page flex flex-col gap-3 py-6 text-xs leading-relaxed text-primary-foreground/45 sm:flex-row sm:items-center sm:justify-between">
+        <div className="container-page flex flex-col gap-3 py-6 text-xs leading-relaxed text-primary-foreground/70 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {copyrightYear} {shortName}
             {inn ? ` · ИНН ${inn}` : ''}

@@ -31,7 +31,7 @@
     --accent-foreground: 167 58% 21%;
     --destructive: 0 46% 48%;       /* #B34343 */
     --destructive-foreground: 0 0% 100%;
-    --success: 162 58% 30%;         /* #20795F */
+    --success: 162 60% 26%;         /* #1B6A52: ≥4.5:1 мелким текстом на подложке */
     --success-foreground: 0 0% 100%;
     --warning: 34 64% 34%;          /* статус «Бронь»: приглушённая охра вместо жёлтого */
     --warning-soft: 38 60% 93%;

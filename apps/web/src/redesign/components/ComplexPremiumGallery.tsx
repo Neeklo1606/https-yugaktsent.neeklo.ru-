@@ -136,6 +136,7 @@ export default function ComplexPremiumGallery({ images, title }: Props) {
             >
               <StableMediaFrame
                 src={images[0]}
+                sizes="(min-width: 1024px) 66vw, 100vw"
                 altContext={title}
                 decorative={false}
                 aspect="none"
@@ -206,6 +207,7 @@ export default function ComplexPremiumGallery({ images, title }: Props) {
         >
           <StableMediaFrame
             src={currentSrc}
+            sizes="100vw"
             altContext={title}
             aspect="none"
             fallback="branded"

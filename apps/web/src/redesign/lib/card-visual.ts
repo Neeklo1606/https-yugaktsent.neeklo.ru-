@@ -27,7 +27,7 @@ export const cardVisual = {
   metaDot: 'text-[11px] text-muted-foreground/90 leading-snug line-clamp-1',
 
   /** Low — technical / counts */
-  metaMuted: 'text-[10px] text-muted-foreground/75 leading-snug truncate',
+  metaMuted: 'text-[11px] text-muted-foreground leading-snug truncate',
 
   /** Map sidebar compact */
   sidebarRow: 'flex gap-2.5 p-2 rounded-xl border transition-colors min-w-0',

@@ -49,3 +49,29 @@ export function imageAltText(context?: string | null, decorative = true): string
   if (decorative) return '';
   return context?.trim() ?? '';
 }
+
+/** Ширины, которые отдаёт ресайзер nginx `/img/<w>/…` */
+export const IMAGE_PROXY_WIDTHS = [480, 800, 1280] as const;
+
+const PROFITBASE_RE = /^https?:\/\/(pb\d+(?:\.tochno)?)\.profitbase\.ru\/(uploads\/.+)$/i;
+
+/**
+ * Фото Profitbase приходят оригиналами по 0,3–4 МБ. При включённом ресайзере
+ * (`VITE_IMAGE_PROXY=1`, nginx + image_filter с кэшем) отдаём уменьшенные копии.
+ */
+export function proxiedImageUrl(url: string, width: number): string | null {
+  if (import.meta.env.VITE_IMAGE_PROXY !== '1') return null;
+  const m = PROFITBASE_RE.exec(url.trim());
+  if (!m) return null;
+  return `/img/${width}/${m[1]}/${m[2]}`;
+}
+
+/** srcSet для <img>, либо undefined, если ресайзер к этому адресу не применим */
+export function imageSrcSet(url: unknown): string | undefined {
+  if (!isValidImageUrl(url)) return undefined;
+  const parts = IMAGE_PROXY_WIDTHS.map((w) => {
+    const u = proxiedImageUrl(url, w);
+    return u ? `${u} ${w}w` : null;
+  });
+  return parts.every(Boolean) ? parts.join(', ') : undefined;
+}

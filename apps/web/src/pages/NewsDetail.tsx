@@ -8,6 +8,7 @@ import FooterSection from '@/components/FooterSection';
 import ContactsSection from '@/components/ContactsSection';
 import { apiGetOrNull } from '@/lib/api';
 import complex1 from '@/assets/complex-1.jpg';
+import { useEntitySeoMeta } from '@/shared/hooks/useEntitySeoMeta';
 
 interface NewsArticle {
   id: number;
@@ -19,6 +20,9 @@ interface NewsArticle {
   sourceUrl: string | null;
   publishedAt: string | null;
   createdAt: string;
+  updatedAt?: string;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
 }
 
 const NewsDetail = () => {
@@ -35,6 +39,31 @@ const NewsDetail = () => {
     if (!article?.body) return '';
     return DOMPurify.sanitize(article.body, { USE_PROFILES: { html: true } });
   }, [article?.body]);
+
+  // SEO из админки (поля «SEO-заголовок» и «SEO-описание» новости), иначе — заголовок и начало текста
+  const seo = useMemo(() => {
+    if (!article) return null;
+    const plain = (article.body ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const description = article.seoDescription?.trim() || plain.slice(0, 160) || article.title;
+    const published = article.publishedAt ?? article.createdAt;
+    const image = article.imageUrl?.startsWith('/') ? `${window.location.origin}${article.imageUrl}` : article.imageUrl;
+    return {
+      title: article.seoTitle?.trim() || article.title,
+      description,
+      pathname: `/news/${article.slug}`,
+      imageUrl: image,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'NewsArticle',
+        headline: article.title,
+        description,
+        datePublished: published,
+        dateModified: article.updatedAt ?? published,
+        ...(image ? { image: [image] } : {}),
+      },
+    };
+  }, [article]);
+  useEntitySeoMeta(seo);
 
   if (isLoading) {
     return (

@@ -6,6 +6,8 @@ import {
   IMAGE_PLACEHOLDER,
   getSafeImageUrl,
   imageAltText,
+  imageSrcSet,
+  proxiedImageUrl,
   shouldUseFallbackImage,
 } from '@/redesign/lib/image-media';
 
@@ -26,6 +28,8 @@ type Props = {
   fetchPriority?: 'high' | 'low' | 'auto';
   /** cover — фото ЖК; contain — планировки квартир целиком */
   fit?: 'cover' | 'contain';
+  /** Ширина картинки в макете для srcSet; по умолчанию — карточка в сетке */
+  sizes?: string;
   className?: string;
   imgClassName?: string;
   imgStyle?: CSSProperties;
@@ -76,6 +80,7 @@ const StableMediaFrame = ({
   loading = 'lazy',
   fetchPriority,
   fit = 'cover',
+  sizes = '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw',
   className,
   imgClassName,
   imgStyle,
@@ -91,6 +96,10 @@ const StableMediaFrame = ({
   }, [src]);
 
   const containerClass = fixedHeightClass ?? aspectClass(aspect);
+  const safeSrc = getSafeImageUrl(src);
+  const srcSet = imageSrcSet(src);
+  const imgSrc = (srcSet && proxiedImageUrl(safeSrc, 800)) || safeSrc;
+  const responsiveAttrs = srcSet ? { srcSet, sizes } : {};
 
   const isContain = fit === 'contain';
   // React 18 не типизирует fetchpriority, но пробрасывает атрибут в DOM как есть.
@@ -113,7 +122,8 @@ const StableMediaFrame = ({
           {isContain ? (
             <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4">
               <img
-                src={getSafeImageUrl(src)}
+                src={imgSrc}
+                {...responsiveAttrs}
                 alt={imageAltText(altContext, decorative)}
                 loading={loading}
                 decoding="async"
@@ -135,7 +145,8 @@ const StableMediaFrame = ({
             </div>
           ) : (
             <img
-              src={getSafeImageUrl(src)}
+              src={imgSrc}
+                {...responsiveAttrs}
               alt={imageAltText(altContext, decorative)}
               loading={loading}
               decoding="async"

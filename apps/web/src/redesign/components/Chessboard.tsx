@@ -355,7 +355,7 @@ const Chessboard = ({
           <p className="text-xs text-muted-foreground mt-0.5">
             {counts.available} свободных · {counts.reserved} в брони · {counts.sold} продано
             {matrix.shaftCount > 0 ? (
-              <span className="ml-2 text-muted-foreground/70">
+              <span className="ml-2 text-muted-foreground">
                 · {matrix.shaftCount} стояков · {matrix.floors.length} этажей
               </span>
             ) : null}
@@ -388,7 +388,7 @@ const Chessboard = ({
 
       <div
         ref={gridRef}
-        role="grid"
+        role="group"
         aria-label={`Шахматка ${buildingName}`}
         aria-busy={isLoading}
         onMouseOver={handleGridMouseOver}

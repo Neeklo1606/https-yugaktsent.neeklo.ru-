@@ -36,13 +36,13 @@ const ChessboardCell = memo(function ChessboardCell({
 
   return (
     <div
-      role="gridcell"
+      role="button"
       tabIndex={hidden ? -1 : 0}
       data-apt-id={apartment.id}
       data-section={section}
       data-status={status}
       data-interactive={status !== 'sold' && !hidden ? 'true' : 'false'}
-      aria-label={`${roomLabel}, ${formatArea(apartment.area)}, ${formatDisplayPrice(apartment.price)}, ${statusLabel}`}
+      aria-label={`${roomLabel} № ${apartment.number || apartment.id}, ${formatArea(apartment.area)}, ${formatDisplayPrice(apartment.price)}, ${statusLabel}`}
       onFocus={onFocus}
       className={cn(
         'flex h-[86px] flex-col justify-between rounded-lg border px-2.5 py-2 text-[11px] leading-tight transition-[border-color,box-shadow,opacity] duration-150',
