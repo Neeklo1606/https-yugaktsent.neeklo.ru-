@@ -127,8 +127,16 @@ export const EXPERT_SEED: ExpertProfile[] = [
 export const EXPERT_DRAFTS_STORAGE_KEY = 'yug_expert_drafts';
 export const EXPERT_DRAFTS_EVENT = 'yug:expert-drafts';
 
+/**
+ * Демо-редактирование: dev, staging и боевая сборка с VITE_ADMIN_DEMO_EDITING=1 —
+ * чтобы показать заказчику админку до появления API. В API ничего не пишется.
+ */
 export function isExpertDemoEditingEnabled(): boolean {
-  return import.meta.env.DEV || import.meta.env.VITE_STAGING_READONLY === '1';
+  return (
+    import.meta.env.DEV ||
+    import.meta.env.VITE_STAGING_READONLY === '1' ||
+    import.meta.env.VITE_ADMIN_DEMO_EDITING === '1'
+  );
 }
 
 function readDrafts(): Record<string, ExpertProfile> {
