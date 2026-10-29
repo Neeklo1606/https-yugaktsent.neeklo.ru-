@@ -42,7 +42,7 @@ import CompareSessionChip from '@/shared/components/CompareSessionChip';
 import { listingHref } from '@/shared/lib/browse-history-local';
 import { useFavorites } from '@/shared/hooks/useFavorites';
 import { shareCurrentPage } from '@/lib/share-page';
-import { useCompare } from '@/shared/hooks/useCompare';
+import { COMPARE_ENABLED, useCompare } from '@/shared/hooks/useCompare';
 import { useEntitySeoMeta } from '@/shared/hooks/useEntitySeoMeta';
 import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
 import { toast } from '@/components/ui/sonner';
@@ -559,16 +559,18 @@ const RedesignListingDetail = () => {
                   <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleFavorite}>
                     <Heart className={cn('w-4 h-4', liked ? 'fill-destructive text-destructive' : 'text-muted-foreground')} />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    title={inCompare ? 'Убрать из сравнения' : 'Добавить в сравнение'}
-                    onClick={handleCompare}
-                  >
-                    <GitCompare className={cn('w-4 h-4', inCompare ? 'text-primary' : 'text-muted-foreground')} />
-                  </Button>
+                  {COMPARE_ENABLED ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      title={inCompare ? 'Убрать из сравнения' : 'Добавить в сравнение'}
+                      onClick={handleCompare}
+                    >
+                      <GitCompare className={cn('w-4 h-4', inCompare ? 'text-primary' : 'text-muted-foreground')} />
+                    </Button>
+                  ) : null}
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Презентация (PDF)" asChild>
                     <Link to={`/presentation/listing/${data.id}`}>
                       <FileText className="w-4 h-4" />

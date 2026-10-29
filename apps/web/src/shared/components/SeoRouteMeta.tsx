@@ -176,6 +176,12 @@ function buildMeta(
       noindex: true,
     };
   }
+  if (pathname === '/cookies') {
+    return {
+      title: 'Политика использования cookie',
+      description: `Какие cookie и данные браузера использует сайт ${siteName} и как их отключить.`,
+    };
+  }
   if (pathname === '/terms') {
     return {
       title: 'Пользовательское соглашение',
@@ -195,14 +201,16 @@ function buildMeta(
       description: 'Онлайн-анкета для индивидуального подбора недвижимости.',
     };
   }
+  if (pathname.startsWith('/favorites')) {
+    return { title: 'Избранное', description: `Сохранённые объекты на сайте ${siteName}.`, noindex: true };
+  }
   if (
     pathname.startsWith('/admin') ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
     pathname.startsWith('/forgot-password') ||
     pathname.startsWith('/reset-password') ||
-    pathname.startsWith('/profile') ||
-    pathname.startsWith('/favorites')
+    pathname.startsWith('/profile')
   ) {
     return {
       title: 'Служебный раздел',

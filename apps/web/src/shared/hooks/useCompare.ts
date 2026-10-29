@@ -1,6 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { toast } from '@/components/ui/sonner';
 
+/**
+ * Сравнение выключено на публичной части по ТЗ (план сдачи, D9): кнопки и /compare скрыты.
+ * Код и данные в localStorage сохранены — включить обратно можно этим флагом.
+ */
+export const COMPARE_ENABLED = false;
+
 const STORAGE_KEY = 'lg_compare';
 const MAX_ITEMS = 3;
 

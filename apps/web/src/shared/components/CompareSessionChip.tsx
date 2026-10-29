@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { GitCompare } from 'lucide-react';
-import { useCompare } from '@/shared/hooks/useCompare';
+import { COMPARE_ENABLED, useCompare } from '@/shared/hooks/useCompare';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -10,7 +10,7 @@ type Props = {
 /** Floating compare shortcut when session has items (mobile-friendly). */
 export default function CompareSessionChip({ className }: Props) {
   const { count } = useCompare();
-  if (count <= 0) return null;
+  if (!COMPARE_ENABLED || count <= 0) return null;
 
   return (
     <Link

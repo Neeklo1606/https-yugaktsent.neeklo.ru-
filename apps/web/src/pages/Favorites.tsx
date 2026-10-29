@@ -14,7 +14,7 @@ import { toast } from '@/components/ui/sonner';
 import ListingCard, { type ApiListingCardRow } from '@/redesign/components/ListingCard';
 import ComplexCard from '@/redesign/components/ComplexCard';
 import SelectionInquiryBar from '@/redesign/components/SelectionInquiryBar';
-import { useCompare } from '@/shared/hooks/useCompare';
+import { COMPARE_ENABLED, useCompare } from '@/shared/hooks/useCompare';
 import { mapApiBlockDetailToResidentialComplex, type ApiBlockDetail } from '@/redesign/lib/blocks-from-api';
 import { cn } from '@/lib/utils';
 
@@ -223,7 +223,7 @@ const Favorites = () => {
           <h1 className="text-2xl sm:text-3xl font-bold">Избранное</h1>
           {rows.length > 0 && (
             <div className="print:hidden flex flex-wrap items-center gap-3">
-              {listingCompareKeys.length >= 2 ? (
+              {COMPARE_ENABLED && listingCompareKeys.length >= 2 ? (
                 <Link
                   to="/compare"
                   className="flex items-center gap-1.5 text-sm text-primary font-medium hover:underline"
@@ -232,16 +232,18 @@ const Favorites = () => {
                   Сравнение{compareCount > 0 ? ` (${compareCount})` : ''}
                 </Link>
               ) : null}
-              <button
-                type="button"
-                onClick={() => void saveFavoritesAsCollection()}
-                disabled={savingCollection || !isAuthenticated}
-                title={!isAuthenticated ? 'Войдите в аккаунт' : undefined}
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
-              >
-                <FolderPlus className="w-4 h-4" />
-                {savingCollection ? 'Сохранение…' : 'В подборку'}
-              </button>
+              {/* Подборки на сервере — только для сотрудников; гостю не показываем кнопку «войдите» */}
+              {isAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={() => void saveFavoritesAsCollection()}
+                  disabled={savingCollection}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+                >
+                  <FolderPlus className="w-4 h-4" />
+                  {savingCollection ? 'Сохранение…' : 'В подборку'}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => window.print()}
@@ -257,7 +259,7 @@ const Favorites = () => {
         ) : rows.length === 0 ? (
           <div className="text-center py-16 sm:py-20 max-w-md mx-auto">
             <Heart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-            <h2 className="text-lg font-semibold mb-2">Сохраняйте объекты для сравнения</h2>
+            <h2 className="text-lg font-semibold mb-2">Сохраняйте понравившиеся объекты</h2>
             <p className="text-sm text-muted-foreground mb-6">
               Нажмите ♥ на карточке в каталоге или на странице квартиры, и объекты появятся здесь. Можно собрать
               подборку и отправить заявку одним кликом.
@@ -276,7 +278,7 @@ const Favorites = () => {
           </div>
         ) : (
           <>
-            {listingCompareKeys.length >= 2 ? (
+            {COMPARE_ENABLED && listingCompareKeys.length >= 2 ? (
               <div className="print:hidden mb-4 rounded-xl border border-primary/20 bg-primary/5 p-3 flex flex-wrap items-center gap-2">
                 <GitCompare className="w-4 h-4 text-primary shrink-0" />
                 <p className="text-sm flex-1 min-w-[180px]">
@@ -331,7 +333,7 @@ const Favorites = () => {
                     )}
 
                     <div className="print:hidden absolute bottom-2 right-2 z-10 flex items-center gap-1">
-                      {compareKey?.startsWith('l:') ? (
+                      {COMPARE_ENABLED && compareKey?.startsWith('l:') ? (
                         <Button
                           type="button"
                           variant={inCompare ? 'default' : 'secondary'}

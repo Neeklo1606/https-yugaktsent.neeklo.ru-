@@ -160,6 +160,7 @@ function buildSitemapXml(siteUrl, complexPaths, extraPaths = []) {
     '/contacts',
     '/privacy',
     '/terms',
+    '/cookies',
     ...extraPaths,
   ];
   const urls = [];

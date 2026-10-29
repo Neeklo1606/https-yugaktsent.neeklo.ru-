@@ -13,6 +13,7 @@ import { RequireAuth } from "@/shared/components/RequireAuth";
 import SeoRouteMeta from "@/shared/components/SeoRouteMeta";
 import SeoJsonLd from "@/shared/components/SeoJsonLd";
 import StagingBadge from "@/shared/components/StagingBadge";
+import CookieBanner from "@/shared/components/CookieBanner";
 import ThemeBootstrap from "@/shared/theme/ThemeBootstrap";
 
 // Main pages
@@ -28,16 +29,13 @@ const RedesignMap = lazyWithReload(() => import("./redesign/pages/RedesignMap"))
 // Detail / utility pages
 const Presentation = lazyWithReload(() => import("./pages/Presentation"));
 const ListingPresentation = lazyWithReload(() => import("./pages/ListingPresentation"));
-const Compare = lazy(() => import("./pages/Compare"));
 const Favorites = lazyWithReload(() => import("./pages/Favorites"));
-const PublicAgencyPage = lazyWithReload(() => import("./ecosystem/pages/PublicAgencyPage"));
 const Contacts = lazy(() => import("./pages/Contacts"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
+const Cookies = lazy(() => import("./pages/Cookies"));
 const AboutCompany = lazy(() => import("./pages/AboutCompany"));
 const ExpertPage = lazyWithReload(() => import("./pages/ExpertPage"));
-const SelectionPage = lazy(() => import("./pages/SelectionPage"));
-const SharedSelectionPage = lazyWithReload(() => import("./pages/SharedSelectionPage"));
 
 // Вход: сайт — лендинг без личных кабинетов, форма нужна только для админки
 const Login = lazy(() => import("./pages/Login"));
@@ -139,7 +137,8 @@ const AppRoutes = () => (
     <Route path="/presentation/:slug" element={<Presentation />} />
     <Route path="/map" element={<RedesignMap />} />
     <Route path="/mortgage" element={<Navigate to="/catalog" replace />} />
-    <Route path="/compare" element={<Compare />} />
+    {/* Сравнение, подборки и профили агентств LiveGrid сняты с публичной части (план сдачи, D9) */}
+    <Route path="/compare" element={<Navigate to="/favorites" replace />} />
     {/* Избранное живёт в localStorage — регистрация для него не нужна */}
     <Route path="/favorites" element={<Favorites />} />
     <Route path="/account/*" element={<Navigate to="/favorites" replace />} />
@@ -147,13 +146,13 @@ const AppRoutes = () => (
     <Route path="/about" element={<AboutCompany />} />
     {/* Постоянный адрес визитки эксперта: на него ведут QR-коды, slug не менять */}
     <Route path="/experts/:slug" element={<ExpertPage />} />
-    <Route path="/selection" element={<SelectionPage />} />
-    <Route path="/selections/:token" element={<SharedSelectionPage />} />
+    <Route path="/selection" element={<Navigate to="/catalog" replace />} />
+    <Route path="/selections/:token" element={<Navigate to="/catalog" replace />} />
     <Route path="/privacy" element={<Privacy />} />
     <Route path="/terms" element={<Terms />} />
+    <Route path="/cookies" element={<Cookies />} />
 
-    {/* Ecosystem — public agency/agent profiles */}
-    <Route path="/agency/:slug" element={<PublicAgencyPage />} />
+    <Route path="/agency/*" element={<Navigate to="/about" replace />} />
 
     {/* Вход только в админку: публичной регистрации на лендинге нет */}
     <Route path="/login" element={<Login />} />
@@ -254,6 +253,7 @@ const App = () => (
         <SeoRouteMeta />
         <SeoJsonLd />
         <StagingBadge />
+        <CookieBanner />
         <Suspense fallback={<Loading />}>
           <RouteErrorBoundary
             scope="auth-boot"
