@@ -156,7 +156,8 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
               </>
             ) : null}
 
-            <div className="hidden items-center gap-1 lg:flex">{socials}</div>
+            {/* На 1024 px соцсети не помещаются рядом с меню и кнопкой — показываем с 1280 px */}
+            <div className="hidden items-center gap-1 xl:flex">{socials}</div>
 
             <button
               type="button"

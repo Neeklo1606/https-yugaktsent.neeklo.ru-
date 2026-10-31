@@ -18,6 +18,7 @@ import {
   phoneHref,
   publicExpertView,
   type ExpertLink,
+  absoluteSiteUrl,
 } from '@/shared/experts/expert-profile';
 
 const SITE_URL =
@@ -66,13 +67,14 @@ const ExpertPage = () => {
           title: expert.seo.title,
           description: expert.seo.description,
           pathname: expertPath(expert.slug),
-          imageUrl: expert.photoUrl ?? `${SITE_URL}/og-yugaktsent.jpg`,
+          imageUrl: expert.photoUrl ? absoluteSiteUrl(expert.photoUrl) : `${SITE_URL}/og-yugaktsent.jpg`,
           jsonLd: {
             '@context': 'https://schema.org',
             '@type': 'Person',
             name: expert.fullName,
             jobTitle: expert.role,
             url: canonical,
+            image: expert.photoUrl ? absoluteSiteUrl(expert.photoUrl) : undefined,
             worksFor: { '@type': 'RealEstateAgent', name: shortName, url: SITE_URL },
             address: expert.address ? { '@type': 'PostalAddress', streetAddress: expert.address, addressCountry: 'RU' } : undefined,
             telephone: expert.phones.map((p) => p.value),
@@ -130,7 +132,9 @@ const ExpertPage = () => {
             <ExpertAvatar
               name={expert.fullName}
               photoUrl={expert.photoUrl}
-              className="h-[104px] w-[88px] sm:h-[124px] sm:w-[104px] lg:h-[300px] lg:w-full"
+              priority
+              sizes="(min-width: 1024px) 380px, 104px"
+              className="h-[104px] w-[88px] sm:h-[124px] sm:w-[104px] lg:h-[460px] lg:w-full"
             />
             <div className="min-w-0 lg:mt-6">
               <h1 className="text-[28px] font-semibold leading-[1.1] tracking-tight sm:text-[32px] lg:text-[40px]">

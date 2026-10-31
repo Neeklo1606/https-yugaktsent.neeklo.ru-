@@ -1,5 +1,6 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fetchProfitbaseFeed } from "./profitbaseFeed.js";
 import { LiveGridClient } from "./livegridClient.js";
 
@@ -17,9 +18,66 @@ async function saveState(filePath, state) {
   await writeFile(filePath, JSON.stringify(state, null, 2));
 }
 
-function planImage(offer) {
-  const plan = offer.images?.find((i) => i.type === "plan");
-  return plan?.url || offer.images?.[0]?.url || null;
+/** Адрес картинки: в разных форматах фида это строка или { url, type } */
+const imageUrl = (img) => (typeof img === "string" ? img : img?.url) || null;
+
+/** Планировка лота: сначала явная «plan», иначе первая картинка */
+export function planImage(offer) {
+  const images = offer.images ?? [];
+  // «plan floor» — поэтажный план, не планировка квартиры: нужен точный тип
+  const plan = images.find((i) => typeof i === "object" && i?.type === "plan");
+  return imageUrl(plan) || imageUrl(images[0]);
+}
+
+/**
+ * Планировку качаем к себе только если её адрес у источника поменялся.
+ * Раньше каждая синхронизация (каждые 6 часов) заново скачивала и сохраняла
+ * планировку каждого лота: ~3–5 тыс. новых файлов за прогон в uploads,
+ * при том что сами картинки не менялись.
+ */
+/**
+ * Уже сохранённые планировки по адресу источника — из всего состояния.
+ * Одна планировка повторяется на десятках этажей: файл на неё нужен один.
+ */
+export function storedPlansBySource(state) {
+  const map = new Map();
+  for (const bucket of Object.values(state?.feeds ?? {})) {
+    for (const entry of Object.values(bucket ?? {})) {
+      if (entry?.planSrc && entry?.planUrl) map.set(entry.planSrc, entry.planUrl);
+    }
+  }
+  return map;
+}
+
+export function needsPlanUpload(entry, planUrl) {
+  if (!planUrl) return false;
+  return !(entry?.planSrc === planUrl && entry?.planUrl);
+}
+
+/** /uploads/media/x.png → <MEDIA_ROOT>/media/x.png (так их раздаёт API) */
+export function localMediaPath(url, mediaRoot = process.env.MEDIA_ROOT) {
+  if (!mediaRoot || typeof url !== "string" || !url.startsWith("/uploads/")) return null;
+  const rel = url.slice("/uploads/".length);
+  if (!rel || rel.includes("..")) return null;
+  return join(mediaRoot, rel);
+}
+
+/**
+ * Первый прогон после обновления: в состоянии ещё нет planSrc, но у объявления
+ * в базе уже может быть планировка. Если её файл на диске есть — берём его,
+ * а не качаем заново (на сервере мало места). Если файла нет (не доехал при
+ * переезде сервера) — вернём null, и планировка загрузится заново.
+ */
+async function adoptStoredPlan(lg, entry) {
+  if (!entry?.listingId || entry.planSrc) return null;
+  try {
+    const listing = await lg.api(`/listings/${entry.listingId}`);
+    const stored = listing?.apartment?.planUrl;
+    const path = localMediaPath(stored);
+    return path && existsSync(path) ? stored : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function syncFeed(feedConfig, lg, state, feedKey) {
@@ -44,6 +102,7 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
 
   const skipMedia =
     process.env.FEED_SKIP_MEDIA === "1" || process.env.FEED_SKIP_MEDIA === "true";
+  const plansBySource = storedPlansBySource(state);
 
   // Корпуса и обложку заводим один раз на фид, до разбора лотов:
   // из корпусов карточка ЖК берёт срок сдачи, из обложки — фото.
@@ -68,6 +127,11 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
     created: 0,
     updated: 0,
     skipped: 0,
+    plansUploaded: 0,
+    plansReused: 0,
+    plansFailed: 0,
+    withoutPlan: 0,
+    hasCover: Boolean(cover),
     errors: [],
   };
 
@@ -83,26 +147,43 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
         continue;
       }
 
-      if (!skipMedia) {
-        const planUrl = planImage(offer);
-        if (planUrl) {
+      const existing = bucket[offer.externalId];
+      const planSrc = planImage(offer);
+      let planStored = null;
+      if (!skipMedia && planSrc) {
+        const adopted = await adoptStoredPlan(lg, existing);
+        if (adopted) {
+          planStored = adopted;
+          plansBySource.set(planSrc, adopted);
+          result.plansReused += 1;
+        } else if (needsPlanUpload(existing, planSrc) && plansBySource.has(planSrc)) {
+          planStored = plansBySource.get(planSrc);
+          result.plansReused += 1;
+        } else if (needsPlanUpload(existing, planSrc)) {
           try {
-            payload.apartment.planUrl = await lg.uploadRemoteImage(planUrl);
+            planStored = await lg.uploadRemoteImage(planSrc);
+            plansBySource.set(planSrc, planStored);
+            result.plansUploaded += 1;
           } catch (err) {
+            result.plansFailed += 1;
             console.warn(
               `[profitbase-sync] media skip ${offer.externalId}: ${err.message}`,
             );
           }
+        } else {
+          planStored = existing.planUrl;
         }
+        if (planStored) payload.apartment.planUrl = planStored;
       }
+      if (!planSrc) result.withoutPlan += 1;
 
-      const existing = bucket[offer.externalId];
       if (!existing?.listingId) {
         const created = await lg.createListing(payload);
         bucket[offer.externalId] = {
           listingId: created.id,
           price: offer.price,
           status: offer.status,
+          ...(planStored ? { planSrc, planUrl: planStored } : {}),
         };
         result.created += 1;
       } else {
@@ -114,6 +195,10 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
         });
         bucket[offer.externalId].price = offer.price;
         bucket[offer.externalId].status = offer.status;
+        if (planStored) {
+          bucket[offer.externalId].planSrc = planSrc;
+          bucket[offer.externalId].planUrl = planStored;
+        }
         result.updated += 1;
       }
 
@@ -280,7 +365,18 @@ async function runSyncUnlocked({ persist } = {}) {
     const feed = feeds[idx];
     const key = feed.id || feed.name || `feed-${idx}`;
     console.log(`[profitbase-sync] syncing "${key}"…`);
-    const result = await syncFeed(feed, lg, state, key);
+    // Один недоступный фид (битый сертификат, 404 у источника) не должен
+    // останавливать синхронизацию остальных ЖК.
+    let result;
+    try {
+      result = await syncFeed(feed, lg, state, key);
+    } catch (err) {
+      console.error(`[profitbase-sync] feed "${key}" failed: ${err.message}`);
+      if (feed.id) {
+        await lg.markFeedSynced(feed.id, { status: "error", total: 0, created: 0, updated: 0, errors: 1 }).catch(() => {});
+      }
+      continue;
+    }
     console.log(`[profitbase-sync]   → ${JSON.stringify({ ...result, errors: result.errors?.slice(0, 3) })}`);
     if (persist) await persist(state);
     else await saveState(stateFile, state);

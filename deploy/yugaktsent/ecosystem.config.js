@@ -122,6 +122,9 @@ module.exports = {
           'PROFITBASE_STATE_FILE',
           `${deployRoot}/deploy/yugaktsent/profitbase-sync/state.json`,
         ),
+        // Та же папка, что раздаёт API: синхронизация проверяет, лежит ли уже
+        // скачанная планировка на диске, и не качает её повторно
+        MEDIA_ROOT: pick('MEDIA_ROOT', '/srv/yugaktsent-lg/uploads'),
       },
       max_memory_restart: '512M',
       error_file: '/var/log/yugaktsent-lg/profitbase-sync-error.log',

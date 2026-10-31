@@ -34,9 +34,28 @@ function asArray(v) {
   return Array.isArray(v) ? v : [v];
 }
 
-/** Планировки квартиры: в фиде это список ссылок внутри <plans>. */
+/** Ссылка из узла фида: строка либо узел с атрибутами ({ "#text": url, "@_type": … }). */
+function urlOf(v) {
+  if (v != null && typeof v === "object") return text(v["#text"]);
+  return text(v);
+}
+
+/**
+ * Планировки квартиры: в фиде это список ссылок внутри <plans>.
+ * Отдаём в той же форме, что и profitbaseFeed ({ url, type }): раньше здесь
+ * были голые строки, синхронизация искала у них поле url, не находила —
+ * и у ЖК из выгрузок ДомКлик (Eden, Sun Garden) не было ни одной планировки.
+ */
 function flatPlans(flat) {
-  return asArray(flat?.plans?.plan).map(text).filter(Boolean);
+  return asArray(flat?.plans?.plan)
+    .map(urlOf)
+    .filter(Boolean)
+    .map((url) => ({ url, type: "plan" }));
+}
+
+/** Фото корпуса: <image> бывает один, несколько или с атрибутами */
+function buildingImageOf(building) {
+  return asArray(building?.image).map(urlOf).find(Boolean) ?? null;
 }
 
 /**
@@ -102,7 +121,7 @@ export function normalizeDomclickFlat(flat, building, complex) {
     },
     images: flatPlans(flat),
     /** Фото корпуса — для обложки ЖК, в старом фиде его не было */
-    buildingImage: text(building?.image),
+    buildingImage: buildingImageOf(building),
     complexAddress: text(complex?.address),
   };
 }

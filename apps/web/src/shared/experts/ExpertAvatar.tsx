@@ -1,16 +1,25 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { expertInitials } from './expert-profile';
+import { expertInitials, expertPhotoSources } from './expert-profile';
 
-type Props = { name: string; photoUrl?: string; className?: string };
+type Props = {
+  name: string;
+  photoUrl?: string;
+  className?: string;
+  /** Ширина портрета в макете — для выбора копии из srcset */
+  sizes?: string;
+  /** Портрет на первом экране страницы эксперта — грузим сразу */
+  priority?: boolean;
+};
 
 /**
  * Портрет эксперта. Пока заказчик не прислал фото — спокойная плашка с инициалами:
  * чужое лицо или стоковое фото вместо реального человека недопустимо.
  */
-const ExpertAvatar = ({ name, photoUrl, className }: Props) => {
+const ExpertAvatar = ({ name, photoUrl, className, sizes = '160px', priority = false }: Props) => {
   const [failed, setFailed] = useState(false);
   const showPhoto = !!photoUrl && !failed;
+  const sources = expertPhotoSources(photoUrl);
   return (
     <div
       className={cn(
@@ -19,13 +28,22 @@ const ExpertAvatar = ({ name, photoUrl, className }: Props) => {
       )}
     >
       {showPhoto ? (
-        <img
-          src={photoUrl}
-          alt={name}
-          className="h-full w-full object-cover object-top"
-          onError={() => setFailed(true)}
-          decoding="async"
-        />
+        <picture>
+          {sources.webp ? <source type="image/webp" srcSet={sources.webp} sizes={sizes} /> : null}
+          <img
+            src={photoUrl}
+            srcSet={sources.jpg}
+            sizes={sources.jpg ? sizes : undefined}
+            alt={name}
+            width={1280}
+            height={1920}
+            className="h-full w-full object-cover object-top"
+            onError={() => setFailed(true)}
+            loading={priority ? 'eager' : 'lazy'}
+            fetchPriority={priority ? 'high' : undefined}
+            decoding="async"
+          />
+        </picture>
       ) : (
         <span
           aria-label={`${name}: фото появится позже`}

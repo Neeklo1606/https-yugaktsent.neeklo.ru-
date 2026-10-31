@@ -80,7 +80,7 @@ test("без года срок сдачи не выдумывается", () => 
 
 test("планировки собираются списком", () => {
   const [first] = parseDomclickXml(SAMPLE);
-  assert.deepEqual(first.images, ["https://example.test/a.jpg", "https://example.test/b.jpg"]);
+  assert.deepEqual(first.images.map((i) => i.url), ["https://example.test/a.jpg", "https://example.test/b.jpg"]);
 });
 
 test("название ЖК, корпуса, адрес и фото корпуса прокидываются в лот", () => {
@@ -93,4 +93,18 @@ test("название ЖК, корпуса, адрес и фото корпус
 
 test("лот без идентификатора отбрасывается", () => {
   assert.equal(normalizeDomclickFlat({ room: "2" }, {}, {}), null);
+});
+
+test("планировки отдаются как { url, type }, как у Profitbase XML", () => {
+  const [first] = parseDomclickXml(SAMPLE);
+  assert.deepEqual(first.images[0], { url: "https://example.test/a.jpg", type: "plan" });
+});
+
+test("фото корпуса берётся и при нескольких <image>", () => {
+  const xml = SAMPLE.replace(
+    "<image>https://example.test/house.jpg</image>",
+    "<image>https://example.test/h1.jpg</image><image>https://example.test/h2.jpg</image>",
+  );
+  const [first] = parseDomclickXml(xml);
+  assert.equal(first.buildingImage, "https://example.test/h1.jpg");
 });

@@ -269,6 +269,9 @@ export default function AdminExpertEditor() {
           </Panel>
 
           <Panel title="Описание">
+            <Field label="Экспертная позиция" htmlFor="ex-summary" hint="Одна фраза для блока «О компании» на главной">
+              <Textarea id="ex-summary" rows={2} value={draft.summary ?? ''} onChange={(e) => set('summary', e.target.value || undefined)} />
+            </Field>
             <Field label="Короткое приветствие" htmlFor="ex-intro" hint="Первый абзац страницы">
               <Textarea id="ex-intro" rows={2} value={draft.intro} onChange={(e) => set('intro', e.target.value)} />
             </Field>

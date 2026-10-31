@@ -4,8 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronDown, Search, X, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import RangeSlider from '@/redesign/components/hero/RangeSlider';
-import { formatSliderPrice } from '@/redesign/lib/display-price';
+import PriceRangeField from '@/redesign/components/PriceRangeField';
 import type { CatalogFilters, ObjectType, MarketType } from '@/redesign/data/types';
 import {
   COMMERCIAL_TYPE_FILTER_OPTIONS,
@@ -350,33 +349,12 @@ const FilterSidebar = ({
       )}
 
       <FilterSection title="Цена, ₽" count={filters.priceMin || filters.priceMax ? 1 : 0}>
-        <div className="flex gap-2">
-          <Input
-            type="number"
-            placeholder="от"
-            className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary"
-            value={filters.priceMin ?? ''}
-            onChange={e => update('priceMin', e.target.value ? Number(e.target.value) : undefined)}
-          />
-          <Input
-            type="number"
-            placeholder="до"
-            className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary"
-            value={filters.priceMax ?? ''}
-            onChange={e => update('priceMax', e.target.value ? Number(e.target.value) : undefined)}
-          />
-        </div>
-        <RangeSlider
-          className="mt-1"
-          min={0}
-          max={50_000_000}
-          step={100_000}
-          ariaLabel="Цена, ₽"
-          formatValue={(v) => formatSliderPrice(v, 50_000_000)}
-          value={[filters.priceMin ?? null, filters.priceMax ?? null]}
-          onChange={([from, to]) =>
-            onChange({ ...filters, priceMin: from ?? undefined, priceMax: to ?? undefined })
-          }
+        <PriceRangeField
+          hideLabel
+          min={filters.priceMin}
+          max={filters.priceMax}
+          inputClassName="h-10 pl-7 pr-2 text-[13px]"
+          onChange={(from, to) => onChange({ ...filters, priceMin: from, priceMax: to })}
         />
       </FilterSection>
 

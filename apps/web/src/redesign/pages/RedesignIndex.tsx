@@ -8,6 +8,7 @@ import QuickSearch from '@/redesign/components/home/QuickSearch';
 import FeaturedComplexCard from '@/redesign/components/home/FeaturedComplexCard';
 import SnapRail from '@/redesign/components/home/SnapRail';
 import BuyObjectSection from '@/redesign/components/home/BuyObjectSection';
+import HomeApartmentsSection from '@/redesign/components/home/HomeApartmentsSection';
 import HomeAboutSection from '@/redesign/components/home/HomeAboutSection';
 import LatestNews from '@/components/LatestNews';
 import LeadHighlightSection from '@/redesign/components/LeadHighlightSection';
@@ -17,8 +18,8 @@ import { useHomeBlocks } from '@/redesign/hooks/useHomeBlocks';
 import { useDefaultRegionId } from '@/redesign/hooks/useDefaultRegionId';
 
 /**
- * Главная (ТЗ redesign v3, 4.2–4.8): первый экран → быстрый поиск → популярные ЖК →
- * купить квартиру → о компании с экспертом → новости → заявка → подвал.
+ * Главная: первый экран → быстрый поиск → популярные ЖК → квартиры в продаже →
+ * купить квартиру по комнатности → о компании с экспертом → новости → заявка → подвал.
  * Сняты с главной: «Горячие предложения» и «Старт продаж» (дублировали ЖК и показывали
  * карточки без фото), квиз (вызывается кнопкой «Подобрать объект»), карта (есть в нижнем меню).
  */
@@ -39,10 +40,10 @@ const RedesignIndex = () => {
     return (promoted.length >= 3 ? promoted : pool)
       .slice()
       .sort((a, z) => (z._count?.listings ?? 0) - (a._count?.listings ?? 0))
-      .slice(0, 8)
+      .slice(0, 12)
       .map(mapApiBlockListRowToResidentialComplex);
   }, [blocks.data]);
-  const featured = candidates.filter((c) => !brokenCovers.has(c.id)).slice(0, 6);
+  const featured = candidates.filter((c) => !brokenCovers.has(c.id)).slice(0, 8);
 
   return (
     <div className="min-h-screen bg-background pb-mobile-nav">
@@ -63,7 +64,11 @@ const RedesignIndex = () => {
               <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
           </div>
-          <SnapRail label="Популярные жилые комплексы" desktopCols={featured.length >= 3 ? 3 : 2}>
+          <SnapRail
+            label="Популярные жилые комплексы"
+            desktopCols={featured.length >= 3 ? 3 : 2}
+            wideCols={featured.length >= 4 ? 4 : featured.length >= 3 ? 3 : 2}
+          >
             {featured.map((c, i) => (
               <FeaturedComplexCard key={c.id} complex={c} cityFallback={cityName} priority={i === 0} onCoverError={() => markBroken(c.id)} />
             ))}
@@ -71,6 +76,7 @@ const RedesignIndex = () => {
         </section>
       )}
 
+      <HomeApartmentsSection />
       <BuyObjectSection />
       <HomeAboutSection />
       <LatestNews />

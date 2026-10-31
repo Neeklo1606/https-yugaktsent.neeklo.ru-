@@ -54,9 +54,12 @@ export interface ExpertProfile {
   /** «Опыт более 8 лет» — только формулировка заказчика */
   experience?: string;
   city?: string;
-  /** Портрет от заказчика; пока нет — нейтральная плашка с инициалами */
+  /** Портрет от заказчика; пока нет — нейтральная плашка с инициалами.
+   *  Для файлов вида /experts/<slug>-960.jpg рядом лежат -480.jpg и .webp — см. expertPhotoSources */
   photoUrl?: string;
   coverUrl?: string;
+  /** Экспертная позиция одной фразой — блок «О компании» на главной */
+  summary?: string;
   /** Короткое приветствие для первого экрана */
   intro: string;
   /** Абзацы «О себе» — текст заказчика, разбитый на смысловые куски */
@@ -84,6 +87,10 @@ export const EXPERT_SEED: ExpertProfile[] = [
     role: 'Эксперт по новостройкам Юга России · кредитный брокер',
     experience: 'Опыт более 8 лет',
     city: 'Анапа',
+    // Портрет от заказчика (файл VLAD.jpeg), уменьшенные копии лежат в public/experts
+    photoUrl: '/experts/vladislav-goncharov-960.jpg',
+    summary:
+      'Эксперт по новостройкам Анапы и Юга России, кредитный брокер и финансовый консультант по инвестициям в недвижимость. Опыт — более восьми лет.',
     intro: 'Друзья, приветствую! Я Владислав Гончаров — эксперт по новостройкам Анапы и всего Юга.',
     about: [
       'Кредитный брокер и финансовый консультант по инвестициям в недвижимость. Опыт работы — более 8 лет.',
@@ -216,4 +223,22 @@ export function phoneHref(value: string): string {
   if (digits.startsWith('8800')) return `tel:${digits}`;
   if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) return `tel:+7${digits.slice(1)}`;
   return `tel:${digits}`;
+}
+
+/**
+ * Уменьшенные копии портрета для srcset. Работает для файлов из public/experts
+ * (<имя>-960.jpg + -480.jpg и .webp рядом); для загруженных из админки — только исходный адрес.
+ */
+export function expertPhotoSources(url?: string): { webp?: string; jpg?: string } {
+  const m = url?.match(/^(\/experts\/[\w-]+)-960\.jpg$/);
+  if (!m) return {};
+  return {
+    webp: `${m[1]}-480.webp 480w, ${m[1]}-960.webp 960w`,
+    jpg: `${m[1]}-480.jpg 480w, ${m[1]}-960.jpg 960w`,
+  };
+}
+
+/** Абсолютный адрес картинки — для og:image и JSON-LD */
+export function absoluteSiteUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `${SITE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 }

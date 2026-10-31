@@ -9,6 +9,8 @@ import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
 import { parseHomeBanners, visibleHomeBanners, type HomeBanner } from '@/redesign/lib/home-banners';
 import { useHomeBlocks } from '@/redesign/hooks/useHomeBlocks';
 import { formatDisplayPrice } from '@/redesign/lib/display-price';
+import { complexMinPrice } from '@/redesign/lib/card-visual';
+import { mapApiBlockListRowToResidentialComplex } from '@/redesign/lib/blocks-from-api';
 import { btnClass } from '@/redesign/lib/button-styles';
 import { usePrefersReducedMotion } from '@/shared/hooks/usePrefersReducedMotion';
 
@@ -48,7 +50,9 @@ const HeroBanner = () => {
     const withPhoto = (blocksData?.data ?? []).filter((b) => b.images?.[0]?.url && b.slug && !brokenSlides.has(b.slug));
     if (withPhoto.length > 0) {
       return withPhoto.slice(0, 5).map((b) => {
-        const priceFrom = formatDisplayPrice(b.listingPriceMin ?? null);
+        // «от» считаем той же функцией, что карточки ЖК и каталог — цена везде одна
+        const minPrice = complexMinPrice(mapApiBlockListRowToResidentialComplex(b));
+        const priceFrom = minPrice != null ? formatDisplayPrice(minPrice) : null;
         return {
           id: b.slug,
           image: b.images![0].url,
@@ -106,7 +110,14 @@ const HeroBanner = () => {
   }, [total, paused, consultOpen, reducedMotion]);
 
   const active = slides[Math.min(index, total - 1)];
-  const heroHeight = 'h-[clamp(420px,64svh,540px)] sm:h-[clamp(480px,70svh,640px)] lg:h-[min(calc(100svh-72px),720px)]';
+  /**
+   * Высота от видимой высоты экрана (svh — без прыжков панели Safari), а не фиксированные пиксели.
+   * На десктопе первый экран = шапка 72 px + баннер + панель поиска (наезжает на баннер на 48 px,
+   * сама ~160 px): баннер = 100svh − 196 px, чтобы поиск целиком помещался без прокрутки.
+   * На телефоне баннер ~половина экрана — под ним сразу видны поле поиска и кнопка.
+   */
+  const heroHeight =
+    'h-[clamp(320px,52svh,460px)] sm:h-[clamp(420px,60svh,560px)] lg:h-[clamp(440px,calc(100svh-196px),700px)]';
   // Пока не знаем, что показывать, держим место той же высоты: без запасного слайда и прыжка вёрстки
   if (settingsLoading || blocksLoading) {
     return <section aria-busy="true" aria-label="Загрузка" className={cn('relative w-full animate-pulse bg-graphite', heroHeight)} />;

@@ -230,7 +230,9 @@ const RedesignCatalog = () => {
   const catalogSort = parseCatalogSort(searchParams.get('sort'));
 
   const isApartmentMode = filters.objectType === 'apartments';
-  const useBlocksCatalog = isApartmentMode && filters.marketType !== 'secondary';
+  /** «Все квартиры» с главной: новостройки списком квартир, а не жилых комплексов */
+  const flatsMode = searchParams.get('group') === 'flats';
+  const useBlocksCatalog = isApartmentMode && filters.marketType !== 'secondary' && !flatsMode;
   const listingKind = LISTING_KIND_BY_OBJECT_TYPE[filters.objectType];
   const regionName = useMemo(
     () => regionRows?.find((row) => row.id === regionId)?.name ?? null,
@@ -567,7 +569,9 @@ const RedesignCatalog = () => {
     filters.builder.length > 0,
     filters.district.length > 0,
   ].filter(Boolean).length;
-  const heading = regionName && isApartmentMode ? `${pageTitle} в ${regionName === 'Анапа' ? 'Анапе' : regionName}` : pageTitle;
+  const regionIn = regionName === 'Анапа' ? 'Анапе' : regionName;
+  const headingBase = flatsMode && isApartmentMode ? 'Квартиры в новостройках' : pageTitle;
+  const heading = regionName && isApartmentMode ? `${headingBase}${flatsMode ? ':' : ' в'} ${flatsMode ? regionName : regionIn}` : headingBase;
 
   const sidebarProps = {
     filters,
@@ -707,6 +711,40 @@ const RedesignCatalog = () => {
             ))}
           </div>
         )}
+
+        {isApartmentMode && filters.marketType !== 'secondary' ? (
+          <div className="mb-3 ml-0 inline-flex rounded-lg bg-surface-soft p-1 sm:ml-2" role="group" aria-label="Что показывать">
+            {(
+              [
+                [false, 'Жилые комплексы'],
+                [true, 'Квартиры'],
+              ] as const
+            ).map(([flats, label]) => (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={flatsMode === flats}
+                onClick={() =>
+                  setSearchParams(
+                    (prev) => {
+                      const next = new URLSearchParams(prev);
+                      if (flats) next.set('group', 'flats');
+                      else next.delete('group');
+                      return next;
+                    },
+                    { replace: true },
+                  )
+                }
+                className={cn(
+                  'h-9 rounded-md px-4 text-[14px] font-medium transition-colors',
+                  flatsMode === flats ? 'bg-card text-foreground shadow-card' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         {showKindSwitcher && (
           <div className="mb-3 flex flex-wrap items-center gap-1.5" aria-label="Тип объекта">

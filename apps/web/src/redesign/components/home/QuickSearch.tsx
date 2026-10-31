@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { apiGet } from '@/lib/api';
 import { btnClass } from '@/redesign/lib/button-styles';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import PriceRangeField from '@/redesign/components/PriceRangeField';
 import CatalogSearchHintsDropdown from '@/redesign/components/CatalogSearchHintsDropdown';
 import type { CatalogHints } from '@/redesign/lib/catalog-hints-types';
 import { catalogFiltersIntoSearchParams } from '@/redesign/lib/catalog-url-sync';
@@ -139,6 +140,7 @@ const QuickSearch = () => {
 
   const setMarket = (m: MarketType) => setFilters((p) => ({ ...p, marketType: m }));
   const setType = (t: ObjectType) => setFilters((p) => resetFiltersForObjectType(p, t));
+  const setPrice = (priceMin?: number, priceMax?: number) => setFilters((p) => ({ ...p, priceMin, priceMax }));
 
   /** Сколько расширенных параметров задано — бейдж на кнопке «Параметры» */
   const extraCount = useMemo(
@@ -254,7 +256,7 @@ const QuickSearch = () => {
 
           {/* Цена на десктопе видна сразу; на телефоне — в шторке параметров */}
           <div className="hidden lg:block">
-            <RangeInputs label="Цена" unit="₽" min={filters.priceMin} max={filters.priceMax} onChange={(a, b) => setFilters((p) => ({ ...p, priceMin: a, priceMax: b }))} />
+            <PriceRangeField showSlider={false} min={filters.priceMin} max={filters.priceMax} onChange={setPrice} />
           </div>
 
           <div className="mt-1 flex gap-2 lg:mt-0">
@@ -293,7 +295,7 @@ const QuickSearch = () => {
             <SheetDescription>Применятся к каталогу и карте.</SheetDescription>
           </SheetHeader>
           <div className="mt-4 grid gap-5">
-            <RangeInputs label="Цена" unit="₽" min={filters.priceMin} max={filters.priceMax} onChange={(a, b) => setFilters((p) => ({ ...p, priceMin: a, priceMax: b }))} />
+            <PriceRangeField min={filters.priceMin} max={filters.priceMax} onChange={setPrice} inputClassName="h-12 text-base" />
             {showRoomsAndFloor ? <RoomChips value={filters.rooms} onToggle={toggleRoom} /> : null}
             <RangeInputs label="Площадь" unit="м²" min={filters.areaMin} max={filters.areaMax} onChange={(a, b) => setFilters((p) => ({ ...p, areaMin: a, areaMax: b }))} />
             {showRoomsAndFloor ? (

@@ -145,7 +145,8 @@ export function parseProfitbaseXml(xml) {
 
 export async function fetchProfitbaseFeed(feedUrl) {
   const res = await fetch(feedUrl);
-  if (!res.ok) throw new Error(`Failed to download feed ${feedUrl}: HTTP ${res.status}`);
+  // Адрес фида содержит токен доступа — в лог уходит только хост
+  if (!res.ok) throw new Error(`Failed to download feed from ${new URL(feedUrl).host}: HTTP ${res.status}`);
   const xml = await res.text();
   // Формат определяем по содержимому: выгрузки ДомКлик и обычный фид
   // Profitbase лежат по одинаковым адресам и различаются только корнем.
