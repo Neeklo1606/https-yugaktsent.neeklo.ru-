@@ -151,9 +151,7 @@ function buildSitemapXml(siteUrl, complexPaths, extraPaths = []) {
     '/',
     '/catalog',
     '/catalog/apartments',
-    '/catalog/houses',
-    '/catalog/land',
-    '/catalog/commercial',
+    // Дома, участки и коммерция пока пустые — пустые разделы в sitemap не отдаём
     '/map',
     '/news',
     '/about',

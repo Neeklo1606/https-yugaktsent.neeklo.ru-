@@ -1,6 +1,6 @@
 import "dotenv/config";
 import cron from "node-cron";
-import { runSync } from "./syncFeed.js";
+import { runSync, findPendingFeeds } from "./syncFeed.js";
 
 const args = process.argv.slice(2);
 
@@ -18,15 +18,32 @@ async function waitForApi(maxAttempts = 30) {
   throw new Error("API сайта не отвечает");
 }
 
-async function runOnce() {
-  console.log(`[profitbase-sync] run started @ ${new Date().toISOString()}`);
+async function runOnce(opts) {
+  console.log(`[profitbase-sync] run started @ ${new Date().toISOString()}${opts?.only ? ` only=${opts.only.join(",")}` : ""}`);
   try {
     await waitForApi();
-    await runSync();
+    await runSync(opts);
   } catch (err) {
     console.error("[profitbase-sync] fatal:", err.message);
     throw err;
   }
+}
+
+/**
+ * Новый или изменённый в админке фид не ждёт расписания (раз в 6 часов):
+ * служба раз в пару минут проверяет, есть ли такие, и синхронизирует только их.
+ * Параллельный запуск исключает замок в runSync.
+ */
+function watchPending() {
+  const everyMs = Number(process.env.PENDING_POLL_SECONDS || 120) * 1000;
+  setInterval(async () => {
+    try {
+      const ids = await findPendingFeeds();
+      if (ids.length > 0) await runOnce({ only: ids });
+    } catch (err) {
+      console.warn(`[profitbase-sync] pending check: ${err.message}`);
+    }
+  }, everyMs);
 }
 
 if (args.includes("--watch-cron")) {
@@ -36,6 +53,7 @@ if (args.includes("--watch-cron")) {
     runOnce().catch((err) => console.error("[profitbase-sync] unhandled:", err));
   });
   runOnce().catch((err) => console.error("[profitbase-sync] unhandled:", err));
+  watchPending();
 } else {
   runOnce()
     .catch((err) => {

@@ -30,6 +30,18 @@ function countActiveFilters(f: CatalogFilters): number {
 }
 
 /** SEO titles for /catalog with URL filter state (client-side). */
+/**
+ * «в Анапе», «в Краснодаре», «в Тюмени». Название из нескольких слов
+ * склонять не беремся — тогда « — Краснодарский край».
+ */
+export function inRegionPhrase(name: string): string {
+  if (/\s/.test(name)) return ` — ${name}`;
+  if (/[ая]$/i.test(name)) return ` в ${name.slice(0, -1)}е`;
+  if (/ь$/i.test(name)) return ` в ${name.slice(0, -1)}и`;
+  if (/[бвгджзклмнпрстфхцчшщ]$/i.test(name)) return ` в ${name}е`;
+  return ` в ${name}`;
+}
+
 export function buildCatalogSeoMeta(
   search: string,
   filters: CatalogFilters,
@@ -99,7 +111,7 @@ export function buildCatalogSeoMeta(
 
   const title = regionPrefix ? `${regionPrefix}${titleBase}` : titleBase;
 
-  const regionHint = opts?.regionName?.trim() ? ` в ${opts.regionName.trim()}` : '';
+  const regionHint = opts?.regionName?.trim() ? inRegionPhrase(opts.regionName.trim()) : '';
   let description: string;
   if (landing.kind === 'district' && landing.district) {
     description = `Квартиры и новостройки в районе ${landing.district}${regionHint}. Фильтры, карта, актуальные объекты на ${siteName}.`;
@@ -109,7 +121,7 @@ export function buildCatalogSeoMeta(
     description =
       activeCount > 0
         ? `Подбор недвижимости${regionHint} на ${siteName}: ${parts.join(', ')}. Фильтры, карта, актуальные объекты.`
-        : `Подбор ЖК и квартир${regionHint} по цене, району, метро и другим параметрам. Карта, избранное, подборки.`;
+        : `Подбор ЖК и квартир${regionHint} по цене, району, сроку сдачи и другим параметрам. Карта, избранное, подборки.`;
   }
 
   const noindex =

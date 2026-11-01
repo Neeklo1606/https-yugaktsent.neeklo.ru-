@@ -54,16 +54,34 @@ export function imageAltText(context?: string | null, decorative = true): string
 export const IMAGE_PROXY_WIDTHS = [480, 800, 1280] as const;
 
 const PROFITBASE_RE = /^https?:\/\/(pb\d+(?:\.tochno)?)\.profitbase\.ru\/(uploads\/.+)$/i;
+/** Файлы с нашего сервера: /uploads/… или полный адрес сайта (так их хранит API обложек) */
+const LOCAL_UPLOAD_RE = /^(?:https?:\/\/[^/]+)?\/(uploads\/.+\.(?:jpe?g|png|webp))$/i;
+
+function isOwnOrigin(url: string): boolean {
+  if (url.startsWith('/')) return true;
+  const site = import.meta.env.VITE_PUBLIC_SITE_URL;
+  try {
+    const host = new URL(url).host;
+    return (site ? new URL(site).host === host : false) || (typeof window !== 'undefined' && window.location.host === host);
+  } catch {
+    return false;
+  }
+}
 
 /**
- * Фото Profitbase приходят оригиналами по 0,3–4 МБ. При включённом ресайзере
- * (`VITE_IMAGE_PROXY=1`, nginx + image_filter с кэшем) отдаём уменьшенные копии.
+ * Фото Profitbase и скачанные к нам копии — оригиналы по 0,3–4 МБ. При включённом
+ * ресайзере (`VITE_IMAGE_PROXY=1`, nginx + image_filter с кэшем) отдаём уменьшенные копии.
  */
 export function proxiedImageUrl(url: string, width: number): string | null {
   if (import.meta.env.VITE_IMAGE_PROXY !== '1') return null;
-  const m = PROFITBASE_RE.exec(url.trim());
-  if (!m) return null;
-  return `/img/${width}/${m[1]}/${m[2]}`;
+  const trimmed = url.trim();
+  const m = PROFITBASE_RE.exec(trimmed);
+  if (m) return `/img/${width}/${m[1]}/${m[2]}`;
+  // Ресайз своих файлов — отдельная настройка nginx (`/img/<w>/local/…`), включается своим флагом
+  if (import.meta.env.VITE_IMAGE_PROXY_LOCAL !== '1') return null;
+  const local = LOCAL_UPLOAD_RE.exec(trimmed);
+  if (local && isOwnOrigin(trimmed)) return `/img/${width}/local/${local[1]}`;
+  return null;
 }
 
 /** srcSet для <img>, либо undefined, если ресайзер к этому адресу не применим */

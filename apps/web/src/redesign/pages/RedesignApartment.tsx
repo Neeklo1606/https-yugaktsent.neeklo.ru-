@@ -31,7 +31,7 @@ import { formatDisplayPrice } from '@/redesign/lib/display-price';
 import { cn } from '@/lib/utils';
 import { useFavorites } from '@/shared/hooks/useFavorites';
 import { shareCurrentPage } from '@/lib/share-page';
-import { useEntitySeoMeta } from '@/shared/hooks/useEntitySeoMeta';
+import { useEntitySeoMeta, useNoIndex } from '@/shared/hooks/useEntitySeoMeta';
 import { useYandexMapsReady } from '@/shared/hooks/useYandexMapsReady';
 import { useInViewOnce } from '@/shared/hooks/useInViewOnce';
 import { buildCatalogFilterUrl } from '@/redesign/lib/catalog-filter-links';
@@ -182,6 +182,7 @@ const RedesignApartment = () => {
 
   const loading = listingId != null && listingQuery.isPending;
   const apiFailed = listingId != null && (listingQuery.isError || (listingQuery.isFetched && !apiPage));
+  useNoIndex(apiFailed);
 
   const fetchedKind = listingQuery.data?.kind;
   const fetchedHasBlock = !!listingQuery.data?.block;

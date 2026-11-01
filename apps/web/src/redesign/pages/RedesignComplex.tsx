@@ -149,12 +149,13 @@ const RedesignComplex = () => {
 
   const entitySeo = useMemo(() => {
     if (!complex) return null;
-    const priceHint =
-      ` ${formatPriceFrom(complex.priceFrom)}`;
-    const desc = `${complex.name}${priceHint}. ${complex.district || complex.address}. Квартиры, планировки и шахматка на ${shortName}.`.slice(
-      0,
-      160,
-    );
+    // Пустые поля (район, адрес) пропускаем, иначе в описании «. .»
+    const place = [complex.district, complex.address].find((v) => v && v.trim() && v.trim() !== '—');
+    const desc = [`${complex.name} ${formatPriceFrom(complex.priceFrom)}`, place, `Квартиры, планировки и шахматка на ${shortName}`]
+      .filter(Boolean)
+      .join('. ')
+      .concat('.')
+      .slice(0, 160);
     return {
       title: complex.name,
       description: desc,

@@ -70,6 +70,11 @@ export class LiveGridClient {
     return this.api("/admin/feed-import/refresh-cache", { method: "POST", body: {} });
   }
 
+  /** Sitemap квартир — снимок; без пересборки в нём остаются проданные и снятые лоты */
+  async regenerateSitemap() {
+    return this.api("/admin/sitemap/generate", { method: "POST", body: {} });
+  }
+
   async ensureRegion() {
     const code = process.env.YUGAKTSENT_REGION_CODE || "anapa";
     const name = process.env.YUGAKTSENT_REGION_NAME || "Анапа";
@@ -292,10 +297,7 @@ export class LiveGridClient {
     return found;
   }
 
-  /**
-   * Обложка ЖК ссылкой на изображение поставщика.
-   * Файл не скачиваем — храним только адрес.
-   */
+  /** Обложка ЖК: ставится один раз за прогон, адрес — уже сохранённый у нас файл */
   async setBlockCover(blockId, url) {
     if (!url) return;
     this.coversSet ??= new Set();
@@ -306,6 +308,33 @@ export class LiveGridClient {
     } catch (err) {
       console.warn(`[sync] обложка ЖК ${blockId} не поставлена: ${err.message}`);
     }
+  }
+
+  /** Текущая обложка ЖК (первый рендер) — чтобы не затирать фото, загруженное в админке */
+  async blockCoverUrl(blockId) {
+    const block = await this.api(`/admin/blocks/${blockId}`);
+    const images = (block?.images ?? []).filter((i) => i.kind === "RENDER");
+    return images[0]?.url ?? null;
+  }
+
+  /** Все квартиры ЖК в любом статусе: для привязки лотов фида и снятия устаревших */
+  async loadBlockListings(blockId) {
+    const out = [];
+    for (let page = 1; page < 100; page++) {
+      const resp = await this.api(
+        `/admin/listings?block_id=${blockId}&kind=APARTMENT&statuses=ACTIVE,RESERVED,SOLD,INACTIVE&admin_view=true&per_page=200&page=${page}`,
+      );
+      const rows = Array.isArray(resp?.data) ? resp.data : [];
+      out.push(...rows);
+      const totalPages = resp?.meta?.total_pages ?? 1;
+      if (page >= totalPages || rows.length === 0) break;
+    }
+    return out;
+  }
+
+  /** Снять с витрины: данные остаются в базе, в админке объявление видно как неактивное */
+  async hideListing(listingId) {
+    return this.updateListing(listingId, { status: "INACTIVE", isPublished: false });
   }
 
   buildApartmentPayload(offer, blockId, isUpdate = false) {

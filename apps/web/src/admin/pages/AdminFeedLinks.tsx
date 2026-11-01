@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, ExternalLink, Link2, Loader2, Plus, Radar, Save, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, Link2, Loader2, Plus, Radar, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -56,9 +56,32 @@ function formatDate(value: string | null) {
   return d.toLocaleString('ru-RU');
 }
 
+/**
+ * Ждёт внеочередной синхронизации: фид новый или изменён после прогона.
+ * Служба синхронизации проверяет такие раз в пару минут (та же логика в profitbase-sync).
+ */
+function isSyncPending(row: FeedLinkRow) {
+  if (!row.isEnabled) return false;
+  if (!row.lastSyncedAt) return true;
+  return new Date(row.updatedAt).getTime() - new Date(row.lastSyncedAt).getTime() > 5000;
+}
+
 function FeedSyncStatus({ row, probe }: { row: FeedLinkRow; probe?: ProbeResult }) {
   const when = formatDate(row.lastSyncedAt);
   const status = row.lastSyncStatus;
+
+  if (isSyncPending(row)) {
+    return (
+      <div className="space-y-1">
+        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          В очереди
+        </span>
+        <div className="text-xs text-muted-foreground whitespace-normal">Объекты появятся на сайте в течение нескольких минут</div>
+        {when ? <div className="text-xs text-muted-foreground">Прошлая: {when}</div> : null}
+      </div>
+    );
+  }
 
   if (status === 'empty') {
     return (
@@ -162,6 +185,8 @@ export default function AdminFeedLinks() {
     queryKey: ['admin', 'feed-links', query],
     queryFn: () => apiGet<FeedLinkRow[]>(`/admin/feed-links${query ? `?${query}` : ''}`),
     staleTime: 10_000,
+    // Пока фид в очереди — обновляем статус сами, без перезагрузки страницы
+    refetchInterval: (q) => ((q.state.data ?? []).some(isSyncPending) ? 20_000 : false),
   });
 
   const createMutation = useMutation({
@@ -221,6 +246,18 @@ export default function AdminFeedLinks() {
     },
   });
 
+  const syncNowMutation = useMutation({
+    // Любое изменение записи ставит фид в очередь синхронизации
+    mutationFn: (row: FeedLinkRow) => apiPatch<FeedLinkRow>(`/admin/feed-links/${row.id}`, { sortOrder: row.sortOrder }),
+    onSuccess: async () => {
+      toast.success('Фид поставлен в очередь синхронизации');
+      await qc.invalidateQueries({ queryKey: ['admin', 'feed-links'] });
+    },
+    onError: (e) => {
+      toast.error(e instanceof Error ? e.message : 'Не удалось запустить синхронизацию');
+    },
+  });
+
   const probeMutation = useMutation({
     mutationFn: (id: number) => apiGet<ProbeResult>(`/admin/feed-links/${id}/probe`),
     onMutate: (id) => setProbingId(id),
@@ -269,8 +306,10 @@ export default function AdminFeedLinks() {
             Ссылки на фиды
           </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Управление внешними XML-фидами (Profitbase). Синхронизация выполняется сервисом{' '}
-            <code className="text-xs bg-muted px-1 py-0.5 rounded">profitbase-sync</code> по расписанию.
+            XML-фиды застройщиков (Profitbase XML и ДомКлик). Каждые 6 часов служба{' '}
+            <code className="text-xs bg-muted px-1 py-0.5 rounded">profitbase-sync</code> обновляет цены, статусы и
+            планировки, скачивает фото на наш сервер и снимает с сайта проданные лоты. Новый или изменённый фид
+            синхронизируется в течение нескольких минут; ЖК создаётся автоматически по названию.
             TrendAgent-фиды настраиваются в{' '}
             <Link to="/admin/regions" className="text-primary hover:underline">регионах</Link>.
           </p>
@@ -418,6 +457,19 @@ export default function AdminFeedLinks() {
                             ) : (
                               <Radar className="w-3.5 h-3.5" />
                             )}
+                            <span className="sr-only">Проверить доступность фида</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8"
+                            title="Синхронизировать сейчас"
+                            disabled={!row.isEnabled || isSyncPending(row) || syncNowMutation.isPending}
+                            onClick={() => syncNowMutation.mutate(row)}
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span className="sr-only">Синхронизировать сейчас</span>
                           </Button>
                           {canDelete ? (
                             <Button
@@ -471,7 +523,7 @@ export default function AdminFeedLinks() {
             </select>
           </label>
           <label className="text-sm space-y-1 md:col-span-2">
-            <span className="text-muted-foreground">URL фида (Profitbase XML)</span>
+            <span className="text-muted-foreground">URL фида (Profitbase XML или ДомКлик)</span>
             <Input
               value={newFeedUrl}
               onChange={(e) => setNewFeedUrl(e.target.value)}

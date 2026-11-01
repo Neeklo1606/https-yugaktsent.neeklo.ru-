@@ -83,3 +83,10 @@ export function useEntitySeoMeta(input: EntitySeoInput | null) {
     };
   }, [input?.title, input?.description, input?.pathname, input?.imageUrl, input?.jsonLd, shortName]);
 }
+
+/** «Не найдено» отвечает 200 (SPA), поэтому прячем такую страницу от поисковиков мета-тегом */
+export function useNoIndex(active: boolean) {
+  useEffect(() => {
+    if (active) setMeta('robots', 'noindex, nofollow');
+  }, [active]);
+}

@@ -62,7 +62,7 @@ const ApartmentCharacteristics = ({ apartment, building, complex, roomLabel }: P
           <div key={item.label} className="rounded-xl border border-border bg-card p-3 sm:p-4">
             <item.icon className="h-4 w-4 text-muted-foreground mb-2" />
             <p className="text-[11px] text-muted-foreground">{item.label}</p>
-            <p className="text-sm font-semibold mt-0.5 capitalize">{item.value}</p>
+            <p className="text-sm font-semibold mt-0.5 first-letter:uppercase">{item.value}</p>
           </div>
         ))}
       </div>
