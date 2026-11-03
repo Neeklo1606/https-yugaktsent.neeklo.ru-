@@ -32,6 +32,7 @@ import { MonitoringModule } from './monitoring/monitoring.module';
 import { PresentationsModule } from './modules/presentations/presentations.module';
 import { SellersModule } from './modules/sellers/sellers.module';
 import { ViewportPrototypeModule } from './modules/viewport-prototype/viewport-prototype.module';
+import { MapViewportModule } from './modules/map-viewport/map-viewport.module';
 import { SitemapModule } from './modules/sitemap/sitemap.module';
 import { SystemDiagnosticsGovernanceModule } from './modules/system-diagnostics/system-diagnostics-governance.module';
 import { DiscoveryModule } from './modules/discovery/discovery.module';
@@ -77,6 +78,8 @@ import { EcosystemModule } from './modules/ecosystem/ecosystem.module';
     PresentationsModule,
     SellersModule,
     ViewportPrototypeModule,
+    // Маркеры карты /map/viewport/* — раньше модуль подключался только через выключенную диагностику
+    MapViewportModule,
     SitemapModule,
     SystemDiagnosticsGovernanceModule,
     DiscoveryModule,

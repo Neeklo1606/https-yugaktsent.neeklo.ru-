@@ -264,8 +264,8 @@ export default function AdminRegions() {
         </div>
       </div>
 
-      <div className="bg-background border rounded-2xl overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-background border rounded-2xl overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-muted/50 border-b">
             <tr>
               <th className="text-left p-3 font-medium">Код</th>

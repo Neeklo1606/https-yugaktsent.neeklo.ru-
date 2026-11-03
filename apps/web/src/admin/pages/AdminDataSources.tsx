@@ -264,8 +264,8 @@ export default function AdminDataSources() {
 
               <h3 className="mt-6 text-[15px] font-semibold">Сопоставление полей</h3>
               <p className="mt-0.5 text-[13px] text-muted-foreground">Ожидаемое: какие теги фида сервер положит в поля сайта.</p>
-              <div className="mt-2 overflow-hidden rounded-lg border border-border">
-                <table className="w-full text-left text-[13px]">
+              <div className="mt-2 overflow-x-auto rounded-lg border border-border">
+                <table className="w-full min-w-[520px] text-left text-[13px]">
                   <thead className="bg-surface-soft text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 font-medium">Поле сайта</th>

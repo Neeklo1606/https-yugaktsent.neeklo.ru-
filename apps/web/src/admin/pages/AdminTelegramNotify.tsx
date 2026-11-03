@@ -108,12 +108,12 @@ export default function AdminTelegramNotify() {
         </div>
       ) : null}
 
-      <section className="bg-background border rounded-2xl overflow-hidden">
+      <section className="bg-background border rounded-2xl overflow-x-auto">
         <div className="px-5 py-4 border-b bg-muted/30">
           <h2 className="font-semibold">Заявки на доступ ({pendingQuery.data?.length ?? 0})</h2>
         </div>
         {pendingQuery.data?.length ? (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-muted/40 border-b">
               <tr>
                 <th className="text-left p-3 font-medium">Пользователь</th>
@@ -163,12 +163,12 @@ export default function AdminTelegramNotify() {
         )}
       </section>
 
-      <section className="bg-background border rounded-2xl overflow-hidden">
+      <section className="bg-background border rounded-2xl overflow-x-auto">
         <div className="px-5 py-4 border-b bg-muted/30">
           <h2 className="font-semibold">Получатели уведомлений ({recipientsQuery.data?.length ?? 0})</h2>
         </div>
         {recipientsQuery.data?.length ? (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-muted/40 border-b">
               <tr>
                 <th className="text-left p-3 font-medium">Пользователь</th>

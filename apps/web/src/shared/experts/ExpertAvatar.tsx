@@ -40,7 +40,8 @@ const ExpertAvatar = ({ name, photoUrl, className, sizes = '160px', priority = f
             className="h-full w-full object-cover object-top"
             onError={() => setFailed(true)}
             loading={priority ? 'eager' : 'lazy'}
-            fetchPriority={priority ? 'high' : undefined}
+            // React 18 не знает fetchPriority — атрибут в нижнем регистре, как в StableMediaFrame
+            {...(priority ? { fetchpriority: 'high' } : {})}
             decoding="async"
           />
         </picture>

@@ -7,6 +7,9 @@ import AdminLoadingState from '@/admin/components/AdminLoadingState';
 import AdminStatusBadge from '@/admin/components/AdminStatusBadge';
 import CrmInlineError from '@/admin/components/CrmInlineError';
 
+/** Пока источники не загружены — один и тот же пустой массив, а не новый на каждый рендер */
+const NO_SOURCES: FeedSourceRow[] = [];
+
 interface ImportHistoryRow {
   id: number;
   regionCode?: string | null;
@@ -268,7 +271,7 @@ export default function AdminFeedImport() {
     staleTime: 60_000,
   });
 
-  const { data: sources = [] } = useQuery({
+  const { data: sources = NO_SOURCES } = useQuery({
     queryKey: ['admin', 'feed-import', 'sources'],
     queryFn: () => apiGet<FeedSourceRow[]>('/admin/feed-import/sources'),
     staleTime: 30_000,
@@ -282,8 +285,10 @@ export default function AdminFeedImport() {
   useEffect(() => {
     setSelectedFeedCodes((prev) => {
       const allowed = new Set(importableSourceCodes);
-      const next = prev.filter((code) => allowed.has(code));
-      return next.length ? next : importableSourceCodes;
+      const filtered = prev.filter((code) => allowed.has(code));
+      const next = filtered.length ? filtered : importableSourceCodes;
+      // Тот же набор — прежний массив, иначе эффект перерисовывает страницу по кругу
+      return next.length === prev.length && next.every((c, i) => c === prev[i]) ? prev : next;
     });
   }, [importableSourceCodes]);
 

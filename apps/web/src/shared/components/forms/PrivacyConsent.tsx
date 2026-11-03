@@ -31,7 +31,8 @@ const PrivacyConsent = ({
           id={id}
           checked={checked}
           onCheckedChange={(value) => onCheckedChange(value === true)}
-          className="mt-0.5"
+          // Квадрат 16 px, а зона нажатия на телефоне — 40 px
+          className="relative mt-0.5 after:absolute after:-inset-3 after:content-['']"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
         />

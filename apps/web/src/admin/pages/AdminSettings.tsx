@@ -59,7 +59,12 @@ export default function AdminSettings() {
     );
   }
 
-  const groups = data ? Object.entries(data) : [];
+  // Метро в Анапе нет и по ТЗ не выводится — шаблоны «у метро» в настройках не показываем
+  const groups = data
+    ? Object.entries(data)
+        .map(([group, rows]) => [group, rows.filter((r) => !r.key.includes('subway'))] as const)
+        .filter(([, rows]) => rows.length > 0)
+    : [];
 
   return (
     <div className="p-6 max-w-4xl">

@@ -448,7 +448,9 @@ export default function AdminFeedLinks() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="h-8"
+                            className="h-9"
+                            title="Проверить доступность фида"
+                            aria-label="Проверить доступность фида"
                             disabled={probingId === row.id}
                             onClick={() => probeMutation.mutate(row.id)}
                           >
@@ -457,26 +459,27 @@ export default function AdminFeedLinks() {
                             ) : (
                               <Radar className="w-3.5 h-3.5" />
                             )}
-                            <span className="sr-only">Проверить доступность фида</span>
                           </Button>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="h-8"
+                            className="h-9"
                             title="Синхронизировать сейчас"
+                            aria-label="Синхронизировать сейчас"
                             disabled={!row.isEnabled || isSyncPending(row) || syncNowMutation.isPending}
                             onClick={() => syncNowMutation.mutate(row)}
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
-                            <span className="sr-only">Синхронизировать сейчас</span>
                           </Button>
                           {canDelete ? (
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-8 text-destructive hover:text-destructive"
+                              className="h-9 text-destructive hover:text-destructive"
+                              title="Удалить фид"
+                              aria-label={`Удалить фид ${row.name}`}
                               onClick={() => {
                                 if (window.confirm(`Удалить фид «${row.name}»?`)) {
                                   deleteMutation.mutate(row.id);

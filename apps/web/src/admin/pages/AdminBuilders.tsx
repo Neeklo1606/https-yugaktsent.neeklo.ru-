@@ -203,13 +203,13 @@ export default function AdminBuilders() {
         </div>
       ) : null}
 
-      <div className="rounded-xl border overflow-hidden">
+      <div className="rounded-xl border overflow-x-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-muted/50 border-b">
               <tr>
                 <th className="text-left p-3 font-medium w-24">ID</th>

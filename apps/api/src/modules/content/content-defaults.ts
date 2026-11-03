@@ -222,7 +222,7 @@ export const DEFAULT_SEO_LANDING_SETTINGS: Array<{
   {
     key: 'seo_landing_region_intro',
     value:
-      'Каталог недвижимости{regionSuffix}: жилые комплексы, квартиры, фильтры по району и метро.',
+      'Каталог недвижимости{regionSuffix}: жилые комплексы, квартиры, фильтры по району и сроку сдачи.',
     groupName: 'seo_landings',
     label: 'Шаблон intro: регион ({region}, {regionSuffix})',
     fieldType: SiteSettingFieldType.TEXTAREA,
