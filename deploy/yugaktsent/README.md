@@ -1,22 +1,34 @@
-# ЮгАкцент — деплой сайта yugaktsent.neeklo.ru
+# ЮгАкцент — деплой
 
-Деплой на `yugaktsent.neeklo.ru` (сервер `212.67.9.173`).
+Полный план переезда на новый сервер: [`docs/MIGRATION_PLAN_2026-11.md`](../../docs/MIGRATION_PLAN_2026-11.md).
 
-## Особенности
+## Стек на сервере
 
-- Каталог: `/var/www/yugaktsent-lg`
-- БД PostgreSQL: `yugaktsent_lg`
-- API порт **3025** (PM2: `yugaktsent-lg-api`)
-- TrendAgent **отключён**
-- Profitbase XML → PM2 `yugaktsent-profitbase-sync`
+| Что | Где |
+|---|---|
+| Код | `/var/www/yugaktsent-lg` (git clone, ветка `main`) |
+| Фронт (статика + пререндер) | `apps/web/dist`, раздаёт nginx |
+| API (NestJS) | systemd `yugaktsent-api`, `127.0.0.1:3025` |
+| Синхронизация Profitbase | systemd `yugaktsent-profitbase-sync` (cron внутри, раз в 6 ч + опрос админки раз в 2 мин) |
+| БД | PostgreSQL 16 + PostGIS, база и пользователь `yugaktsent_lg` |
+| Кэш | Redis `127.0.0.1:6379` |
+| Медиа | `/srv/yugaktsent-lg/uploads` |
+| Окружение | `.env` в корне проекта → `/etc/yugaktsent/*.env` (собирает `scripts/write-systemd-env.mjs`) |
+| nginx | `nginx/site.conf.template` + `nginx/yugaktsent-http.conf`, ставит `scripts/install-nginx.sh` |
+| Логи | `/var/log/yugaktsent-lg/` |
+| Бэкап БД | cron 03:30 → `/root/db-backups` + копия вне сервера (`/etc/yugaktsent/backup.env`) |
 
-## Установка
+## Новый сервер с нуля (Ubuntu 22.04/24.04, root)
+
+DNS A-запись домена уже должна указывать на сервер — нужна для сертификата.
 
 ```bash
-ssh root@212.67.9.173
-export DEPLOY_ROOT=/var/www/yugaktsent-lg
-bash deploy/yugaktsent/bootstrap-server.sh
+export SITE_DOMAIN=yugaktsent.neeklo.ru CERTBOT_EMAIL=you@example.com
+git clone https://github.com/letoceiling-coder/https-yugaktsent.neeklo.ru-.git /var/www/yugaktsent-lg
+bash /var/www/yugaktsent-lg/deploy/yugaktsent/provision-server.sh
 ```
+
+`provision-server.sh` → пакеты, Postgres, Node 22, swap, ufw, cron бэкапа → `bootstrap-server.sh` (БД, `.env` с новыми секретами и паролем админа) → `deploy-full.sh`.
 
 ## Обновление
 
@@ -24,8 +36,8 @@ bash deploy/yugaktsent/bootstrap-server.sh
 cd /var/www/yugaktsent-lg && git pull --ff-only origin main && bash deploy/yugaktsent/deploy-full.sh
 ```
 
-## Остановить старый стек
+`deploy-full.sh` сам выставляет флаги прод-сборки (`VITE_IMAGE_PROXY=1`, `VITE_IMAGE_PROXY_LOCAL=1`, `VITE_ADMIN_DEMO_EDITING=1`, бренд, регион) и ставит nginx из шаблона под домен из `PUBLIC_SITE_URL`.
 
-```bash
-pm2 stop yugaktsent-content yugaktsent-feed-importer yugaktsent-lead-relay && pm2 save
-```
+## Смена домена
+
+Поменять домен в `.env` (`PUBLIC_SITE_URL`, `CORS_ORIGINS`), выпустить сертификат (`install-nginx.sh` сделает это сам при `CERTBOT_EMAIL`), запустить `deploy-full.sh`. Домен в `index.html`, `robots.txt`, `sitemap.xml` переписывается в сборке автоматически.

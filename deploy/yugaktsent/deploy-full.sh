@@ -7,8 +7,6 @@ set -euo pipefail
 PROJECT_DIR="${DEPLOY_ROOT:-/var/www/yugaktsent-lg}"
 export DEPLOY_ROOT="$PROJECT_DIR"
 LOG_DIR="/var/log/yugaktsent-lg"
-NGINX_CONF="/etc/nginx/sites-available/yugaktsent.neeklo.ru.conf"
-NGINX_LINK="/etc/nginx/sites-enabled/yugaktsent.neeklo.ru.conf"
 
 echo "=== ЮгАкцент: деплой ==="
 echo "Project: $PROJECT_DIR"
@@ -63,7 +61,27 @@ rm -rf apps/web/public/assets apps/web/public/catalog apps/web/public/complex ap
 SITE_FOR_WEB="${VITE_PUBLIC_SITE_URL:-${PUBLIC_SITE_URL:-https://yugaktsent.neeklo.ru}}"
 SITE_FOR_WEB="${SITE_FOR_WEB%/}"
 export VITE_PUBLIC_SITE_URL="$SITE_FOR_WEB"
+# Флаги прод-сборки (раньше задавались руками при ручной сборке — теперь здесь):
+#  IMAGE_PROXY / IMAGE_PROXY_LOCAL — фото через nginx-ресайзер /img/<w>/...
+#  ADMIN_DEMO_EDITING — редактор экспертов в админке, пока нет API сохранения
+export VITE_DEFAULT_BRAND="${VITE_DEFAULT_BRAND:-ЮгАкцент}"
+export VITE_DEFAULT_REGION_CODE="${VITE_DEFAULT_REGION_CODE:-anapa}"
+export VITE_IMAGE_PROXY="${VITE_IMAGE_PROXY:-1}"
+export VITE_IMAGE_PROXY_LOCAL="${VITE_IMAGE_PROXY_LOCAL:-1}"
+export VITE_ADMIN_DEMO_EDITING="${VITE_ADMIN_DEMO_EDITING:-1}"
+# Пререндер страниц ЖК берёт список из локального API, а не через домен:
+# во время переезда DNS ещё может смотреть на старый сервер.
+# На самом первом деплое API ещё не запущен — пререндерятся только / и /catalog;
+# после первой синхронизации фидов запустите deploy-full.sh повторно.
+export PRERENDER_API_BASE="${PRERENDER_API_BASE:-http://127.0.0.1:${API_PORT}/api/v1}"
 pnpm build:web
+# index.html, robots.txt, sitemap.xml содержат исходный домен строкой —
+# при переезде на другой домен переписываем его в готовой сборке.
+if [ "$SITE_FOR_WEB" != "https://yugaktsent.neeklo.ru" ]; then
+  echo "→ Домен сборки: $SITE_FOR_WEB (замена в dist)"
+  grep -rlF "https://yugaktsent.neeklo.ru" apps/web/dist --include='*.html' --include='*.txt' --include='*.xml' \
+    | xargs -r sed -i "s#https://yugaktsent\.neeklo\.ru#${SITE_FOR_WEB}#g"
+fi
 
 echo "→ Installing profitbase-sync dependencies..."
 cd deploy/yugaktsent/profitbase-sync
@@ -83,11 +101,9 @@ export DEPLOY_ROOT="$PROJECT_DIR"
 bash deploy/yugaktsent/scripts/install-systemd.sh
 
 echo "→ Updating nginx..."
-cp deploy/yugaktsent/nginx.conf "$NGINX_CONF"
-if [ ! -L "$NGINX_LINK" ]; then
-  ln -sf "$NGINX_CONF" "$NGINX_LINK"
-fi
-nginx -t && nginx -s reload
+# Домен берём из PUBLIC_SITE_URL (.env), конфиг — из шаблона, который работал на проде
+SITE_DOMAIN="${SITE_DOMAIN:-$(printf '%s' "$SITE_FOR_WEB" | sed -E 's#^https?://##; s#/.*$##')}"
+SITE_DOMAIN="$SITE_DOMAIN" DEPLOY_ROOT="$PROJECT_DIR" bash deploy/yugaktsent/scripts/install-nginx.sh
 
 echo ""
 echo "=== Deploy complete ==="

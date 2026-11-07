@@ -80,3 +80,7 @@ docs/redesign-v3/after-p4/
 docs/redesign-v3/after-p5/
 docs/redesign-v3/perf/
 qa-artifacts/
+
+# Генерируемые API sitemap и локальные настройки Claude
+apps/api/sitemaps/
+.claude/
