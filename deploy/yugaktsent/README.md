@@ -22,9 +22,21 @@
 
 DNS A-запись домена уже должна указывать на сервер — нужна для сертификата.
 
+**1. Deploy-ключ** (репозиторий приватный, серверу нужен доступ только на чтение):
+
+```bash
+ssh-keygen -t ed25519 -N '' -C "yugaktsent-deploy@$(hostname)" -f /root/.ssh/id_ed25519
+ssh-keyscan github.com >> /root/.ssh/known_hosts
+cat /root/.ssh/id_ed25519.pub
+```
+
+Публичный ключ → GitHub, репозиторий → Settings → Deploy keys → Add deploy key, **без** «Allow write access». Проверка: `ssh -T git@github.com` → «successfully authenticated».
+
+**2. Установка:**
+
 ```bash
 export SITE_DOMAIN=yugaktsent.neeklo.ru CERTBOT_EMAIL=you@example.com
-git clone https://github.com/letoceiling-coder/https-yugaktsent.neeklo.ru-.git /var/www/yugaktsent-lg
+git clone git@github.com:letoceiling-coder/https-yugaktsent.neeklo.ru-.git /var/www/yugaktsent-lg
 bash /var/www/yugaktsent-lg/deploy/yugaktsent/provision-server.sh
 ```
 

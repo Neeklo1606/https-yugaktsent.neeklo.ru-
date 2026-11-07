@@ -23,7 +23,8 @@
 
 ## 2. Состояние репозитория (07.11.2026)
 
-- GitHub: `letoceiling-coder/https-yugaktsent.neeklo.ru-` (**публичный**), ветка `main` = ветка `redesign/v3`. Форк `Neeklo1606/...` синхронизирован.
+- GitHub: `letoceiling-coder/https-yugaktsent.neeklo.ru-`, ветка `main` = ветка `redesign/v3`. Форк `Neeklo1606/...` синхронизирован.
+- Решено 07.11: репозиторий делаем **приватным** (вместе с форком), сервер клонирует по deploy-ключу.
 - Всё, что было выложено на сервер и сделано после (карта viewport, правки админки, фиды), — в `main`.
 - Пробная прод-сборка shared + API + web проходит.
 
@@ -50,14 +51,15 @@
 
 ### Этап 1. Сервер (~1 час)
 1. A-запись домена → IP нового сервера (нужна для сертификата Let's Encrypt).
-2. Под root:
+2. Репозиторий приватный: создать на сервере deploy-ключ и добавить его в GitHub только на чтение (команды — `deploy/yugaktsent/README.md`, раздел «Deploy-ключ»).
+3. Под root:
    ```bash
    export SITE_DOMAIN=yugaktsent.neeklo.ru CERTBOT_EMAIL=<почта>
-   git clone https://github.com/letoceiling-coder/https-yugaktsent.neeklo.ru-.git /var/www/yugaktsent-lg
+   git clone git@github.com:letoceiling-coder/https-yugaktsent.neeklo.ru-.git /var/www/yugaktsent-lg
    bash /var/www/yugaktsent-lg/deploy/yugaktsent/provision-server.sh
    ```
    Скрипт ставит Node 22, pnpm, PostgreSQL 16 + PostGIS, Redis, nginx + image_filter, certbot, ufw (22/80/443), swap, cron бэкапа; создаёт БД, `.env` с **новыми** секретами (JWT, БД, ключ шифрования, пароль админа), собирает и запускает всё, выпускает сертификат.
-3. Проверить `.env`: `FEEDS_JSON`, `PUBLIC_SITE_URL`, `CORS_ORIGINS`. Пароль админа: `grep LG_ADMIN_PASSWORD /var/www/yugaktsent-lg/.env` — сохранить в менеджер паролей.
+4. Проверить `.env`: `FEEDS_JSON`, `PUBLIC_SITE_URL`, `CORS_ORIGINS`. Пароль админа: `grep LG_ADMIN_PASSWORD /var/www/yugaktsent-lg/.env` — сохранить в менеджер паролей.
 
 ### Этап 2. Данные (~0,5–1 день, зависит от заказчика)
 1. Дождаться первой синхронизации фидов (лог `/var/log/yugaktsent-lg/profitbase-sync-out.log`) или нажать «Синхронизировать сейчас» в админке.
@@ -92,7 +94,7 @@
 - Пароль `admin@yugaktsent.ru` — лежал в `deploy/yugaktsent/env.example` публичного репо; убран 07.11, но остался в истории git. Новый генерирует bootstrap.
 - JWT-секреты, пароль БД — генерируются заново.
 - **Токен Telegram-бота** — перевыпустить в @BotFather (`/revoke`), старый был в БД на сервере.
-- Ссылки экспорта Profitbase с токенами — лежат в публичном репо (`env.example`, `update-feeds-env.mjs`). Попросить застройщиков/Profitbase перевыпустить ссылки, новые хранить только в `.env` / админке. Либо сделать репозиторий приватным (тогда в `provision-server.sh` клонировать по deploy-ключу).
+- Ссылки экспорта Profitbase с токенами — лежат в публичном репо (`env.example`, `update-feeds-env.mjs`). Репозиторий закрываем, но ссылки уже были публичными — попросить застройщиков/Profitbase перевыпустить их, новые хранить только в `.env` / админке.
 - Ключ Яндекс.Карт — ограничить по домену (HTTP Referer) в кабинете разработчика.
 
 ## 6. Ключи настроек сайта (`site_settings`) для заполнения

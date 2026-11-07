@@ -6,7 +6,7 @@ set -euo pipefail
 #   bash deploy/yugaktsent/bootstrap-server.sh
 
 DEPLOY_ROOT="${DEPLOY_ROOT:-/var/www/yugaktsent-lg}"
-LG_REPO_URL="${LG_REPO_URL:-https://github.com/letoceiling-coder/https-yugaktsent.neeklo.ru-.git}"
+LG_REPO_URL="${LG_REPO_URL:-git@github.com:letoceiling-coder/https-yugaktsent.neeklo.ru-.git}"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 
 echo "=== ЮгАкцент bootstrap ==="

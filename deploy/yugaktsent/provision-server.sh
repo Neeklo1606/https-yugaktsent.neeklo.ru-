@@ -3,14 +3,15 @@
 # Ставит Node 22 + pnpm, PostgreSQL 16 + PostGIS, Redis, nginx + image_filter,
 # certbot, ufw, swap; затем клонирует репозиторий и запускает bootstrap-server.sh.
 #
-# Usage (на новом сервере под root):
+# Репозиторий приватный: сначала deploy-ключ (см. deploy/yugaktsent/README.md),
+# затем под root:
 #   export SITE_DOMAIN=yugaktsent.neeklo.ru CERTBOT_EMAIL=you@example.com
-#   curl -fsSL https://raw.githubusercontent.com/letoceiling-coder/https-yugaktsent.neeklo.ru-/main/deploy/yugaktsent/provision-server.sh | bash
-# или после git clone: bash deploy/yugaktsent/provision-server.sh
+#   git clone git@github.com:letoceiling-coder/https-yugaktsent.neeklo.ru-.git /var/www/yugaktsent-lg
+#   bash /var/www/yugaktsent-lg/deploy/yugaktsent/provision-server.sh
 set -euo pipefail
 
 DEPLOY_ROOT="${DEPLOY_ROOT:-/var/www/yugaktsent-lg}"
-LG_REPO_URL="${LG_REPO_URL:-https://github.com/letoceiling-coder/https-yugaktsent.neeklo.ru-.git}"
+LG_REPO_URL="${LG_REPO_URL:-git@github.com:letoceiling-coder/https-yugaktsent.neeklo.ru-.git}"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 SITE_DOMAIN="${SITE_DOMAIN:?Задайте SITE_DOMAIN, например yugaktsent.neeklo.ru}"
 SWAP_GB="${SWAP_GB:-4}"
