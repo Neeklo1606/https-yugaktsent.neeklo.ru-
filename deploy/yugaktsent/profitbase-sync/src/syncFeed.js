@@ -219,6 +219,12 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
 
   const skipMedia =
     process.env.FEED_SKIP_MEDIA === "1" || process.env.FEED_SKIP_MEDIA === "true";
+  // «Фото по ссылке»: планировки и обложку не качаем на диск, в базу пишем адрес
+  // поставщика (на сервере мало места; nginx-ресайзер кэширует Profitbase-картинки).
+  const remoteMedia =
+    feedConfig.media === "remote" ||
+    process.env.FEED_REMOTE_MEDIA === "1" ||
+    process.env.FEED_REMOTE_MEDIA === "true";
   const plansBySource = storedPlansBySource(state);
 
   // Корпуса и обложку заводим один раз на фид, до разбора лотов:
@@ -235,7 +241,7 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
   }
 
   const cover = offers.find((o) => o.buildingImage)?.buildingImage;
-  const coverState = cover ? await syncCover(lg, state, block.id, cover, skipMedia) : null;
+  const coverState = cover ? await syncCover(lg, state, block.id, cover, skipMedia || remoteMedia) : null;
 
   const blockListings = offers.length > 0 ? await lg.loadBlockListings(block.id) : [];
   const bound = bindOffers(offers, bucket, blockListings);
@@ -275,7 +281,10 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
       const existing = bucket[offer.externalId];
       const planSrc = planImage(offer);
       let planStored = null;
-      if (!skipMedia && planSrc) {
+      if (remoteMedia && planSrc) {
+        planStored = planSrc;
+        payload.apartment.planUrl = planSrc;
+      } else if (!skipMedia && planSrc) {
         const adopted = await adoptStoredPlan(lg, existing);
         if (adopted) {
           planStored = adopted;

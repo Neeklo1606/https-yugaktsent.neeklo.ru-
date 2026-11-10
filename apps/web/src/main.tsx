@@ -10,6 +10,12 @@ import * as Sentry from "@sentry/react";
 import App from "./App.tsx";
 import "./index.css";
 import "./shared/lib/boot-diagnostics";
+import { reloadForStaleChunks } from "./shared/lib/lazy-route";
+
+// Vite не смог догрузить чанк (вкладка открыта со старой версии сайта) — берём свежую
+window.addEventListener("vite:preloadError", (event) => {
+  if (reloadForStaleChunks()) event.preventDefault();
+});
 
 const sentryDsn = (import.meta.env.VITE_SENTRY_DSN_WEB as string | undefined)?.trim();
 

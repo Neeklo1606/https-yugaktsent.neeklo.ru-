@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ScrollToTop from "./components/ScrollToTop";
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { lazyWithReload } from "@/shared/lib/lazy-route";
 import RouteErrorBoundary from "@/shared/components/RouteErrorBoundary";
 import { AuthProvider, useAuth, useAuthState } from "@/shared/hooks/useAuth";
@@ -30,19 +30,19 @@ const RedesignMap = lazyWithReload(() => import("./redesign/pages/RedesignMap"))
 const Presentation = lazyWithReload(() => import("./pages/Presentation"));
 const ListingPresentation = lazyWithReload(() => import("./pages/ListingPresentation"));
 const Favorites = lazyWithReload(() => import("./pages/Favorites"));
-const Contacts = lazy(() => import("./pages/Contacts"));
-const Privacy = lazy(() => import("./pages/Privacy"));
-const Terms = lazy(() => import("./pages/Terms"));
-const Cookies = lazy(() => import("./pages/Cookies"));
-const AboutCompany = lazy(() => import("./pages/AboutCompany"));
+const Contacts = lazyWithReload("./pages/Contacts", () => import("./pages/Contacts"));
+const Privacy = lazyWithReload("./pages/Privacy", () => import("./pages/Privacy"));
+const Terms = lazyWithReload("./pages/Terms", () => import("./pages/Terms"));
+const Cookies = lazyWithReload("./pages/Cookies", () => import("./pages/Cookies"));
+const AboutCompany = lazyWithReload("./pages/AboutCompany", () => import("./pages/AboutCompany"));
 const ExpertPage = lazyWithReload(() => import("./pages/ExpertPage"));
 
 // Вход: сайт — лендинг без личных кабинетов, форма нужна только для админки
-const Login = lazy(() => import("./pages/Login"));
+const Login = lazyWithReload("./pages/Login", () => import("./pages/Login"));
 
 // News
-const News = lazy(() => import("./pages/News"));
-const NewsDetail = lazy(() => import("./pages/NewsDetail"));
+const News = lazyWithReload("./pages/News", () => import("./pages/News"));
+const NewsDetail = lazyWithReload("./pages/NewsDetail", () => import("./pages/NewsDetail"));
 
 // Admin
 const AdminLayout = lazyWithReload('AdminLayout', () => import("./admin/layout/AdminLayout"));

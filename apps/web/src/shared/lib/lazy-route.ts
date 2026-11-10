@@ -25,6 +25,22 @@ export function clearLazyImportFailures(): void {
 const CHUNK_RE =
   /Loading chunk \d+ failed|Failed to fetch dynamically imported module|Importing a module script failed/;
 
+/**
+ * После деплоя у открытой вкладки старые имена чанков — догружаем свежий index.html.
+ * Перезагружаем не чаще раза в 30 с, чтобы не уйти в цикл, если чанк действительно битый.
+ */
+export function reloadForStaleChunks(): boolean {
+  try {
+    const last = Number(sessionStorage.getItem('chunk_reload_at') || 0);
+    if (Date.now() - last < 30_000) return false;
+    sessionStorage.setItem('chunk_reload_at', String(Date.now()));
+  } catch {
+    /* sessionStorage недоступен — всё равно перезагрузим один раз */
+  }
+  window.location.reload();
+  return true;
+}
+
 export function lazyWithReload<T extends ComponentType<unknown>>(
   routeIdOrFactory: string | (() => Promise<{ default: T }>),
   maybeFactory?: () => Promise<{ default: T }>,
@@ -49,9 +65,7 @@ export function lazyWithReload<T extends ComponentType<unknown>>(
 
       const isChunk =
         (err as Error)?.name === 'ChunkLoadError' || kind === 'chunk';
-      if (isChunk && sessionStorage.getItem('chunk_reload') !== '1') {
-        sessionStorage.setItem('chunk_reload', '1');
-        window.location.reload();
+      if (isChunk && reloadForStaleChunks()) {
         return new Promise<{ default: T }>(() => {});
       }
       throw err;

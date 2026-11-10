@@ -1,7 +1,9 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { XMLParser } from "fast-xml-parser";
+import { gunzipSync } from "node:zlib";
 import { parseDomclickXml, isDomclickXml } from "./domclickFeed.js";
+import { parseCianXml, isCianXml } from "./cianFeed.js";
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
 
@@ -90,9 +92,10 @@ function buildingImageOf(images) {
  * только номер квартала, и дальше по цепочке он разбирался как дата —
  * так у «Хозяина Морей» в базе оказался срок сдачи 2001 года.
  */
-function completionLabel(house) {
-  const year = num(house?.["built-year"]);
-  const quarter = num(house?.["ready-quarter"]);
+function completionLabel(house, offer) {
+  // Profitbase кладёт срок в <house>, выгрузки JCAT/Яндекс — прямо в лот
+  const year = num(house?.["built-year"]) ?? num(offer?.["built-year"]);
+  const quarter = num(house?.["ready-quarter"]) ?? num(offer?.["ready-quarter"]);
   if (!year) return null;
   return quarter ? `${quarter} кв. ${year}` : String(year);
 }
@@ -124,7 +127,7 @@ export function normalizeOffer(offer) {
     buildingName: text(offer.house?.name) ?? custom.Корпус,
     buildingSection: text(offer["building-section"]) ?? custom.Секция,
     floorsTotal: num(offer.house?.["floors-total"]),
-    completionQuarter: completionLabel(offer.house) ?? custom["Срок сдачи"],
+    completionQuarter: completionLabel(offer.house, offer) ?? custom["Срок сдачи"],
     builtYear: num(offer.house?.["built-year"]),
     buildingState: text(offer.house?.["building-state"]),
     layoutType: custom["Тип планировки"],
@@ -147,8 +150,16 @@ export async function fetchProfitbaseFeed(feedUrl) {
   const res = await fetch(feedUrl);
   // Адрес фида содержит токен доступа — в лог уходит только хост
   if (!res.ok) throw new Error(`Failed to download feed from ${new URL(feedUrl).host}: HTTP ${res.status}`);
-  const xml = await res.text();
-  // Формат определяем по содержимому: выгрузки ДомКлик и обычный фид
-  // Profitbase лежат по одинаковым адресам и различаются только корнем.
-  return isDomclickXml(xml) ? parseDomclickXml(xml) : parseProfitbaseXml(xml);
+  const raw = Buffer.from(await res.arrayBuffer());
+  // Выгрузку ЦИАН Profitbase отдаёт gzip-сжатой без Content-Encoding
+  const body = raw[0] === 0x1f && raw[1] === 0x8b ? gunzipSync(raw) : raw;
+  const xml = body.toString("utf8");
+  return parseFeedXml(xml);
+}
+
+/** Формат определяем по содержимому: ДомКлик, ЦИАН, Profitbase/JCAT (Яндекс) */
+export function parseFeedXml(xml) {
+  if (isDomclickXml(xml)) return parseDomclickXml(xml);
+  if (isCianXml(xml)) return parseCianXml(xml);
+  return parseProfitbaseXml(xml);
 }
