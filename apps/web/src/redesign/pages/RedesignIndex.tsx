@@ -40,7 +40,7 @@ const RedesignIndex = () => {
       .slice(0, 12)
       .map(mapApiBlockListRowToResidentialComplex);
   }, [blocks.data]);
-  const featured = candidates.filter((c) => !brokenCovers.has(c.id)).slice(0, 7);
+  const featured = candidates.filter((c) => !brokenCovers.has(c.id)).slice(0, 8);
 
   return (
     <div className="min-h-screen bg-background pb-mobile-nav">

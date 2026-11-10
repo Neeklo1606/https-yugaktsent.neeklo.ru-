@@ -26,6 +26,6 @@ export class ListingsController {
     @CurrentUser('sub') userId?: string,
     @CurrentUser('role') role?: string,
   ) {
-    return this.service.findOne(id, { authenticated: Boolean(userId), role });
+    return this.service.findOne(id, { authenticated: Boolean(userId), role, publicRequest: true });
   }
 }

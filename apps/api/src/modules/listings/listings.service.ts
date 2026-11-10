@@ -291,9 +291,13 @@ export class ListingsService implements OnModuleInit {
     };
   }
 
-  async findOne(id: number, opts?: { authenticated?: boolean; role?: string }) {
+  /**
+   * publicRequest: вызов из публичного GET /listings/:id — тогда без staff-роли видны только
+   * опубликованные объекты (аудит B1). Внутренние и админские вызовы видят всё.
+   */
+  async findOne(id: number, opts?: { authenticated?: boolean; role?: string; publicRequest?: boolean }) {
     await this.expireOldPublishedListings();
-    const staff = isStaffRole(opts?.role);
+    const staff = !opts?.publicRequest || isStaffRole(opts?.role);
     const listing = await this.prisma.listing.findUnique({
       where: staff
         ? { id }
