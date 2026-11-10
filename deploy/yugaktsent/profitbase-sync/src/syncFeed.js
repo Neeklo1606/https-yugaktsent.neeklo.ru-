@@ -158,7 +158,8 @@ async function syncCover(lg, state, blockId, src, skipMedia) {
     current = null;
   }
   // Наша обложка — пустая, ссылка поставщика или ранее скачанная нами копия
-  const isOurs = !current || /profitbase\.ru\//i.test(current) || current === savedAbs || current === saved?.url;
+  const isOurs =
+    !current || /profitbase\.ru\//i.test(current) || current === src || current === savedAbs || current === saved?.url;
   if (!isOurs) return "admin";
   if (saved?.src === src && savedAbs) {
     if (current !== savedAbs) await lg.setBlockCover(blockId, savedAbs);
@@ -241,7 +242,9 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
   }
 
   const cover = offers.find((o) => o.buildingImage)?.buildingImage;
-  const coverState = cover ? await syncCover(lg, state, block.id, cover, skipMedia || remoteMedia) : null;
+    // Обложку (одна на ЖК) храним у себя даже в режиме «фото по ссылке»: исходники у застройщиков
+  // бывают по 5000 px, а локальный ресайзер nginx отдаёт их сжатыми.
+  const coverState = cover ? await syncCover(lg, state, block.id, cover, skipMedia) : null;
 
   const blockListings = offers.length > 0 ? await lg.loadBlockListings(block.id) : [];
   const bound = bindOffers(offers, bucket, blockListings);

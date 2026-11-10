@@ -40,7 +40,9 @@ const RedesignIndex = () => {
       .slice(0, 12)
       .map(mapApiBlockListRowToResidentialComplex);
   }, [blocks.data]);
-  const featured = candidates.filter((c) => !brokenCovers.has(c.id)).slice(0, 8);
+  const withCovers = candidates.filter((c) => !brokenCovers.has(c.id));
+  // Сетка по 4 в ряд (референс): только полные ряды, чтобы не оставалась одинокая карточка
+  const featured = withCovers.slice(0, withCovers.length > 4 ? Math.min(8, Math.floor(withCovers.length / 4) * 4) : withCovers.length);
 
   return (
     <div className="min-h-screen bg-background pb-mobile-nav">
