@@ -1091,6 +1091,7 @@ export class BlocksService {
             areaTotal: true,
             areaKitchen: true,
             planUrl: true,
+            buildingName: true,
             roomType: { select: { name: true, nameOne: true } },
             finishing: { select: { name: true } },
           },

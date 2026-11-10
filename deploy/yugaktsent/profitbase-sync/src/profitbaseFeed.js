@@ -125,7 +125,11 @@ export function normalizeOffer(offer) {
     windowView: text(offer["window-view"]),
     description: text(offer.description),
     complexName: text(offer.object?.name) ?? custom.Комплекс,
-    buildingName: text(offer.house?.name) ?? custom.Корпус,
+    // JCAT/Яндекс: <house> нет, корпус — это «Литер N» в building-section
+    buildingName:
+      text(offer.house?.name) ??
+      custom.Корпус ??
+      (/литер|корпус|дом/i.test(text(offer["building-section"]) ?? "") ? text(offer["building-section"]) : null),
     buildingSection: text(offer["building-section"]) ?? custom.Секция,
     floorsTotal: num(offer.house?.["floors-total"]),
     completionQuarter: completionLabel(offer.house, offer) ?? custom["Срок сдачи"],

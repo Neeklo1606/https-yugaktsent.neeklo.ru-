@@ -18,6 +18,7 @@ type ListingRow = {
     areaTotal: { toNumber?: () => number } | number | string | null;
     areaKitchen: { toNumber?: () => number } | number | string | null;
     planUrl: string | null;
+    buildingName?: string | null;
     section?: number | null;
     roomType: { name: string | null; nameOne: string | null } | null;
     finishing: { name: string | null } | null;
@@ -92,14 +93,27 @@ export function buildBlockChessboardResponse(
     ? block.buildings
     : [{ id: block.id, name: 'Корпус 1' }];
 
-  const buildingMatrices = buildings.map((b, idx) => {
-    const id = String(b.id);
-    const apts = listings
-      .filter((l) => (l.buildingId != null ? String(l.buildingId) === id : idx === 0))
+  // Квартира → корпус: по buildingId, а если его нет (лоты из фидов) — по названию корпуса
+  // в квартире. Раньше всё без buildingId падало в первый корпус, и корпуса сливались в одну сетку.
+  const norm = (v: string | null | undefined) => (v ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const indexById = new Map(buildings.map((b, i) => [String(b.id), i]));
+  const indexByName = new Map(buildings.map((b, i) => [norm(b.name), i] as const).filter(([n]) => n));
+  const buckets: ListingRow[][] = buildings.map(() => []);
+  for (const l of listings) {
+    let idx = l.buildingId != null ? indexById.get(String(l.buildingId)) : undefined;
+    if (idx === undefined) idx = indexByName.get(norm(l.apartment?.buildingName));
+    buckets[idx ?? 0].push(l);
+  }
+
+  const built = buildings.map((b, idx) => {
+    const apts = buckets[idx]
       .map(mapListingToChessboardInput)
       .filter((x): x is ChessboardApartmentInput => x != null);
-    return buildChessboardBuildingMatrix(id, b.name ?? `Корпус ${idx + 1}`, apts);
+    return { count: apts.length, matrix: buildChessboardBuildingMatrix(String(b.id), b.name ?? `Корпус ${idx + 1}`, apts) };
   });
+  // Пустые корпуса не показываем, если есть корпуса с квартирами
+  const nonEmpty = built.filter((x) => x.count > 0);
+  const buildingMatrices = (nonEmpty.length ? nonEmpty : built.slice(0, 1)).map((x) => x.matrix);
 
   return {
     blockId: block.id,
