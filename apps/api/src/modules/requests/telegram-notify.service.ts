@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import * as https from 'node:https';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import {
   Block,
   Listing,
@@ -1557,6 +1558,20 @@ export class TelegramNotifyService implements OnModuleInit {
     return /HTTP 400:/i.test(msg);
   }
 
+  /** Webhook secret derived from the bot token: rotates together with the token, no extra env. */
+  static webhookSecretFor(botToken: string): string {
+    return createHash('sha256').update(`yug-tg-webhook:${botToken}`).digest('hex').slice(0, 64);
+  }
+
+  /** Constant-time check of X-Telegram-Bot-Api-Secret-Token. */
+  async isValidWebhookSecret(header: string | undefined): Promise<boolean> {
+    const token = await this.getCachedBotToken();
+    if (!token || !header) return false;
+    const expected = Buffer.from(TelegramNotifyService.webhookSecretFor(token));
+    const got = Buffer.from(header);
+    return expected.length === got.length && timingSafeEqual(expected, got);
+  }
+
   private async ensureWebhookConfigured() {
     if (!this.webhookUrl) {
       this.logger.log('TELEGRAM_WEBHOOK_URL not set; webhook auto-registration skipped');
@@ -1568,20 +1583,12 @@ export class TelegramNotifyService implements OnModuleInit {
       return;
     }
 
-    const info = await this.telegramApi<{ ok: boolean; result?: { url?: string } }>(
-      token,
-      'getWebhookInfo',
-    );
-    const currentUrl = info?.result?.url?.trim() ?? '';
-    if (currentUrl === this.webhookUrl) {
-      this.logger.log(`Telegram webhook already configured: ${this.webhookUrl}`);
-      return;
-    }
-
+    // Always (re)register: Telegram does not report whether a secret_token is set,
+    // and the secret must be present so forged updates are rejected (audit B6).
     const setResult = await this.telegramApi<{ ok: boolean; description?: string }>(
       token,
       'setWebhook',
-      { url: this.webhookUrl },
+      { url: this.webhookUrl, secret_token: TelegramNotifyService.webhookSecretFor(token) },
     );
     if (setResult?.ok) {
       this.logger.log(`Telegram webhook configured: ${this.webhookUrl}`);

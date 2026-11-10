@@ -54,6 +54,7 @@ export class QueryBlocksDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(500)
   @Type(() => Number)
   per_page?: number = 20;
 

@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
 import { Public } from '../auth/decorators';
@@ -24,22 +24,17 @@ export class HealthController {
     const platform = this.platform.getSnapshot();
     const schemaOk = platform.ok;
 
-    const status = dbOk && schemaOk ? 'ok' : dbOk ? 'degraded' : 'degraded';
-
-    return {
-      status,
+    const body = {
+      status: dbOk && schemaOk ? 'ok' : 'degraded',
       timestamp: new Date().toISOString(),
       services: {
         database: dbOk ? 'up' : 'down',
         schema: schemaOk ? 'compatible' : 'drift',
       },
-      ...(platform.bootWarningsRu.length
-        ? {
-            warnings: platform.bootWarnings,
-            warningsRu: platform.bootWarningsRu,
-            pendingMigrations: platform.pendingMigrations,
-          }
-        : {}),
     };
+    // Uptime monitors rely on the HTTP code: a dead DB must not look healthy (audit B11).
+    // Migration names and boot warnings are not exposed publicly any more.
+    if (!dbOk) throw new ServiceUnavailableException(body);
+    return body;
   }
 }

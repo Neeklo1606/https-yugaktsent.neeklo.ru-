@@ -24,7 +24,8 @@ export class ListingsController {
   findOne(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser('sub') userId?: string,
+    @CurrentUser('role') role?: string,
   ) {
-    return this.service.findOne(id, { authenticated: Boolean(userId) });
+    return this.service.findOne(id, { authenticated: Boolean(userId), role });
   }
 }

@@ -54,6 +54,7 @@ import { roomCategoryFromRooms } from '@/redesign/lib/complex-room-groups';
 import { recordBrowseHistory } from '@/shared/lib/record-browse-history';
 import { blockHref } from '@/shared/lib/browse-history-local';
 import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
+import DOMPurify from 'dompurify';
 
 declare global {
   interface Window { ymaps: any; }
@@ -672,7 +673,7 @@ const RedesignComplex = () => {
                 {complex.description.includes('<') ? (
                   <div
                     className="text-sm text-muted-foreground leading-relaxed prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: complex.description }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(complex.description, { USE_PROFILES: { html: true } }) }}
                   />
                 ) : hasDescription ? (
                   <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line max-w-prose">{complex.description}</p>

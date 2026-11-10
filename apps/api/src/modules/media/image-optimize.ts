@@ -61,3 +61,25 @@ export async function optimizeUploadedImage(buffer: Buffer, mime: string): Promi
     return { buffer, changed: false };
   }
 }
+
+const FORMAT_TO_MIME: Record<string, { mime: string; ext: string }> = {
+  jpeg: { mime: 'image/jpeg', ext: '.jpg' },
+  png: { mime: 'image/png', ext: '.png' },
+  webp: { mime: 'image/webp', ext: '.webp' },
+  gif: { mime: 'image/gif', ext: '.gif' },
+};
+
+/**
+ * Определяет реальный формат по содержимому (magic bytes через sharp), а не по заголовку клиента.
+ * Возвращает null, если это не JPEG/PNG/WebP/GIF — такой файл сохранять нельзя (аудит B4:
+ * HTML/SVG под видом картинки давал хранимый XSS на нашем домене).
+ */
+export async function detectImageFormat(buffer: Buffer): Promise<{ mime: string; ext: string } | null> {
+  try {
+    const meta = await sharp(buffer, { failOn: 'error' }).metadata();
+    if (!meta.format || !meta.width || !meta.height) return null;
+    return FORMAT_TO_MIME[meta.format] ?? null;
+  } catch {
+    return null;
+  }
+}

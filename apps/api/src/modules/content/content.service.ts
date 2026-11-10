@@ -31,8 +31,12 @@ export class ContentService implements OnModuleInit {
     await this.ensureSeoSiteSettings();
     await this.ensureSeoLandingSettings();
     await this.ensureIntegrationSiteSettings();
-    await this.ensureDemoNewsIfEmpty();
-    await this.ensureDemoNewsCovers();
+    if (process.env.SEED_DEMO_NEWS === '1') {
+      await this.ensureDemoNewsIfEmpty();
+      await this.ensureDemoNewsCovers();
+    } else {
+      await this.unpublishUntouchedDemoNews();
+    }
   }
 
   /** Создаёт строки site_settings для главной, если их ещё нет (прод без prisma seed). */
@@ -93,6 +97,23 @@ export class ContentService implements OnModuleInit {
       });
     }
     this.logger.log(`Seeded ${DEFAULT_DEMO_NEWS.length} demo news (DB was empty)`);
+  }
+
+  /**
+   * Демо-статьи шаблона LiveGrid (про Москву) не должны висеть на сайте клиента.
+   * Снимаем с публикации только нетронутые: тот же slug и тот же заголовок, что в шаблоне.
+   * Ничего не удаляем — статью можно вернуть из админки.
+   */
+  private async unpublishUntouchedDemoNews() {
+    let total = 0;
+    for (const article of DEFAULT_DEMO_NEWS) {
+      const r = await this.prisma.news.updateMany({
+        where: { slug: article.slug, title: article.title, isPublished: true },
+        data: { isPublished: false },
+      });
+      total += r.count;
+    }
+    if (total > 0) this.logger.warn(`Unpublished ${total} untouched LiveGrid demo news`);
   }
 
   /** Обложки демо-новостей: пусто, внешний CDN (picsum) или старый URL → локальные `/news/covers/*`. */

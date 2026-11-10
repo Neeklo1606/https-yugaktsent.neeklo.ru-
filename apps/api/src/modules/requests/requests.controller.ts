@@ -9,6 +9,8 @@ import {
   Put,
   Query,
   Logger,
+  Headers,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -138,7 +140,13 @@ export class TelegramBotController {
   @Public()
   @Post('webhook')
   @ApiOperation({ summary: 'Telegram webhook endpoint' })
-  async webhook(@Body() body: unknown) {
+  async webhook(
+    @Body() body: unknown,
+    @Headers('x-telegram-bot-api-secret-token') secret?: string,
+  ) {
+    if (!(await this.telegramNotify.isValidWebhookSecret(secret))) {
+      throw new ForbiddenException();
+    }
     // Reply to Telegram immediately to avoid webhook timeouts.
     // Command handling is performed asynchronously.
     void this.telegramNotify.handleWebhookUpdate(body).catch((e) => {

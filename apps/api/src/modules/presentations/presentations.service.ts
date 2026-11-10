@@ -533,8 +533,14 @@ export class PresentationsService {
   }
 
   async getListingPresentation(listingId: number): Promise<ListingPresentationPayload> {
-    const row = await this.prisma.listing.findUnique({
-      where: { id: listingId },
+    // Public endpoint: only published listings may be rendered (audit B1).
+    const row = await this.prisma.listing.findFirst({
+      where: {
+        id: listingId,
+        isPublished: true,
+        visibility: 'PUBLIC',
+        status: { in: ['ACTIVE', 'RESERVED', 'SOLD'] },
+      },
       include: {
         apartment: { include: { roomType: true, finishing: true } },
         house: true,

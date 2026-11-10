@@ -239,8 +239,11 @@ async function main() {
       imageUrl: '/news/covers/construction.jpg',
     },
   ];
+  // Demo news are LiveGrid template content (Moscow). Never publish them on a client site
+  // unless explicitly requested for a local demo: SEED_DEMO_NEWS=1.
+  const seedDemoNews = process.env.SEED_DEMO_NEWS === '1';
   const now = new Date();
-  for (let i = 0; i < demoNews.length; i++) {
+  for (let i = 0; seedDemoNews && i < demoNews.length; i++) {
     const n = demoNews[i];
     const publishedAt = new Date(now);
     publishedAt.setDate(publishedAt.getDate() - (demoNews.length - i));
@@ -265,7 +268,7 @@ async function main() {
       },
     });
   }
-  console.log('  Demo news seeded (6 articles, published)');
+  console.log(seedDemoNews ? '  Demo news seeded (6 articles, published)' : '  Demo news skipped (SEED_DEMO_NEWS!=1)');
 
   console.log('Seeding complete!');
 }

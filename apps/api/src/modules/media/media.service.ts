@@ -13,7 +13,7 @@ import {
   resolveMediaRoot,
 } from '../../common/media-storage.util';
 import { PrismaService } from '../../prisma/prisma.service';
-import { optimizeUploadedImage } from './image-optimize';
+import { detectImageFormat, optimizeUploadedImage } from './image-optimize';
 
 const PUBLIC_PREFIX = '/uploads/media/';
 const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -129,9 +129,8 @@ export class MediaService implements OnModuleInit {
     });
   }
 
-  private extFromMime(mime: string, original: string): string {
-    const fromName = original.includes('.') ? original.replace(/^.*(\.[a-zA-Z0-9]+)$/, '$1') : '';
-    if (fromName && /^\.[a-zA-Z0-9]{1,8}$/.test(fromName)) return fromName.toLowerCase();
+  /** Extension comes only from the verified MIME, never from the client file name (audit B4). */
+  private extFromMime(mime: string, _original?: string): string {
     switch (mime) {
       case 'image/jpeg':
         return '.jpg';
@@ -152,8 +151,11 @@ export class MediaService implements OnModuleInit {
     uploadedBy: string | undefined,
   ) {
     if (!file?.buffer?.length) throw new BadRequestException('Файл не получен');
-    const mime = (file.mimetype || '').toLowerCase();
+    let mime = (file.mimetype || '').toLowerCase();
     if (!IMAGE_MIMES.has(mime)) throw new BadRequestException('Допустимы только изображения (JPEG, PNG, WebP, GIF)');
+    const detected = await detectImageFormat(file.buffer);
+    if (!detected) throw new BadRequestException('Файл не является изображением JPEG, PNG, WebP или GIF');
+    mime = detected.mime;
     const trashId = await this.getTrashFolderId();
     let folderId: number | null = null;
     if (folderIdParam != null && folderIdParam !== '') {
@@ -226,7 +228,9 @@ export class MediaService implements OnModuleInit {
       folderId = uploads?.id ?? null;
     }
 
-    const storedName = `${randomUUID()}${this.extFromMime(mime, opts.originalFilename)}`;
+    const detected = await detectImageFormat(opts.buffer);
+    if (!detected) throw new BadRequestException('Сгенерированный файл не является изображением');
+    const storedName = `${randomUUID()}${detected.ext}`;
     const absDir = join(this.mediaRoot, 'media');
     mkdirSync(absDir, { recursive: true });
     const absPath = join(absDir, storedName);

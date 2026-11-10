@@ -130,6 +130,7 @@ export class ListingsService implements OnModuleInit {
   }
 
   async findAll(query: QueryListingsDto, actor?: ActorContext) {
+    if (!actor) query = sanitizePublicListingsQuery(query);
     await this.expireOldPublishedListings();
     await this.promotions.expireStalePromotions(50);
     const page = query.page ?? 1;
@@ -242,8 +243,9 @@ export class ListingsService implements OnModuleInit {
         const { wizardSnapshot: _snap, ...rest } = row as typeof row & {
           wizardSnapshot?: { isPendingRevision: boolean } | null;
         };
+        const publicRow = actor ? rest : stripPrivateListingFields(rest);
         return {
-          ...rest,
+          ...publicRow,
           isStale: isListingStale(row.lastActivityAt),
           isPendingRevision: snap?.isPendingRevision ?? false,
           lastModeratorAction: lastModerationByListing.get(row.id) ?? null,
@@ -259,10 +261,18 @@ export class ListingsService implements OnModuleInit {
     };
   }
 
-  async findOne(id: number, opts?: { authenticated?: boolean }) {
+  async findOne(id: number, opts?: { authenticated?: boolean; role?: string }) {
     await this.expireOldPublishedListings();
+    const staff = isStaffRole(opts?.role);
     const listing = await this.prisma.listing.findUnique({
-      where: { id },
+      where: staff
+        ? { id }
+        : {
+            id,
+            isPublished: true,
+            visibility: 'PUBLIC',
+            status: { in: [$Enums.ListingStatus.ACTIVE, $Enums.ListingStatus.RESERVED, $Enums.ListingStatus.SOLD] },
+          },
       include: {
         apartment: {
           include: {
@@ -304,7 +314,7 @@ export class ListingsService implements OnModuleInit {
             agentProfile: { select: { slug: true } },
           },
         },
-        ...(opts?.authenticated
+        ...(staff
           ? { wizardSnapshot: { select: { payload: true } } }
           : {}),
       },
@@ -321,17 +331,17 @@ export class ListingsService implements OnModuleInit {
       wizardSnapshot?: { payload: unknown } | null;
     };
     const wizardUiKind =
-      opts?.authenticated && listing.kind === 'APARTMENT'
+      staff && listing.kind === 'APARTMENT'
         ? await this.inferApartmentWizardUiKind(listingRest, wizardSnapshot?.payload)
         : undefined;
 
     return this.governance.enrichPublicContact(
       {
-        ...listingRest,
+        ...(staff ? listingRest : stripPrivateListingFields(listingRest)),
         mediaFiles: media,
         ...(wizardUiKind ? { wizardUiKind } : {}),
       },
-      opts?.authenticated === true,
+      staff,
     );
   }
 
@@ -2015,3 +2025,49 @@ export class ListingsService implements OnModuleInit {
   }
 }
 
+
+
+/** Roles allowed to see unpublished listings and private seller data. */
+const STAFF_ROLES = new Set(['admin', 'editor', 'manager', 'agent']);
+export function isStaffRole(role?: string | null): boolean {
+  return Boolean(role && STAFF_ROLES.has(role));
+}
+
+const PUBLIC_STATUSES = new Set(['ACTIVE', 'RESERVED', 'SOLD']);
+export const PUBLIC_LISTINGS_MAX_PER_PAGE = 100;
+
+/**
+ * Anonymous catalog requests must never widen visibility: admin-only filters are dropped,
+ * statuses are limited to sellable/sold ones and page size is capped (audit B3).
+ */
+export function sanitizePublicListingsQuery(query: QueryListingsDto): QueryListingsDto {
+  const q: QueryListingsDto = Object.assign(Object.create(Object.getPrototypeOf(query)), query);
+  q.admin_view = undefined;
+  q.visibility = undefined;
+  q.owner_user_id = undefined;
+  q.stale_only = undefined;
+  q.scope = undefined;
+  q.is_published = undefined;
+  if (q.status && !PUBLIC_STATUSES.has(q.status)) q.status = 'ACTIVE';
+  if (q.statuses) {
+    const allowed = q.statuses
+      .split(',')
+      .map((x) => x.trim())
+      .filter((x) => PUBLIC_STATUSES.has(x));
+    q.statuses = allowed.length ? allowed.join(',') : undefined;
+  }
+  if (q.per_page && q.per_page > PUBLIC_LISTINGS_MAX_PER_PAGE) q.per_page = PUBLIC_LISTINGS_MAX_PER_PAGE;
+  return q;
+}
+
+/** Removes seller PII and internal fields from a listing returned to anonymous visitors (audit B2). */
+export function stripPrivateListingFields<T extends Record<string, unknown>>(row: T): T {
+  const { seller: _seller, sellerId: _sellerId, moderationNote: _note, ownerUser, ...rest } = row as T & {
+    seller?: unknown;
+    sellerId?: unknown;
+    moderationNote?: unknown;
+    ownerUser?: (Record<string, unknown> & { email?: unknown }) | null;
+  };
+  const safeOwner = ownerUser ? { ...ownerUser, email: undefined } : ownerUser;
+  return { ...rest, seller: null, sellerId: null, ...(ownerUser !== undefined ? { ownerUser: safeOwner } : {}) } as unknown as T;
+}
