@@ -195,7 +195,7 @@ async function main() {
   }
 
   const siteUrl = trimSlash(process.env.VITE_PUBLIC_SITE_URL || process.env.PUBLIC_SITE_URL || 'https://yugaktsent.neeklo.ru');
-  const siteBrand = (process.env.VITE_DEFAULT_BRAND || process.env.SITE_BRAND || 'Агентство недвижимости').trim();
+  const siteBrand = (process.env.VITE_DEFAULT_BRAND || process.env.SITE_BRAND || 'ЮгАкцент').trim();
   const sitemapIndexUrl = `${siteUrl}/api/v1/sitemap/sitemap-index.xml`;
   const apiBase = trimSlash(process.env.PRERENDER_API_BASE || `${siteUrl}/api/v1`);
   const maxComplex = Math.max(1, Math.min(5000, Number(process.env.PRERENDER_MAX_COMPLEX) || 500));
@@ -207,8 +207,8 @@ async function main() {
   }
   const baseHtml = fs.readFileSync(indexPath, 'utf8');
 
-  const homeTitle = `${siteBrand} — новостройки и недвижимость`;
-  const homeDesc = 'Каталог жилых комплексов и квартир: фильтры, карта, избранное и подборки.';
+  const homeTitle = `${siteBrand} — новостройки и квартиры в Анапе`;
+  const homeDesc = 'Агентство недвижимости «Южный Акцент» в Анапе: новостройки и квартиры с актуальными ценами застройщиков, подбор, консультация и показ.';
   fs.writeFileSync(
     indexPath,
     patchHtmlHead(baseHtml, {
