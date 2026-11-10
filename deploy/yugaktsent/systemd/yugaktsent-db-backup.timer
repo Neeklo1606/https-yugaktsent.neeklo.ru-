@@ -1,0 +1,10 @@
+[Unit]
+Description=ЮгАкцент — дамп БД каждый день в 03:40
+
+[Timer]
+OnCalendar=*-*-* 03:40:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

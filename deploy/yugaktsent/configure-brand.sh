@@ -4,17 +4,17 @@ set -euo pipefail
 ROOT="${DEPLOY_ROOT:-/var/www/yugaktsent-lg}"
 LOGO_PUBLIC="${LOGO_PUBLIC:-/logo-yug-aktsent.png}"
 
-sudo -u postgres psql -d yugaktsent_lg <<'SQL'
+sudo -u postgres psql -v ON_ERROR_STOP=1 -d yugaktsent_lg <<'SQL'
 UPDATE feed_regions SET is_enabled = false WHERE code <> 'anapa';
 UPDATE feed_regions SET is_enabled = true, name = 'Анапа', public_site_url = 'https://yugaktsent.neeklo.ru'
   WHERE code = 'anapa';
 
-INSERT INTO site_settings (key, value, group_name, label, field_type, sort_order)
+INSERT INTO site_settings (key, value, group_name, label, field_type, sort_order, updated_at)
 VALUES
-  ('site_logo_url', '/logo-yug-aktsent.png', 'company', 'Логотип сайта', 'IMAGE', 10),
-  ('site_tagline', 'Агентство недвижимости', 'company', 'Слоган', 'TEXT', 11),
-  ('default_region_code', 'anapa', 'geo', 'Код региона по умолчанию', 'TEXT', 0)
-ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+  ('site_logo_url', '/logo-yug-aktsent.png', 'company', 'Логотип сайта', 'IMAGE', 10, now()),
+  ('site_tagline', 'Агентство недвижимости', 'company', 'Слоган', 'TEXT', 11, now()),
+  ('default_region_code', 'anapa', 'geo', 'Код региона по умолчанию', 'TEXT', 0, now())
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
 
 UPDATE site_settings SET value = 'ЮгАкцент' WHERE key = 'company_name';
 UPDATE site_settings SET value = 'ЮгАкцент — новостройки Анапы' WHERE key = 'site_title';

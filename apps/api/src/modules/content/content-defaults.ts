@@ -168,7 +168,7 @@ export const DEFAULT_SEO_SITE_SETTINGS: Array<{
 }> = [
   {
     key: 'site_title',
-    value: 'LiveGrid — агрегатор новостроек',
+    value: 'ЮгАкцент — новостройки Анапы',
     groupName: 'seo',
     label: 'Title сайта',
     fieldType: SiteSettingFieldType.TEXT,
@@ -204,7 +204,7 @@ export const DEFAULT_SEO_LANDING_SETTINGS: Array<{
   {
     key: 'seo_landing_district_intro',
     value:
-      'Квартиры и новостройки в районе {district}{regionSuffix}. Актуальные объекты из официального фида застройщиков на LiveGrid.',
+      'Квартиры и новостройки в районе {district}{regionSuffix}. Актуальные объекты из официального фида застройщиков на сайте «Южный Акцент».',
     groupName: 'seo_landings',
     label: 'Шаблон intro: район (плейсхолдеры {district}, {region}, {regionSuffix})',
     fieldType: SiteSettingFieldType.TEXTAREA,
@@ -298,7 +298,7 @@ export const DEFAULT_INTEGRATION_SITE_SETTINGS: Array<{
   },
   {
     key: 'contacts_email',
-    value: 'info@livegrid.ru',
+    value: 'info@yugaktsent.ru',
     groupName: INTEGRATIONS_SITE_SETTINGS_GROUP,
     label: 'Контакты бота: Email',
     fieldType: SiteSettingFieldType.TEXT,

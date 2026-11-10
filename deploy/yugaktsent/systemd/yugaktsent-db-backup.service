@@ -1,0 +1,9 @@
+[Unit]
+Description=ЮгАкцент — ежедневный дамп БД (копия вне сервера, если задан /etc/yugaktsent/backup.env)
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /var/www/yugaktsent-lg/deploy/yugaktsent/scripts/backup-db.sh
+StandardOutput=append:/var/log/yugaktsent-lg/db-backup.log
+StandardError=append:/var/log/yugaktsent-lg/db-backup.log
