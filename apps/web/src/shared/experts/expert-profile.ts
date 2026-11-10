@@ -1,8 +1,8 @@
 /**
  * Контракт эксперта: один и тот же для карточки на «О компании», персональной
- * страницы /experts/:slug и редактора в админке. Когда появится backend, сюда
- * придёт ответ API; сейчас источник — подтверждённые данные заказчика ниже
- * (ТЗ redesign v3, раздел 5) плюс демо-правки из админки в staging.
+ * страницы /experts/:slug и редактора в админке. Источник — API (правки из админки);
+ * пока там пусто — подтверждённые данные заказчика ниже (ТЗ redesign v3, раздел 5).
+ * Тот же контракт валидирует apps/api/src/modules/content/dto/update-experts.dto.ts.
  */
 
 export type ExpertLinkType = 'max' | 'telegram' | 'telegram_channel' | 'youtube' | 'vk' | 'dzen' | 'rutube' | 'website';
@@ -128,59 +128,38 @@ export const EXPERT_SEED: ExpertProfile[] = [
   },
 ];
 
-/* ─── Демо-слой: правки из админки без backend ─── */
-
-/** Правки живут только в браузере редактора и только в демо-режиме */
-export const EXPERT_DRAFTS_STORAGE_KEY = 'yug_expert_drafts';
-export const EXPERT_DRAFTS_EVENT = 'yug:expert-drafts';
+/* ─── Источник данных ─── */
 
 /**
- * Демо-редактирование: dev, staging и боевая сборка с VITE_ADMIN_DEMO_EDITING=1 —
- * чтобы показать заказчику админку до появления API. В API ничего не пишется.
+ * Правки из админки хранятся на сервере (site_settings.experts_json):
+ * GET /content/experts — публичный, PUT /admin/content/experts — редактор.
+ * Пока ничего не сохраняли, API отвечает experts=null и сайт показывает EXPERT_SEED.
  */
+export interface ExpertsResponse {
+  experts: ExpertProfile[] | null;
+  updatedAt: string | null;
+}
+
+export const EXPERTS_PUBLIC_PATH = '/content/experts';
+export const EXPERTS_ADMIN_PATH = '/admin/content/experts';
+
+/** Ответ API → список для показа: null (ещё не сохраняли) или битый ответ → встроенные данные */
+export function resolveExperts(res: ExpertsResponse | null | undefined): ExpertProfile[] {
+  return Array.isArray(res?.experts) ? res.experts : EXPERT_SEED;
+}
+
+/** Синхронный поиск по встроенным данным (мета-теги до загрузки API) или по переданному списку */
+export function getExpert(slug: string, experts: ExpertProfile[] = EXPERT_SEED): ExpertProfile | null {
+  return experts.find((e) => e.slug === slug) ?? null;
+}
+
+/** Осталось для плашек других демо-экранов админки (тема, источники данных) */
 export function isExpertDemoEditingEnabled(): boolean {
   return (
     import.meta.env.DEV ||
     import.meta.env.VITE_STAGING_READONLY === '1' ||
     import.meta.env.VITE_ADMIN_DEMO_EDITING === '1'
   );
-}
-
-function readDrafts(): Record<string, ExpertProfile> {
-  if (!isExpertDemoEditingEnabled()) return {};
-  try {
-    const raw = localStorage.getItem(EXPERT_DRAFTS_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, ExpertProfile>) : {};
-  } catch {
-    return {};
-  }
-}
-
-export function saveExpertDraft(profile: ExpertProfile): void {
-  const drafts = readDrafts();
-  drafts[profile.slug] = profile;
-  localStorage.setItem(EXPERT_DRAFTS_STORAGE_KEY, JSON.stringify(drafts));
-  window.dispatchEvent(new Event(EXPERT_DRAFTS_EVENT));
-}
-
-export function resetExpertDraft(slug: string): void {
-  const drafts = readDrafts();
-  delete drafts[slug];
-  localStorage.setItem(EXPERT_DRAFTS_STORAGE_KEY, JSON.stringify(drafts));
-  window.dispatchEvent(new Event(EXPERT_DRAFTS_EVENT));
-}
-
-export function hasExpertDraft(slug: string): boolean {
-  return slug in readDrafts();
-}
-
-export function listExperts(): ExpertProfile[] {
-  const drafts = readDrafts();
-  return EXPERT_SEED.map((e) => drafts[e.slug] ?? e);
-}
-
-export function getExpert(slug: string): ExpertProfile | null {
-  return listExperts().find((e) => e.slug === slug) ?? null;
 }
 
 /* ─── Публичное представление ─── */

@@ -33,7 +33,7 @@ export class TelegramNotifyService implements OnModuleInit {
   private static readonly CACHE_MS = 20_000;
   private readonly webhookUrl = process.env.TELEGRAM_WEBHOOK_URL?.trim() ?? '';
   private readonly publicSiteUrl =
-    (process.env.PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') || 'https://livegrid.ru');
+    (process.env.PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') || 'https://yugaktsent.neeklo.ru');
   /** chatId → выбранный регион в текущем диалоге заявки (in-memory). */
   private readonly consultPending = new Map<string, { regionId: number; at: number }>();
   private static readonly CONSULT_TTL_MS = 15 * 60 * 1000;
@@ -89,7 +89,7 @@ export class TelegramNotifyService implements OnModuleInit {
     const typeLabel = this.requestTypeRu(row.type);
     const obj = await this.resolveRequestObject(row);
     const lines = [
-      '<b>Новая заявка LiveGrid</b>',
+      '<b>Новая заявка с сайта «Южный Акцент»</b>',
       '',
       `<b>Имя:</b> ${escapeHtml(row.name || '—')}`,
       `<b>Телефон:</b> ${escapeHtml(row.phone || '—')}`,
@@ -173,7 +173,7 @@ export class TelegramNotifyService implements OnModuleInit {
       await this.sendMessage(
         token,
         req.telegramChatId,
-        `Готово${hello}! Доступ к уведомлениям LiveGrid одобрен. Теперь вы будете получать новые заявки.`,
+        `Готово${hello}! Доступ к уведомлениям «Южный Акцент» одобрен. Теперь вы будете получать новые заявки.`,
       );
     }
 
@@ -198,7 +198,7 @@ export class TelegramNotifyService implements OnModuleInit {
       await this.sendMessage(
         token,
         req.telegramChatId,
-        'Запрос на доступ к уведомлениям отклонён. Обратитесь к администратору LiveGrid.',
+        'Запрос на доступ к уведомлениям отклонён. Обратитесь к администратору сайта.',
       );
     }
 
@@ -282,7 +282,7 @@ export class TelegramNotifyService implements OnModuleInit {
           token,
           message.chat.id,
           [
-            'Добро пожаловать в LiveGrid.',
+            'Добро пожаловать в «Южный Акцент».',
             '',
             'Быстрое меню:',
             '🔎 Поиск — поиск по фильтрам',
@@ -709,7 +709,7 @@ export class TelegramNotifyService implements OnModuleInit {
       select: { id: true, fullName: true, email: true, role: true },
     });
     if (!user) {
-      await this.answerCallback(token, callback.id, 'Привяжите Telegram к сотруднику LiveGrid');
+      await this.answerCallback(token, callback.id, 'Привяжите Telegram к сотруднику агентства');
       await this.sendMessage(
         token,
         callback.chatId,

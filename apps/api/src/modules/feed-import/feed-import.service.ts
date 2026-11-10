@@ -766,7 +766,7 @@ export class FeedImportService implements OnModuleInit {
       );
     }
     explanations.push(
-      'Счётчик витрины Live Grid (GET /blocks/catalog-counts) учитывает только квартиры, у которых есть связанный ЖК в регионе, и только ЖК с хотя бы одной такой квартирой (require_active_listings).',
+      'Счётчик витрины сайта (GET /blocks/catalog-counts) учитывает только квартиры, у которых есть связанный ЖК в регионе, и только ЖК с хотя бы одной такой квартирой (require_active_listings).',
     );
     explanations.push(
       'Числа на msk.trendagent.ru могут включать другой набор статусов/географии или полный объём фида до фильтрации — сравнивайте с blocksInFeed и apartments_upserted последнего импорта.',

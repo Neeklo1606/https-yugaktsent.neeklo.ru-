@@ -6,6 +6,7 @@ import {
   expertInitials,
   phoneHref,
   publicExpertView,
+  resolveExperts,
   type ExpertProfile,
 } from './expert-profile';
 
@@ -41,6 +42,14 @@ describe('expert-profile', () => {
   it('телефоны превращаются в рабочие tel:-ссылки', () => {
     expect(phoneHref('8-800-234-57-15')).toBe('tel:88002345715');
     expect(phoneHref('+7 (918) 477-99-85')).toBe('tel:+79184779985');
+  });
+
+  it('пока на сервере пусто или API не ответил — встроенные данные; сохранённый список — как есть', () => {
+    expect(resolveExperts({ experts: null, updatedAt: null })).toBe(EXPERT_SEED);
+    expect(resolveExperts(undefined)).toBe(EXPERT_SEED);
+    const edited = [{ ...vlad, role: 'Новая роль' }];
+    expect(resolveExperts({ experts: edited, updatedAt: '2026-11-11T00:00:00Z' })).toBe(edited);
+    expect(resolveExperts({ experts: [], updatedAt: null })).toEqual([]);
   });
 
   it('инициалы для плашки без фото', () => {

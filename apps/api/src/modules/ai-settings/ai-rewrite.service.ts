@@ -87,8 +87,8 @@ export class AiRewriteService {
           config,
           userText,
           {
-            'HTTP-Referer': process.env.APP_URL ?? 'https://livegrid.ru',
-            'X-Title': 'LiveGrid News',
+            'HTTP-Referer': process.env.APP_URL ?? process.env.PUBLIC_SITE_URL ?? 'https://yugaktsent.neeklo.ru',
+            'X-Title': 'YugAktsent News',
           },
         );
       case 'GEMINI':

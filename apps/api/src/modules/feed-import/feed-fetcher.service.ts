@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const FEED_USER_AGENT = 'LiveGrid-FeedImporter/1.0 (backend; server-side-only)';
+const FEED_USER_AGENT = 'YugAktsent-FeedImporter/1.0 (backend; server-side-only)';
 
 export interface AboutEntry {
   name: string;

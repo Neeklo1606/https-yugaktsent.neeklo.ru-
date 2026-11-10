@@ -29,6 +29,13 @@ export class ContentController {
     return this.service.getYandexMapsPublicConfig();
   }
 
+  @Public()
+  @Get('experts')
+  @ApiOperation({ summary: 'Эксперты: опубликованные страницы, только публичные поля (experts=null — встроенные данные)' })
+  getExperts() {
+    return this.service.getExpertsPublic();
+  }
+
   @Post('settings')
   @Roles('admin', 'editor')
   @ApiOperation({

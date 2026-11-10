@@ -289,7 +289,7 @@ export class NewsService implements OnModuleInit {
     let xml: string;
     try {
       const res = await fetch(url, {
-        headers: { 'User-Agent': 'LiveGrid-NewsSync/1.0 (+https://livegrid)' },
+        headers: { 'User-Agent': 'YugAktsent-NewsSync/1.0 (+https://yugaktsent.neeklo.ru)' },
         redirect: 'follow',
         signal: AbortSignal.timeout(25_000),
       });

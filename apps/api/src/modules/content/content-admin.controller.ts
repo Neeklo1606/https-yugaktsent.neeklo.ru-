@@ -15,6 +15,7 @@ import { ContentService } from './content.service';
 import { CreateMortgageBankDto } from './dto/create-mortgage-bank.dto';
 import { UpdateMortgageBankDto } from './dto/update-mortgage-bank.dto';
 import { SiteSettingEntryDto } from './dto/site-setting-entry.dto';
+import { UpdateExpertsDto } from './dto/update-experts.dto';
 
 @ApiTags('Admin / Content')
 @ApiBearerAuth()
@@ -46,6 +47,20 @@ export class ContentAdminController {
       requesterRole: user.role,
       returnMode: 'admin',
     });
+  }
+
+  @Get('experts')
+  @Roles('admin', 'editor')
+  @ApiOperation({ summary: 'Эксперты: полный список для редактора (experts=null — ещё не сохраняли)' })
+  getExperts() {
+    return this.service.getExpertsAdmin();
+  }
+
+  @Put('experts')
+  @Roles('admin', 'editor')
+  @ApiOperation({ summary: 'Эксперты: сохранить весь список (site_settings.experts_json)' })
+  updateExperts(@Body() body: UpdateExpertsDto, @CurrentUser('sub') userId?: string) {
+    return this.service.updateExperts(body.experts, userId);
   }
 
   @Get('banks')

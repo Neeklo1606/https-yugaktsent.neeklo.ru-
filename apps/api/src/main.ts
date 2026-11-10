@@ -39,7 +39,7 @@ async function bootstrap() {
   app.enableCors({ origin: corsOrigins, credentials: true });
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('LiveGrid API')
+    .setTitle('ЮгАкцент API')
     .setDescription('API агрегатора недвижимости')
     .setVersion('0.1.0')
     .addBearerAuth()

@@ -33,7 +33,7 @@ export class SitemapService {
     return (
       this.config.get<string>('PUBLIC_SITE_URL') ||
       this.config.get<string>('VITE_PUBLIC_SITE_URL') ||
-      'https://livegrid.ru'
+      'https://yugaktsent.neeklo.ru'
     ).replace(/\/+$/, '');
   }
 

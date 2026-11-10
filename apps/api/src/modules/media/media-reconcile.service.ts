@@ -180,7 +180,7 @@ export class MediaReconcileService {
   private async downloadToMedia(remoteUrl: string): Promise<string | null> {
     const res = await fetch(remoteUrl, {
       signal: AbortSignal.timeout(30_000),
-      headers: { 'User-Agent': 'LiveGrid-MediaReconcile/1.0' },
+      headers: { 'User-Agent': 'YugAktsent-MediaReconcile/1.0' },
     });
     if (!res.ok) return null;
 

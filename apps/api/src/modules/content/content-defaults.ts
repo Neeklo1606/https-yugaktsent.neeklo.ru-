@@ -306,7 +306,7 @@ export const DEFAULT_INTEGRATION_SITE_SETTINGS: Array<{
   },
   {
     key: 'contacts_address',
-    value: 'Белгород, офис Live Grid',
+    value: '',
     groupName: INTEGRATIONS_SITE_SETTINGS_GROUP,
     label: 'Контакты бота: Адрес',
     fieldType: SiteSettingFieldType.TEXT,

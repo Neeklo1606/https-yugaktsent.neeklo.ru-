@@ -10,9 +10,10 @@ import ConsultationFlow from '@/redesign/components/ConsultationFlow';
 import { btnClass } from '@/redesign/lib/button-styles';
 
 /** Пять пунктов меню по согласованным макетам. */
-const NAV_ITEMS: { label: string; href: string; match: (path: string, search: string) => boolean }[] = [
+const NAV_ITEMS: { label: string; short?: string; href: string; match: (path: string, search: string) => boolean }[] = [
   {
     label: 'Каталог недвижимости',
+    short: 'Каталог',
     href: '/catalog',
     match: (p, s) => p.startsWith('/catalog') && !s.includes('market=new'),
   },
@@ -125,13 +126,20 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
                 to={item.href}
                 aria-current={isActive(item) ? 'page' : undefined}
                 className={cn(
-                  'rounded-lg px-3 py-2 text-[15px] font-medium transition-colors',
+                  'whitespace-nowrap rounded-lg px-2.5 py-2 text-[15px] font-medium transition-colors xl:px-3',
                   isActive(item)
                     ? 'bg-primary/10 text-primary'
                     : 'text-foreground hover:bg-muted hover:text-primary',
                 )}
               >
-                {item.label}
+                {item.short ? (
+                  <>
+                    <span className="xl:hidden">{item.short}</span>
+                    <span className="hidden xl:inline">{item.label}</span>
+                  </>
+                ) : (
+                  item.label
+                )}
               </Link>
             ))}
           </nav>

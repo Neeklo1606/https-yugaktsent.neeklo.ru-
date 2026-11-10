@@ -64,6 +64,25 @@ function resolveRegionName(
   return rows.find((r) => r.id === id)?.name?.trim() ?? null;
 }
 
+/** «в Анапа» → «в Анапе»: предложный падеж для городов присутствия агентства. */
+const REGION_LOCATIVE: Record<string, string> = {
+  Анапа: 'Анапе',
+  Москва: 'Москве',
+  Краснодар: 'Краснодаре',
+  Новороссийск: 'Новороссийске',
+  Сочи: 'Сочи',
+  Крым: 'Крыму',
+  Белгород: 'Белгороде',
+  'Карачаево-Черкесия': 'Карачаево-Черкесии',
+};
+export function regionLocative(name: string): string {
+  const n = name.trim();
+  if (REGION_LOCATIVE[n]) return REGION_LOCATIVE[n];
+  if (/а$/.test(n)) return n.replace(/а$/, 'е');
+  if (/[бвгдзклмнпрстфхц]$/.test(n)) return `${n}е`;
+  return n;
+}
+
 function buildMeta(
   pathname: string,
   search: string,
@@ -76,10 +95,10 @@ function buildMeta(
     const cmsDesc = settingOptional(cms, 'meta_description');
     const ogImage = settingOptional(cms, 'og_image');
     const defaultTitle = regionName
-      ? `Недвижимость в ${regionName}`
+      ? `Недвижимость в ${regionLocative(regionName)}`
       : `Недвижимость в Анапе · ${siteName}`;
     const defaultDesc = regionName
-      ? `Каталог жилых комплексов и квартир в ${regionName}: фильтры, карта, избранное и подборки.`
+      ? `Каталог жилых комплексов и квартир в ${regionLocative(regionName)}: фильтры, карта, избранное и подборки.`
       : `Каталог жилых комплексов и квартир: фильтры, карты, избранное и подборки.`;
     return {
       title: cmsTitle ? stripSiteSuffix(cmsTitle, siteName) : defaultTitle,
@@ -115,7 +134,7 @@ function buildMeta(
   if (pathname.startsWith('/map')) {
     const mapTitle = regionName ? `Поиск на карте · ${regionName}` : 'Поиск на карте';
     const mapDesc = regionName
-      ? `Поиск жилых комплексов и объектов в ${regionName} на интерактивной карте.`
+      ? `Поиск жилых комплексов и объектов в ${regionLocative(regionName)} на интерактивной карте.`
       : 'Поиск жилых комплексов и объектов на интерактивной карте.';
     return { title: mapTitle, description: mapDesc };
   }

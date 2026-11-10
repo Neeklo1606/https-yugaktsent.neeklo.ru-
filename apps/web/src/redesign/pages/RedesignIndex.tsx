@@ -1,12 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
 import { ApiConnectionStrip } from '@/components/ApiConnectionStrip';
 import RedesignHeader from '@/redesign/components/RedesignHeader';
 import HeroBanner from '@/redesign/components/hero/HeroBanner';
 import QuickSearch from '@/redesign/components/home/QuickSearch';
-import FeaturedComplexCard from '@/redesign/components/home/FeaturedComplexCard';
-import SnapRail from '@/redesign/components/home/SnapRail';
+import PopularComplexesSection from '@/redesign/components/home/PopularComplexesSection';
 import BuyObjectSection from '@/redesign/components/home/BuyObjectSection';
 import HomeApartmentsSection from '@/redesign/components/home/HomeApartmentsSection';
 import HomeAboutSection from '@/redesign/components/home/HomeAboutSection';
@@ -43,7 +40,7 @@ const RedesignIndex = () => {
       .slice(0, 12)
       .map(mapApiBlockListRowToResidentialComplex);
   }, [blocks.data]);
-  const featured = candidates.filter((c) => !brokenCovers.has(c.id)).slice(0, 8);
+  const featured = candidates.filter((c) => !brokenCovers.has(c.id)).slice(0, 7);
 
   return (
     <div className="min-h-screen bg-background pb-mobile-nav">
@@ -53,28 +50,7 @@ const RedesignIndex = () => {
       <HeroBanner />
       <QuickSearch />
 
-      {featured.length > 0 && (
-        <section className="container-page section-y" aria-labelledby="popular-title">
-          <div className="mb-4 flex items-end justify-between gap-4 lg:mb-6">
-            <h2 id="popular-title" className="text-section-title">
-              Популярные ЖК
-            </h2>
-            <Link to="/catalog?type=apartments&market=new" className="inline-flex shrink-0 items-center gap-1 text-[15px] font-medium text-primary hover:underline underline-offset-4">
-              Все ЖК
-              <ArrowRight className="h-4 w-4" aria-hidden />
-            </Link>
-          </div>
-          <SnapRail
-            label="Популярные жилые комплексы"
-            desktopCols={featured.length >= 3 ? 3 : 2}
-            wideCols={featured.length >= 4 ? 4 : featured.length >= 3 ? 3 : 2}
-          >
-            {featured.map((c, i) => (
-              <FeaturedComplexCard key={c.id} complex={c} cityFallback={cityName} priority={i === 0} onCoverError={() => markBroken(c.id)} />
-            ))}
-          </SnapRail>
-        </section>
-      )}
+      <PopularComplexesSection complexes={featured} cityFallback={cityName} onCoverError={markBroken} />
 
       <HomeApartmentsSection />
       <BuyObjectSection />

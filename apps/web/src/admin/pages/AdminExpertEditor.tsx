@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   ArrowDown,
@@ -10,30 +10,31 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  ImagePlus,
+  Loader2,
   Lock,
   Plus,
   RotateCcw,
   Save,
   Trash2,
+  Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { btnClass } from '@/redesign/lib/button-styles';
-import DemoModeNotice from '@/admin/components/DemoModeNotice';
+import { ApiError, apiPostForm } from '@/lib/api';
+import MediaPickerDialog from '@/admin/components/MediaPickerDialog';
 import ExpertAvatar from '@/shared/experts/ExpertAvatar';
 import ExpertLinkIcon from '@/shared/experts/ExpertLinkIcon';
 import { useQrDataUrl } from '@/shared/experts/useQrDataUrl';
-import { useExpert } from '@/shared/experts/useExpert';
+import { useAdminExperts, useSaveExperts } from '@/shared/experts/useExpert';
 import {
   EXPERT_SEED,
   expertCanonicalUrl,
   expertPath,
-  hasExpertDraft,
-  isExpertDemoEditingEnabled,
-  resetExpertDraft,
-  saveExpertDraft,
+  getExpert,
   type ExpertCtaTarget,
   type ExpertGuide,
   type ExpertLink,
@@ -113,20 +114,49 @@ const selectClass =
 
 export default function AdminExpertEditor() {
   const { slug = '' } = useParams<{ slug: string }>();
-  const stored = useExpert(slug);
-  const [draft, setDraft] = useState<ExpertProfile | null>(stored);
+  const navigate = useNavigate();
+  const { experts, saved, isPending, isError, error, refetch } = useAdminExperts();
+  const saveMutation = useSaveExperts();
+  const stored = experts ? getExpert(slug, experts) : null;
+  const [draft, setDraft] = useState<ExpertProfile | null>(null);
   const [slugUnlocked, setSlugUnlocked] = useState(false);
-  const editable = isExpertDemoEditingEnabled();
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  /** Для какого адреса уже взяли данные с сервера: повторная загрузка не затирает ввод */
+  const loadedSlug = useRef<string | null>(null);
+  const editable = !!experts && !saveMutation.isPending;
 
   useEffect(() => {
+    if (!stored || loadedSlug.current === slug) return;
+    loadedSlug.current = slug;
     setDraft(stored);
-    // Перечитываем только при смене эксперта, чтобы не затирать ввод
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
+  }, [stored, slug]);
 
   const canonical = draft ? expertCanonicalUrl(draft.slug) : '';
   const qr = useQrDataUrl(canonical, !!draft, 512);
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(stored), [draft, stored]);
+
+  if (isPending) {
+    return (
+      <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Загружаем эксперта…
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-6" role="alert">
+        <p className="font-semibold text-destructive">Не удалось загрузить данные с сервера</p>
+        <p className="mt-1 text-sm text-muted-foreground">{error instanceof Error ? error.message : 'Ошибка сети'}. Без них сохранять нельзя — можно затереть чужие правки.</p>
+        <button type="button" onClick={() => void refetch()} className="mt-3 text-primary underline">
+          Повторить
+        </button>
+      </div>
+    );
+  }
 
   if (!draft) {
     return (
@@ -161,20 +191,62 @@ export default function AdminExpertEditor() {
   const blocking = errors.filter((e) => !e.startsWith('Гайд'));
 
   const save = () => {
-    if (!editable) return;
+    if (!editable || !experts) return;
     if (blocking.length) {
       toast.error('Исправьте ошибки', { description: blocking[0] });
       return;
     }
-    saveExpertDraft(draft);
-    toast.success('Сохранено в демо-режиме', { description: 'Только в этом браузере. Откройте страницу, чтобы проверить.' });
+    if (draft.slug !== slug && experts.some((e) => e.slug === draft.slug)) {
+      toast.error('Исправьте ошибки', { description: `Адрес ${expertPath(draft.slug)} уже занят` });
+      return;
+    }
+    // На сервер уходит весь список: этот эксперт (по старому адресу) заменяется правкой
+    const next = experts.map((e) => (e.slug === slug ? draft : e));
+    saveMutation.mutate(next, {
+      onSuccess: () => {
+        toast.success('Сохранено', { description: 'Изменения уже видны на сайте.' });
+        if (draft.slug !== slug) {
+          loadedSlug.current = draft.slug;
+          navigate(`/admin/experts/${draft.slug}`, { replace: true });
+        }
+      },
+      onError: (e) => {
+        toast.error('Не удалось сохранить', { description: e instanceof ApiError || e instanceof Error ? e.message : 'Ошибка сети' });
+      },
+    });
   };
 
   const reset = () => {
-    resetExpertDraft(draft.slug);
-    const seed = EXPERT_SEED.find((e) => e.slug === draft.slug) ?? draft;
+    const seed = EXPERT_SEED.find((e) => e.slug === slug);
+    if (!seed) return;
     setDraft(seed);
-    toast('Вернули исходные данные заказчика');
+    toast('Подставили исходные данные заказчика', { description: 'Нажмите «Сохранить», чтобы применить их на сайте.' });
+  };
+
+  const uploadPhoto = async (file: File | undefined) => {
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      toast.error('Нужен JPG, PNG или WebP');
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error('Файл больше 15 МБ');
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await apiPostForm<{ url: string }>('/admin/media/upload', fd);
+      if (!res.url) throw new Error('Сервер не вернул адрес файла');
+      set('photoUrl', res.url);
+      toast.success('Фото загружено', { description: 'Нажмите «Сохранить», чтобы оно появилось на сайте.' });
+    } catch (e) {
+      toast.error('Не удалось загрузить фото', { description: e instanceof Error ? e.message : 'Ошибка сети' });
+    } finally {
+      setPhotoUploading(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
   };
 
   const copy = async () => {
@@ -221,8 +293,6 @@ export default function AdminExpertEditor() {
         </div>
       </div>
 
-      <DemoModeNotice className="mt-5" />
-
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid gap-5">
           <Panel title="Основное">
@@ -246,6 +316,23 @@ export default function AdminExpertEditor() {
             <Field label="Портрет (URL)" htmlFor="ex-photo" error={draft.photoUrl && !isHttpUrl(draft.photoUrl) && !draft.photoUrl.startsWith('/') ? 'Нужен адрес https://… или путь /uploads/…' : null}>
               <Input id="ex-photo" placeholder="https://… или /uploads/…" value={draft.photoUrl ?? ''} onChange={(e) => set('photoUrl', e.target.value || undefined)} />
             </Field>
+            <div className="flex flex-wrap gap-2">
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => void uploadPhoto(e.target.files?.[0])}
+              />
+              <button type="button" onClick={() => photoInputRef.current?.click()} disabled={photoUploading} className={btnClass('secondary', { size: 'sm' })}>
+                {photoUploading ? <Loader2 className="animate-spin" /> : <Upload />}
+                {photoUploading ? 'Загружаем…' : 'Загрузить фото'}
+              </button>
+              <button type="button" onClick={() => setPhotoPickerOpen(true)} className={btnClass('secondary', { size: 'sm' })}>
+                <ImagePlus />
+                Из медиатеки
+              </button>
+            </div>
             <div>
               <p className="mb-2 text-[13px] font-medium">Как обрежется</p>
               <div className="flex items-end gap-4">
@@ -415,7 +502,7 @@ export default function AdminExpertEditor() {
                   />
                 </div>
                 <Input aria-label="Описание гайда" placeholder="Коротко, о чём гайд" value={g.description ?? ''} onChange={(e) => setGuide(i, { description: e.target.value })} />
-                <Input aria-label="Файл" placeholder="Ссылка на PDF (загрузка файлов — после подключения backend)" value={g.fileUrl ?? ''} onChange={(e) => setGuide(i, { fileUrl: e.target.value || undefined })} />
+                <Input aria-label="Файл" placeholder="Ссылка на PDF (https://…)" value={g.fileUrl ?? ''} onChange={(e) => setGuide(i, { fileUrl: e.target.value || undefined })} />
               </div>
             ))}
             <button type="button" onClick={() => set('guides', [...draft.guides, { id: uid(), title: '', published: false }])} className={btnClass('secondary', { size: 'sm', className: 'justify-self-start' })}>
@@ -529,20 +616,29 @@ export default function AdminExpertEditor() {
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur lg:left-[var(--admin-sidebar-w,0px)]">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <p className="text-[13px] text-muted-foreground">
-            {!editable ? 'Редактирование выключено на этом сервере' : dirty ? 'Есть несохранённые изменения' : hasExpertDraft(draft.slug) ? 'Демо-правки сохранены в этом браузере' : 'Исходные данные заказчика'}
+            {saveMutation.isPending ? 'Сохраняем…' : dirty ? 'Есть несохранённые изменения' : saved ? 'Сохранено на сервере' : 'Исходные данные заказчика'}
           </p>
           <div className="flex gap-2">
-            <button type="button" onClick={reset} disabled={!editable} className={btnClass('secondary', { size: 'sm' })}>
+            <button type="button" onClick={reset} disabled={!editable || !EXPERT_SEED.some((e) => e.slug === slug)} className={btnClass('secondary', { size: 'sm' })}>
               <RotateCcw />
               <span className="hidden sm:inline">Сбросить</span>
             </button>
             <button type="button" onClick={save} disabled={!editable || !dirty} className={btnClass('primary', { size: 'sm' })}>
-              <Save />
-              Сохранить (демо)
+              {saveMutation.isPending ? <Loader2 className="animate-spin" /> : <Save />}
+              {saveMutation.isPending ? 'Сохраняем…' : 'Сохранить'}
             </button>
           </div>
         </div>
       </div>
+
+      <MediaPickerDialog
+        open={photoPickerOpen}
+        onOpenChange={setPhotoPickerOpen}
+        title="Портрет эксперта"
+        onPick={(items) => {
+          if (items[0]?.url) set('photoUrl', items[0].url);
+        }}
+      />
     </div>
   );
 }

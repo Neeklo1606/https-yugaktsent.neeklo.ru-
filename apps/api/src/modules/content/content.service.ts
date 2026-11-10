@@ -1,8 +1,16 @@
-import { Injectable, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  Logger,
+  OnModuleInit,
+  PayloadTooLargeException,
+} from '@nestjs/common';
 import { NavigationItem, Prisma, SiteSetting } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMortgageBankDto } from './dto/create-mortgage-bank.dto';
 import { UpdateMortgageBankDto } from './dto/update-mortgage-bank.dto';
+import type { ExpertProfileDto } from './dto/update-experts.dto';
 import {
   DEFAULT_DEMO_NEWS,
   DEFAULT_HOMEPAGE_SITE_SETTINGS,
@@ -18,7 +26,13 @@ const homepageDefaultsByKey = new Map(DEFAULT_HOMEPAGE_SITE_SETTINGS.map((r) => 
 const integrationDefaultsByKey = new Map(DEFAULT_INTEGRATION_SITE_SETTINGS.map((r) => [r.key, r]));
 const integrationKeys = new Set(integrationDefaultsByKey.keys());
 const settingDefaultsByKey = new Map([...homepageDefaultsByKey, ...integrationDefaultsByKey]);
-const hiddenSettingsKeys = new Set(['telegram_notify_chat_id', 'tg_news_mtproto_session']);
+/** Эксперты (/experts/:slug) — один JSON в site_settings; правится только через /admin/content/experts. */
+const EXPERTS_SETTING_KEY = 'experts_json';
+const EXPERTS_SETTING_GROUP = 'experts';
+/** Express по умолчанию режет тело на 100 КБ; держим запас и не даём раздуть строку в БД. */
+const EXPERTS_JSON_MAX_CHARS = 200_000;
+const hiddenSettingsKeys = new Set(['telegram_notify_chat_id', 'tg_news_mtproto_session', EXPERTS_SETTING_KEY]);
+
 
 @Injectable()
 export class ContentService implements OnModuleInit {
@@ -113,7 +127,7 @@ export class ContentService implements OnModuleInit {
       });
       total += r.count;
     }
-    if (total > 0) this.logger.warn(`Unpublished ${total} untouched LiveGrid demo news`);
+    if (total > 0) this.logger.warn(`Unpublished ${total} untouched template demo news`);
   }
 
   /** Обложки демо-новостей: пусто, внешний CDN (picsum) или старый URL → локальные `/news/covers/*`. */
@@ -281,11 +295,11 @@ export class ContentService implements OnModuleInit {
 
     return {
       phone: '+7 (904) 539-34-34',
-      email: email?.value?.trim() || 'info@livegrid.ru',
-      address: address?.value?.trim() || 'Белгород, офис Live Grid',
+      email: email?.value?.trim() || 'info@yugaktsent.ru',
+      address: address?.value?.trim() || '',
       workHours: workHours?.value?.trim() || 'пн–пт 9:00–18:00',
-      siteUrl: 'https://livegrid.ru',
-      contactsUrl: 'https://livegrid.ru/contacts',
+      siteUrl: (process.env.PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') || 'https://yugaktsent.neeklo.ru'),
+      contactsUrl: `${(process.env.PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') || 'https://yugaktsent.neeklo.ru')}/contacts`,
     };
   }
 
@@ -312,6 +326,8 @@ export class ContentService implements OnModuleInit {
     ctx: { requesterRole: string; returnMode: 'public' | 'admin' },
   ) {
     const filtered = data.filter(({ key }) => {
+      // JSON экспертов — только через валидируемый PUT /admin/content/experts
+      if (key === EXPERTS_SETTING_KEY) return false;
       if (!integrationKeys.has(key)) return true;
       return ctx.requesterRole === 'admin';
     });
@@ -337,6 +353,97 @@ export class ContentService implements OnModuleInit {
       return this.getSettingsPublic();
     }
     return this.getSettingsForAdminRole(ctx.requesterRole);
+  }
+
+  /* ─── Эксперты ─── */
+
+  private async readExpertsRow(): Promise<{ experts: ExpertProfileDto[] | null; updatedAt: Date | null }> {
+    const row = await this.prisma.siteSetting.findUnique({
+      where: { key: EXPERTS_SETTING_KEY },
+      select: { value: true, updatedAt: true },
+    });
+    if (!row?.value?.trim()) return { experts: null, updatedAt: null };
+    try {
+      const parsed = JSON.parse(row.value) as unknown;
+      if (!Array.isArray(parsed)) return { experts: null, updatedAt: row.updatedAt };
+      return { experts: parsed as ExpertProfileDto[], updatedAt: row.updatedAt };
+    } catch {
+      this.logger.error('site_settings.experts_json is not valid JSON; falling back to defaults');
+      return { experts: null, updatedAt: row.updatedAt };
+    }
+  }
+
+  /** Админка: полный список как сохранён. experts=null — ещё ничего не сохраняли, фронт берёт встроенные данные. */
+  async getExpertsAdmin() {
+    return this.readExpertsRow();
+  }
+
+  /**
+   * Публичный список: только опубликованные страницы и только то, что видно на странице
+   * (без скрытых ссылок/видео, неопубликованных гайдов, обложки и служебных полей).
+   */
+  async getExpertsPublic() {
+    const { experts, updatedAt } = await this.readExpertsRow();
+    if (!experts) return { experts: null, updatedAt: null };
+    const isHttp = (u?: string) => !!u && /^https?:\/\//i.test(u.trim());
+    return {
+      updatedAt,
+      experts: experts
+        .filter((e) => e?.published === true)
+        .map((e) => ({
+          slug: e.slug,
+          fullName: e.fullName,
+          role: e.role,
+          experience: e.experience || undefined,
+          city: e.city || undefined,
+          photoUrl: e.photoUrl || undefined,
+          summary: e.summary || undefined,
+          intro: e.intro,
+          about: e.about ?? [],
+          projects: (e.projects ?? []).map(({ id, title, description }) => ({ id, title, description })),
+          links: (e.links ?? [])
+            .filter((l) => l.visible && isHttp(l.url))
+            .map(({ id, type, title, handle, url }) => ({ id, type, title, handle, url, visible: true })),
+          videos: (e.videos ?? [])
+            .filter((v) => v.visible && isHttp(v.url))
+            .map(({ id, title, url, previewUrl, priority }) => ({ id, title, url, previewUrl, priority, visible: true })),
+          guides: (e.guides ?? [])
+            .filter((g) => g.published && isHttp(g.fileUrl))
+            .map(({ id, title, description, fileUrl }) => ({ id, title, description, fileUrl, published: true })),
+          phones: (e.phones ?? []).map(({ id, label, value, note }) => ({ id, label, value, note })),
+          address: e.address || undefined,
+          primaryCta: e.primaryCta,
+          showOnTeamPage: e.showOnTeamPage === true,
+          seo: { title: e.seo?.title ?? '', description: e.seo?.description ?? '' },
+          published: true,
+        })),
+    };
+  }
+
+  async updateExperts(experts: ExpertProfileDto[], userId?: string) {
+    const slugs = new Set<string>();
+    for (const e of experts) {
+      if (slugs.has(e.slug)) throw new BadRequestException(`Адрес /experts/${e.slug} занят другим экспертом`);
+      slugs.add(e.slug);
+    }
+    const value = JSON.stringify(experts);
+    if (value.length > EXPERTS_JSON_MAX_CHARS) {
+      throw new PayloadTooLargeException('Слишком большой объём данных экспертов');
+    }
+    await this.prisma.siteSetting.upsert({
+      where: { key: EXPERTS_SETTING_KEY },
+      update: { value, updatedBy: userId ?? null },
+      create: {
+        key: EXPERTS_SETTING_KEY,
+        value,
+        groupName: EXPERTS_SETTING_GROUP,
+        label: 'Эксперты (JSON, редактируется в разделе «Эксперты»)',
+        fieldType: 'TEXTAREA',
+        sortOrder: 0,
+        updatedBy: userId ?? null,
+      },
+    });
+    return this.getExpertsAdmin();
   }
 
   async getPageBlocks(slug: string) {

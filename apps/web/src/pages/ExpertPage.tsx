@@ -11,7 +11,7 @@ import NotFound from '@/pages/NotFound';
 import ExpertAvatar from '@/shared/experts/ExpertAvatar';
 import ExpertLinkIcon from '@/shared/experts/ExpertLinkIcon';
 import ExpertQrDialog from '@/shared/experts/ExpertQrDialog';
-import { useExpert } from '@/shared/experts/useExpert';
+import { useExpertsQuery } from '@/shared/experts/useExpert';
 import {
   expertCanonicalUrl,
   expertPath,
@@ -19,6 +19,7 @@ import {
   publicExpertView,
   type ExpertLink,
   absoluteSiteUrl,
+  getExpert,
 } from '@/shared/experts/expert-profile';
 
 const SITE_URL =
@@ -54,7 +55,9 @@ const LinkRow = ({ link }: { link: ExpertLink }) => (
 
 const ExpertPage = () => {
   const { slug } = useParams<{ slug: string }>();
-  const expert = useExpert(slug);
+  // Данные из API (правки админки); до ответа и при сбое — встроенные данные заказчика
+  const { experts, isPending } = useExpertsQuery();
+  const expert = slug ? getExpert(slug, experts) : null;
   const { shortName, logoUrl } = useSiteBrand();
   const [qrOpen, setQrOpen] = useState(false);
   const [leadOpen, setLeadOpen] = useState(false);
@@ -86,6 +89,8 @@ const ExpertPage = () => {
 
   const view = useMemo(() => (expert ? publicExpertView(expert) : null), [expert]);
 
+  // Не мигаем «404» для эксперта, которого ещё нет во встроенных данных, пока API не ответил
+  if (!expert && isPending) return <div className="min-h-[60vh]" aria-busy="true" />;
   if (!expert || !expert.published || !view) return <NotFound />;
 
   const maxLink = view.links.find((l) => l.type === 'max');
