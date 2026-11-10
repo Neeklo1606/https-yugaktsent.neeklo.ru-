@@ -44,6 +44,7 @@ const FooterSection = React.forwardRef<HTMLElement>((_, ref) => {
 
   const phoneMain = settingOptional(s, 'phone_main');
   const phoneHref = phoneMain ? telHref(phoneMain) : null;
+  const phoneSecondary = settingOptional(s, 'phone_secondary');
   const emailVal = settingOptional(s, 'email') ?? settingOptional(s, 'contacts_email');
   const addressVal = settingOptional(s, 'address') ?? settingOptional(s, 'contacts_address');
   const telegramUrl = settingOptional(s, 'telegram_url');
@@ -106,6 +107,12 @@ const FooterSection = React.forwardRef<HTMLElement>((_, ref) => {
                 <a href={phoneHref} className={cn(contactLinkClass, 'text-base font-semibold')}>
                   <Phone className="h-4 w-4 shrink-0 text-primary-foreground/50" aria-hidden />
                   {phoneMain}
+                </a>
+              ) : null}
+              {phoneSecondary ? (
+                <a href={telHref(phoneSecondary)} className={cn(contactLinkClass, 'text-base font-semibold')}>
+                  <Phone className="h-4 w-4 shrink-0 text-primary-foreground/50" aria-hidden />
+                  {phoneSecondary}
                 </a>
               ) : null}
               {emailVal ? (

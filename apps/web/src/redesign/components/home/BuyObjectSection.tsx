@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import { ArrowRight, LayoutGrid, MessageCircle, Phone } from 'lucide-react';
 import { apiGet } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import StableMediaFrame from '@/redesign/components/StableMediaFrame';
 import ConsultationFlow from '@/redesign/components/ConsultationFlow';
 import { useDefaultRegionId } from '@/redesign/hooks/useDefaultRegionId';
@@ -20,6 +21,14 @@ const TILES: { rooms: number; title: string }[] = [
   { rooms: 3, title: '3-комнатные' },
   { rooms: 4, title: '4+ комнат' },
 ];
+
+/** Колонок на десктопе ровно столько, сколько плиток (+ плитка подбора) — без пустых мест */
+const LG_COLS: Record<number, string> = {
+  3: 'lg:grid-cols-3',
+  4: 'lg:grid-cols-4',
+  5: 'lg:grid-cols-5',
+  6: 'lg:grid-cols-6',
+};
 
 const countLabel = (n: number) => {
   const m10 = n % 10;
@@ -96,7 +105,7 @@ const BuyObjectSection = () => {
         </Link>
       </div>
 
-      <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:mt-8 lg:grid-cols-6 lg:gap-4">
+      <ul className={cn('mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:mt-8 lg:gap-4', LG_COLS[Math.min(6, Math.max(3, (loading ? 5 : tiles.length) + 1))])}>
         {loading && tiles.length === 0
           ? Array.from({ length: 6 }).map((_, i) => <li key={i} className="h-[236px] animate-pulse rounded-card bg-muted" aria-hidden />)
           : tiles.map((t) => (
@@ -151,7 +160,7 @@ const BuyObjectSection = () => {
               {phone ? (
                 <a
                   href={telHref(phone)}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-primary-foreground/40 px-3 text-[14px] font-semibold transition-colors hover:bg-primary-foreground/10"
+                  className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-primary-foreground/40 px-2 text-[13px] font-semibold tabular-nums transition-colors hover:bg-primary-foreground/10"
                 >
                   <Phone className="h-4 w-4" aria-hidden />
                   {phone}

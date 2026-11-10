@@ -16,6 +16,8 @@ const Contacts = () => {
   const { shortName } = useSiteBrand();
 
   const phone = settingOptional(s, 'phone_main');
+  const phoneSecondary = settingOptional(s, 'phone_secondary');
+  const tollFree = phone ? /^\s*(8|\+7)\s*\(?800/.test(phone) : false;
   const email = settingOptional(s, 'email') ?? settingOptional(s, 'contacts_email');
   const address = settingOptional(s, 'address') ?? settingOptional(s, 'contacts_address');
   const workHours = settingOptional(s, 'contacts_work_hours') ?? settingOptional(s, 'work_hours');
@@ -60,7 +62,8 @@ const Contacts = () => {
   const rows = [
     address ? { icon: MapPin, label: 'Адрес', value: address, href: mapsUrl } : null,
     workHours ? { icon: Clock, label: 'График работы', value: workHours, href: undefined } : null,
-    phone ? { icon: Phone, label: 'Телефон', value: phone, href: telHref(phone) } : null,
+    phone ? { icon: Phone, label: tollFree ? 'Телефон · бесплатно по России' : 'Телефон', value: phone, href: telHref(phone) } : null,
+    phoneSecondary ? { icon: Phone, label: 'Мобильный', value: phoneSecondary, href: telHref(phoneSecondary) } : null,
     email ? { icon: Mail, label: 'Почта', value: email, href: `mailto:${email}` } : null,
   ].filter(Boolean) as { icon: typeof MapPin; label: string; value: string; href?: string }[];
 
