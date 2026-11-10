@@ -54,12 +54,42 @@ function assertMediaLibraryUrl(u: string | undefined | null, label: string) {
   }
 }
 
+/**
+ * Планировки из фидов застройщиков можно хранить ссылкой на поставщика, не копируя файл
+ * на диск. Разрешены только https и только хосты поставщиков фидов (env FEED_MEDIA_HOSTS
+ * через запятую дополняет список). Остальные поля медиа — только из медиатеки.
+ */
+const DEFAULT_FEED_MEDIA_HOSTS = ['profitbase.ru', 'bx.sskuban.ru'];
+export function isTrustedFeedMediaUrl(u: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(u);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:') return false;
+  const extra = (process.env.FEED_MEDIA_HOSTS ?? '')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+  const host = url.hostname.toLowerCase();
+  return [...DEFAULT_FEED_MEDIA_HOSTS, ...extra].some((h) => host === h || host.endsWith(`.${h}`));
+}
+
+function assertPlanUrl(u: string | undefined | null) {
+  if (u == null || u === '') return;
+  if (u.startsWith(MEDIA_LIB_PREFIX) || isTrustedFeedMediaUrl(u)) return;
+  throw new BadRequestException(
+    `Планировка: разрешены ссылки из медиатеки (${MEDIA_LIB_PREFIX}…) или с сайта поставщика фида`,
+  );
+}
+
 function validateManualApartmentMedia(apt: {
   planUrl?: string | null;
   finishingPhotoUrl?: string | null;
   extraPhotoUrls?: unknown;
 }) {
-  assertMediaLibraryUrl(apt.planUrl ?? undefined, 'Планировка');
+  assertPlanUrl(apt.planUrl);
   assertMediaLibraryUrl(apt.finishingPhotoUrl ?? undefined, 'Фото отделки');
   if (apt.extraPhotoUrls == null) return;
   if (!Array.isArray(apt.extraPhotoUrls)) {

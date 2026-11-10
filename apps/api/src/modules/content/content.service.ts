@@ -287,14 +287,15 @@ export class ContentService implements OnModuleInit {
   /** Уведомления о заявках: значения из site_settings (не из env). */
 
   async getBotContacts() {
-    const [email, address, workHours] = await Promise.all([
+    const [email, address, workHours, phoneMain] = await Promise.all([
       this.prisma.siteSetting.findUnique({ where: { key: 'contacts_email' }, select: { value: true } }),
       this.prisma.siteSetting.findUnique({ where: { key: 'contacts_address' }, select: { value: true } }),
       this.prisma.siteSetting.findUnique({ where: { key: 'contacts_work_hours' }, select: { value: true } }),
+      this.prisma.siteSetting.findUnique({ where: { key: 'phone_main' }, select: { value: true } }),
     ]);
 
     return {
-      phone: '+7 (904) 539-34-34',
+      phone: phoneMain?.value?.trim() || '',
       email: email?.value?.trim() || 'info@yugaktsent.ru',
       address: address?.value?.trim() || '',
       workHours: workHours?.value?.trim() || 'пн–пт 9:00–18:00',

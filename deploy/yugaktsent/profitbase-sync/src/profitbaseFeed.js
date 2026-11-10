@@ -67,7 +67,7 @@ function offerImages(offer) {
     .map((img) =>
       typeof img === "string"
         ? { url: img, type: null }
-        : { url: text(img), type: img["@_type"] ?? null },
+        : { url: text(img), type: img["@_type"] ?? img["@_tag"] ?? null },
     )
     .filter((img) => {
       if (!img.url || seen.has(img.url)) return false;
@@ -82,7 +82,8 @@ function offerImages(offer) {
  */
 function buildingImageOf(images) {
   const byType = (t) => images.find((i) => (i.type ?? "").split(/\s+/).includes(t))?.url ?? null;
-  return byType("building") ?? byType("house") ?? null;
+  // JCAT/Яндекс: у фото комплекса нет типа, у планировки tag="plan" — берём первое фото без типа
+  return byType("building") ?? byType("house") ?? images.find((i) => !i.type)?.url ?? null;
 }
 
 /**
