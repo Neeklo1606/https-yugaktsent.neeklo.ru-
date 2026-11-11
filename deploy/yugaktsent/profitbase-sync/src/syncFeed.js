@@ -391,10 +391,11 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
 
   if (feedConfig.id) {
     try {
+      const allSkipped = result.total > 0 && result.created + result.updated === 0 && result.skipped > 0;
       const status =
         result.total === 0
           ? "empty"
-          : result.errors?.length
+          : result.errors?.length || allSkipped
             ? "error"
             : "ok";
       await lg.markFeedSynced(feedConfig.id, {
@@ -403,7 +404,11 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
         created: result.created,
         updated: result.updated,
         errors: result.errors?.length ?? 0,
-        ...(result.errors?.length ? { errorMessage: String(result.errors[0]).slice(0, 1000) } : {}),
+        ...(result.errors?.length
+          ? { errorMessage: String(result.errors[0]).slice(0, 1000) }
+          : allSkipped
+            ? { errorMessage: `Все ${result.skipped} лотов пропущены: в выгрузке нет площади или цены, без них квартиру на сайт не добавить` }
+            : {}),
       });
     } catch (err) {
       console.warn(`[profitbase-sync] mark-synced ${feedConfig.id}: ${err.message}`);
