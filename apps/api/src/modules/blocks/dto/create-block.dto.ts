@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsNumber,
   IsDateString,
+  MaxLength,
   ValidateIf,
 } from 'class-validator';
 
@@ -33,10 +34,17 @@ export class CreateBlockDto {
   @IsInt()
   districtId?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true, description: 'null — снять застройщика' })
   @IsOptional()
+  @ValidateIf((_, v) => v !== null)
   @IsInt()
-  builderId?: number;
+  builderId?: number | null;
+
+  @ApiPropertyOptional({ description: 'Адрес ЖК (основной); пустая строка удаляет адрес' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  address?: string;
 
   @ApiPropertyOptional({ enum: ['BUILDING', 'COMPLETED', 'PROJECT'] })
   @IsOptional()

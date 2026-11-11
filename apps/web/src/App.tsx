@@ -69,7 +69,6 @@ const AdminEcosystemPage = lazyWithReload('AdminEcosystemPage', () => import("./
 const AdminTelegramNotify = lazyWithReload('AdminTelegramNotify', () => import("./admin/pages/AdminTelegramNotify"));
 const AdminBlocks = lazyWithReload('AdminBlocks', () => import("./admin/pages/AdminBlocks"));
 const AdminBlockEditor = lazyWithReload('AdminBlockEditor', () => import("./admin/pages/AdminBlockEditor"));
-const AdminBuilders = lazyWithReload('AdminBuilders', () => import("./admin/pages/AdminBuilders"));
 const AdminBuildings = lazyWithReload('AdminBuildings', () => import("./admin/pages/AdminBuildings"));
 const AdminMyListings = lazyWithReload('AdminMyListings', () => import("./admin/pages/AdminMyListings"));
 const AdminListings = lazyWithReload('AdminListings', () => import("./admin/pages/AdminListings"));
@@ -182,7 +181,7 @@ const AppRoutes = () => (
       <Route path="audit" element={<RequireAuth roles={['admin']}><AdminAudit /></RequireAuth>} />
       <Route path="blocks" element={<RequireAuth roles={['admin', 'editor']}><AdminBlocks /></RequireAuth>} />
       <Route path="blocks/:id" element={<RequireAuth roles={['admin', 'editor']}><AdminBlockEditor /></RequireAuth>} />
-      <Route path="builders" element={<RequireAuth roles={['admin', 'editor']}><AdminBuilders /></RequireAuth>} />
+      <Route path="builders" element={<Navigate to="/admin/reference?tab=builders" replace />} />
       <Route path="buildings" element={<RequireAuth roles={['admin', 'editor']}><AdminBuildings /></RequireAuth>} />
       <Route path="my-listings" element={<RequireAuth roles={['agent', 'manager', 'admin', 'editor']}><AdminMyListings /></RequireAuth>} />
       <Route path="listings" element={<AdminListings />} />

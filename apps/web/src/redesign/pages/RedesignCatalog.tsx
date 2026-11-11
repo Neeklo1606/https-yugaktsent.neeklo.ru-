@@ -449,10 +449,14 @@ const RedesignCatalog = () => {
 
   const buildersQuery = useQuery({
     queryKey: ['builders', regionId],
-    queryFn: () => apiGet<{ name: string }[]>(`/builders?region_id=${regionId}`),
+    queryFn: () => apiGet<{ name: string; blocksCount?: number }[]>(`/builders?region_id=${regionId}`),
     enabled: regionId != null,
-    select: (r) => r.map((x) => x.name),
   });
+  const builderNames = useMemo(() => buildersQuery.data?.map((x) => x.name), [buildersQuery.data]);
+  const builderCounts = useMemo(
+    () => Object.fromEntries((buildersQuery.data ?? []).map((x) => [x.name, x.blocksCount ?? 0])),
+    [buildersQuery.data],
+  );
 
   const deadlinesQuery = useQuery({
     queryKey: ['blocks', 'deadlines', regionId],
@@ -607,7 +611,8 @@ const RedesignCatalog = () => {
     totalCount: filtered.length,
     districtOptions: districtsQuery.data,
     subwayOptions: subwaysQuery.data,
-    builderOptions: buildersQuery.data,
+    builderOptions: builderNames,
+    builderCounts,
     deadlineOptions: deadlinesQuery.data,
     objectTypeOptions: OBJECT_TYPE_TABS.map((x) => x.type),
     showMetro: moscowMetro,

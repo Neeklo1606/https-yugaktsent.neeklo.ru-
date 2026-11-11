@@ -1,9 +1,11 @@
+import { manualFieldsLabel } from '@/admin/components/ManualLockBanner';
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Loader2, ChevronLeft, ChevronRight, ExternalLink, Pencil, Trash2, Plus,
   Building, TreePine, Trees, Hammer, ParkingSquare, Search, X, DoorOpen,
+  Lock,
 } from 'lucide-react';
 import { formatApiValidationError } from '@lg/shared';
 import { apiGet, apiDelete, apiPatch, ApiError } from '@/lib/api';
@@ -40,6 +42,7 @@ type ListingRow = {
   status?: string;
   visibility?: string;
   isPublished?: boolean;
+  manualFields?: string[];
   isStale?: boolean;
   lastActivityAt?: string | null;
   blockId?: number | null;
@@ -565,6 +568,14 @@ export default function AdminListings() {
                         )}
                       </td>
                       <td className="px-4 py-2 text-xs max-w-[200px] truncate" title={listingAddressLine(r)}>
+                        {r.manualFields?.length ? (
+                          <Lock
+                            className="mr-1 inline h-3.5 w-3.5 text-amber-600"
+                            aria-label={`Изменено вручную: ${manualFieldsLabel(r.manualFields)}`}
+                          >
+                            <title>{`Изменено вручную: ${manualFieldsLabel(r.manualFields)} — фид не перезаписывает`}</title>
+                          </Lock>
+                        ) : null}
                         {listingAddressLine(r)}
                       </td>
                       <td className="px-4 py-2 text-muted-foreground text-xs">{r.id}</td>

@@ -38,6 +38,8 @@ export class LiveGridClient {
       method,
       headers: {
         Authorization: `Bearer ${this.token}`,
+        // Метка службы фидов: API не перезапишет поля, которые менеджер поправил вручную
+        "x-feed-sync": "1",
         ...(body ? { "Content-Type": "application/json" } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,

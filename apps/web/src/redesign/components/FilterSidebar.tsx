@@ -25,6 +25,8 @@ interface Props {
   districtOptions?: string[];
   subwayOptions?: string[];
   builderOptions?: string[];
+  /** Число ЖК с квартирами в продаже у застройщика — «Застройщик (N)» */
+  builderCounts?: Record<string, number>;
   deadlineOptions?: string[];
   objectTypeOptions?: ObjectType[];
   /** When false, hide new-build-specific filters (Срок сдачи, Статус, Застройщик). */
@@ -170,6 +172,7 @@ const FilterSidebar = ({
   districtOptions,
   subwayOptions,
   builderOptions,
+  builderCounts,
   deadlineOptions,
   objectTypeOptions,
   hasBlocks = false,
@@ -602,6 +605,16 @@ const FilterSidebar = ({
             selected={filters.builder}
             onToggle={val => toggleArray('builder', val)}
             placeholder="Найти застройщика..."
+            renderLabel={(val) =>
+              builderCounts?.[val] ? (
+                <>
+                  {val} <span className="text-muted-foreground tabular-nums">({builderCounts[val]})</span>
+                </>
+              ) : (
+                val
+              )
+            }
+            searchKey={(val) => val}
           />
         </FilterSection>
       )}

@@ -1,4 +1,8 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import AdminBuilders from '@/admin/pages/AdminBuilders';
+import AdminRegions from '@/admin/pages/AdminRegions';
+import { cn } from '@/lib/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookA, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from '@/lib/api';
@@ -32,7 +36,7 @@ const kindLabel: Record<RefKind, string> = {
   'building-types': 'Типы корпусов',
 };
 
-export default function AdminReference() {
+function ReferenceLists() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const canManage = user?.role === 'admin';
@@ -126,7 +130,7 @@ export default function AdminReference() {
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold inline-flex items-center gap-2">
           <BookA className="w-6 h-6 text-primary" />
-          Справочники
+          Комнатность, отделка, корпуса
         </h1>
         <Button
           type="button"
@@ -286,6 +290,56 @@ export default function AdminReference() {
           </table>
         )}
       </div>
+    </div>
+  );
+}
+
+
+const HUB_TABS = [
+  { key: 'builders', label: 'Застройщики' },
+  { key: 'regions', label: 'Города' },
+  { key: 'lists', label: 'Комнатность, отделка, корпуса' },
+] as const;
+type HubTab = (typeof HUB_TABS)[number]['key'];
+
+/**
+ * Справочники одним экраном (как в CRM LiveGrid): застройщики, города и списки,
+ * из которых собираются фильтры каталога и карточки квартир.
+ */
+export default function AdminReference() {
+  const [sp, setSp] = useSearchParams();
+  const raw = sp.get('tab');
+  const tab: HubTab = HUB_TABS.some((t) => t.key === raw) ? (raw as HubTab) : 'builders';
+  return (
+    <div>
+      <div className="px-6 pt-6">
+        <h1 className="text-2xl font-bold inline-flex items-center gap-2">
+          <BookA className="w-6 h-6 text-primary" />
+          Справочники
+        </h1>
+        <div role="tablist" aria-label="Справочники" className="mt-4 flex flex-wrap gap-1 border-b">
+          {HUB_TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              onClick={() => setSp((prev) => {
+                const next = new URLSearchParams(prev);
+                next.set('tab', t.key);
+                return next;
+              }, { replace: true })}
+              className={cn(
+                '-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+                tab === t.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {tab === 'builders' ? <AdminBuilders /> : tab === 'regions' ? <AdminRegions /> : <ReferenceLists />}
     </div>
   );
 }

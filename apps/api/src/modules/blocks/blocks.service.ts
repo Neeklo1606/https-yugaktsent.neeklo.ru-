@@ -1145,6 +1145,7 @@ export class BlocksService {
         dataSource: this.parseDataSource(dto.dataSource),
       },
     });
+    if (dto.address?.trim()) await this.setMainAddress(created.id, dto.address);
     await this.invalidateCatalogCache();
     return created;
   }
@@ -1169,8 +1170,24 @@ export class BlocksService {
         ...(dto.dataSource !== undefined && { dataSource: this.parseDataSource(dto.dataSource) }),
       },
     });
+    if (dto.address !== undefined) await this.setMainAddress(id, dto.address);
     await this.invalidateCatalogCache();
     return updated;
+  }
+
+  /** Основной адрес ЖК (первая строка block_addresses); пустая строка — удалить */
+  private async setMainAddress(blockId: number, raw: string) {
+    const address = raw.trim().replace(/\s+/g, ' ');
+    const main = await this.prisma.blockAddress.findFirst({ where: { blockId }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
+    if (!address) {
+      if (main) await this.prisma.blockAddress.delete({ where: { id: main.id } });
+      return;
+    }
+    if (main) {
+      if (main.address !== address) await this.prisma.blockAddress.update({ where: { id: main.id }, data: { address } });
+    } else {
+      await this.prisma.blockAddress.create({ data: { blockId, address, sortOrder: 0 } });
+    }
   }
 
   /**

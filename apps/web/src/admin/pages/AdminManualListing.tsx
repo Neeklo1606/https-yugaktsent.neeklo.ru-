@@ -1,3 +1,4 @@
+import ManualLockBanner from '@/admin/components/ManualLockBanner';
 import { useEffect, useMemo, useState } from 'react';
 import { resolveRoomListingTypeIds } from '@lg/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -251,8 +252,11 @@ export default function AdminManualListing() {
     );
   }
 
+  const manualFields = Array.isArray(editListing?.manualFields) ? (editListing.manualFields as string[]) : [];
+
   return (
     <div className="p-6 max-w-3xl">
+      {!isNew && editNumericId != null ? <ManualLockBanner listingId={editNumericId} fields={manualFields} /> : null}
       <div className="flex items-center gap-3 mb-6">
         <Button type="button" variant="ghost" size="icon" asChild>
           <Link to="/admin/listings" aria-label="Назад">

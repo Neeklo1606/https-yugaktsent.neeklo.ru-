@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Headers, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '../../auth/decorators';
 import { AuditService } from '../audit/audit.service';
@@ -163,9 +163,12 @@ export class ListingsAdminController {
     @Body() dto: UpdateManualApartmentDto,
     @CurrentUser('sub') userId: string,
     @CurrentUser('role') role: string,
+    @Headers('x-feed-sync') feedSync?: string,
   ) {
     const oldData = await this.service.findOne(id);
-    const updated = await this.service.updateManualApartment(id, dto, userId, role);
+    // Запрос службы синхронизации фидов: закреплённые вручную поля она не перезаписывает
+    const fromFeed = feedSync === '1' && (role === 'admin' || role === 'editor');
+    const updated = await this.service.updateManualApartment(id, dto, userId, role, { fromFeed });
     await this.audit.log(userId, 'listing', id, 'UPDATE', oldData, updated);
     return updated;
   }
@@ -272,7 +275,17 @@ export class ListingsAdminController {
     return updated;
   }
 
-  @Patch(':id/transfer')
+  @Post(':id/release-manual')
+  @Roles('editor')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Вернуть управление фиду: снять ручное закрепление полей' })
+  async releaseManual(@Param('id', ParseIntPipe) id: number, @CurrentUser('sub') userId: string) {
+    const updated = await this.service.releaseManualFields(id);
+    await this.audit.log(userId, 'listing', id, 'UPDATE', undefined, updated);
+    return updated;
+  }
+
+    @Patch(':id/transfer')
   @Roles('agent')
   @ApiOperation({ summary: 'Передать ручное объявление другому сотруднику' })
   async transferManualListing(

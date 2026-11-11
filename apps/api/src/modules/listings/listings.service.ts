@@ -1,3 +1,10 @@
+import {
+  changedManualFields,
+  mergeManualFields,
+  stripLockedFields,
+  type CurrentListing,
+  type ManualPatch,
+} from './listing-manual-fields.util';
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
@@ -1498,8 +1505,36 @@ export class ListingsService implements OnModuleInit {
     });
   }
 
-  async updateManualApartment(id: number, dto: UpdateManualApartmentDto, actorUserId?: string, actorRole?: string) {
+  async updateManualApartment(
+    id: number,
+    dtoIn: UpdateManualApartmentDto,
+    actorUserId?: string,
+    actorRole?: string,
+    opts?: { fromFeed?: boolean },
+  ) {
     const row = await this.requireManualListing(id, actorUserId, actorRole);
+
+    // Ручные правки против фида: фид не трогает поля, закреплённые менеджером
+    const lockState = await this.prisma.listing.findUnique({
+      where: { id },
+      select: {
+        price: true,
+        status: true,
+        isPublished: true,
+        manualFields: true,
+        apartment: {
+          select: { areaTotal: true, areaKitchen: true, floor: true, floorsTotal: true, roomTypeId: true, buildingName: true, number: true, planUrl: true },
+        },
+      },
+    });
+    const locked = lockState?.manualFields ?? [];
+    let dto = dtoIn;
+    let manualAdded: string[] = [];
+    if (opts?.fromFeed) {
+      dto = stripLockedFields(dtoIn as unknown as ManualPatch, locked) as unknown as UpdateManualApartmentDto;
+    } else if (lockState) {
+      manualAdded = changedManualFields(lockState as unknown as CurrentListing, dtoIn as unknown as ManualPatch);
+    }
 
     if (dto.apartment) {
       validateManualApartmentMedia(dto.apartment);
@@ -1567,8 +1602,15 @@ export class ListingsService implements OnModuleInit {
       await this.applyApartmentWizardUiKind(id, dto.wizardUiKind, aptPatch, actorUserId);
     }
 
+    if (manualAdded.length) {
+      listingPatch.manualFields = mergeManualFields(locked, manualAdded);
+    }
     const hasListing = Object.keys(listingPatch).length > 0;
     const hasApt = Object.keys(aptPatch).length > 0;
+    // Всё, что прислал фид, закреплено вручную — менять нечего, это не ошибка
+    if (opts?.fromFeed && !hasListing && !hasApt) {
+      return this.findOne(id, { authenticated: true });
+    }
     if (!hasListing && !hasApt && !sellerUpdate.touched && !dto.wizardUiKind) {
       throw new BadRequestException('Укажите хотя бы одно поле для обновления');
     }
@@ -1960,17 +2002,22 @@ export class ListingsService implements OnModuleInit {
     }
     const exists = await this.prisma.listing.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, isPublished: true, manualFields: true },
     });
     if (!exists) throw new NotFoundException('Объявление не найдено');
     const nextStatus = dto.isPublished === true && dto.status === undefined && exists.status === 'INACTIVE'
       ? 'ACTIVE'
       : dto.status;
+    // Снятие с публикации или смена статуса в админке закрепляется: фид не вернёт объявление на сайт
+    const publicationChanged =
+      (nextStatus !== undefined && nextStatus !== exists.status) ||
+      (dto.isPublished !== undefined && dto.isPublished !== exists.isPublished);
 
     return this.prisma.listing.update({
       where: { id },
       data: {
         ...this.publicationPatch(nextStatus, dto.isPublished),
+        ...(publicationChanged ? { manualFields: mergeManualFields(exists.manualFields, ['publication']) } : {}),
       },
       include: {
         apartment: { include: { roomType: true, finishing: true } },
@@ -1981,6 +2028,17 @@ export class ListingsService implements OnModuleInit {
         block: { select: { id: true, name: true, slug: true } },
         region: { select: { id: true, code: true, name: true } },
       },
+    });
+  }
+
+  /** «Вернуть управление фиду»: следующая синхронизация снова обновит все поля */
+  async releaseManualFields(id: number) {
+    const exists = await this.prisma.listing.findUnique({ where: { id }, select: { id: true } });
+    if (!exists) throw new NotFoundException('Объявление не найдено');
+    return this.prisma.listing.update({
+      where: { id },
+      data: { manualFields: [] },
+      select: { id: true, manualFields: true },
     });
   }
 
@@ -2096,7 +2154,8 @@ export function sanitizePublicListingsQuery(query: QueryListingsDto): QueryListi
 
 /** Removes seller PII and internal fields from a listing returned to anonymous visitors (audit B2). */
 export function stripPrivateListingFields<T extends Record<string, unknown>>(row: T): T {
-  const { seller: _seller, sellerId: _sellerId, moderationNote: _note, ownerUser, ...rest } = row as T & {
+  const { seller: _seller, sellerId: _sellerId, moderationNote: _note, manualFields: _manual, ownerUser, ...rest } = row as T & {
+    manualFields?: unknown;
     seller?: unknown;
     sellerId?: unknown;
     moderationNote?: unknown;

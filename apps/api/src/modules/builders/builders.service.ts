@@ -11,12 +11,27 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class BuildersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Застройщики для фильтра каталога: только те, у кого есть ЖК с квартирами на сайте,
+   * с числом таких ЖК — фильтр показывает «Застройщик (N)», пустых пунктов нет.
+   */
   async findAll(regionId?: number) {
-    return this.prisma.builder.findMany({
+    const builders = await this.prisma.builder.findMany({
       where: regionId ? { regionId } : undefined,
       orderBy: { name: 'asc' },
       select: { id: true, name: true, regionId: true, externalId: true, crmId: true, dataSource: true },
     });
+    if (builders.length === 0) return [];
+    const blocks = await this.prisma.block.findMany({
+      where: {
+        builderId: { in: builders.map((b) => b.id) },
+        listings: { some: { isPublished: true, status: { in: ['ACTIVE', 'RESERVED'] } } },
+      },
+      select: { builderId: true },
+    });
+    const counts = new Map<number, number>();
+    for (const b of blocks) if (b.builderId != null) counts.set(b.builderId, (counts.get(b.builderId) ?? 0) + 1);
+    return builders.filter((b) => counts.has(b.id)).map((b) => ({ ...b, blocksCount: counts.get(b.id) ?? 0 }));
   }
 
   async findOne(id: number) {

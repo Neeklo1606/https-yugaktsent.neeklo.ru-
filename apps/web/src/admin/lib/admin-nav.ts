@@ -47,7 +47,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     items: [
       { to: '/admin/blocks', label: 'Жилые комплексы', icon: Building2, roles: ['admin', 'editor'] },
       { to: '/admin/listings', label: 'Объекты', icon: Home, roles: ['admin', 'editor', 'manager', 'agent'] },
-      { to: '/admin/builders', label: 'Застройщики', icon: HardHat, roles: ['admin', 'editor'] },
+      { to: '/admin/reference', label: 'Справочники', icon: HardHat, roles: ['admin', 'editor'] },
       { to: '/admin/media', label: 'Медиа', icon: Image, roles: ['admin', 'editor'] },
     ],
   },

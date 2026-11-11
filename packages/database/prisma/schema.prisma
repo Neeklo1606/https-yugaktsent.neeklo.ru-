@@ -740,6 +740,8 @@ model Listing {
   dataSource DataSource    @default(FEED) @map("data_source")
   visibility ListingVisibility @default(PUBLIC)
   isPublished Boolean      @default(true) @map("is_published")
+  /// Поля, изменённые менеджером вручную: синхронизация фида их не перезаписывает
+  manualFields String[]   @default([]) @map("manual_fields")
   isHot       Boolean      @default(false) @map("is_hot")
   promotionTier   ListingPromotionTier @default(STANDARD) @map("promotion_tier")
   promotedUntil   DateTime?  @map("promoted_until")
