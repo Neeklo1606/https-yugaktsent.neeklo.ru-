@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { XMLParser } from "fast-xml-parser";
 import { gunzipSync } from "node:zlib";
+import { safeFetch } from "./safeFetch.js";
 import { parseDomclickXml, isDomclickXml } from "./domclickFeed.js";
 import { parseCianXml, isCianXml } from "./cianFeed.js";
 
@@ -152,7 +153,7 @@ export function parseProfitbaseXml(xml) {
 }
 
 export async function fetchProfitbaseFeed(feedUrl) {
-  const res = await fetch(feedUrl);
+  const res = await safeFetch(feedUrl);
   // Адрес фида содержит токен доступа — в лог уходит только хост
   if (!res.ok) throw new Error(`Failed to download feed from ${new URL(feedUrl).host}: HTTP ${res.status}`);
   const raw = Buffer.from(await res.arrayBuffer());

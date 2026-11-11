@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { gunzipSync } from 'node:zlib';
 import { isIP } from 'node:net';
+import { lookup } from 'node:dns/promises';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFeedLinkDto } from './dto/create-feed-link.dto';
 import { UpdateFeedLinkDto } from './dto/update-feed-link.dto';
@@ -138,7 +139,7 @@ export class FeedLinksService {
     const started = Date.now();
     let res: Response;
     try {
-      res = await fetch(link.feedUrl, { signal: AbortSignal.timeout(60_000) });
+      res = await this.fetchPublic(link.feedUrl);
     } catch (err) {
       return {
         ok: false,
@@ -203,6 +204,32 @@ export class FeedLinksService {
     if (FeedLinksService.isPrivateHost(parsed.hostname)) {
       throw new BadRequestException('URL фида должен вести на внешний сайт');
     }
+  }
+
+  /**
+   * Запрос только к внешним адресам: имя резолвится в IP до запроса (иначе «localtest.me» и
+   * подобные имена ведут на 127.0.0.1), редиректы проходим вручную с той же проверкой.
+   */
+  private async fetchPublic(rawUrl: string, maxRedirects = 3): Promise<Response> {
+    let url = rawUrl;
+    for (let i = 0; i <= maxRedirects; i++) {
+      const u = new URL(url);
+      if (!['http:', 'https:'].includes(u.protocol)) throw new Error('недопустимый протокол');
+      const host = u.hostname.replace(/^\[|\]$/g, '');
+      if (FeedLinksService.isPrivateHost(host)) throw new Error('внутренний адрес запрещён');
+      const addrs = isIP(host) ? [{ address: host }] : await lookup(host, { all: true });
+      if (!addrs.length || addrs.some((a) => FeedLinksService.isPrivateHost(a.address))) {
+        throw new Error('адрес ведёт во внутреннюю сеть');
+      }
+      const res = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(60_000) });
+      const loc = res.headers.get('location');
+      if (res.status >= 300 && res.status < 400 && loc) {
+        url = new URL(loc, url).toString();
+        continue;
+      }
+      return res;
+    }
+    throw new Error('слишком много перенаправлений');
   }
 
   static isPrivateHost(hostname: string): boolean {

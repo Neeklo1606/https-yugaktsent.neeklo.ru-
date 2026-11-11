@@ -1,4 +1,5 @@
 import { File } from "node:buffer";
+import { safeFetch } from "./safeFetch.js";
 
 const OFFER_TO_LISTING = {
   available: { status: "ACTIVE", isPublished: true },
@@ -142,7 +143,8 @@ export class LiveGridClient {
   }
 
   async uploadRemoteImage(url) {
-    const res = await fetch(url);
+    // Ссылка на фото приходит из фида — качаем только с внешних адресов
+    const res = await safeFetch(url);
     if (!res.ok) throw new Error(`download ${url}: HTTP ${res.status}`);
     const buf = Buffer.from(await res.arrayBuffer());
     const contentType =
