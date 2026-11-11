@@ -140,7 +140,7 @@ const RedesignCatalog = () => {
   // Стартуем сразу с фильтрами из адреса: иначе на первом рендере черновик поиска
   // пуст, синхронизация считает его «устоявшимся» и вычищает search из URL.
   const [filters, setFilters] = useState<CatalogFilters>(() =>
-    catalogFiltersFromSearchParams(new URLSearchParams(window.location.search)),
+    catalogFiltersFromSearchParams(new URLSearchParams(searchParams)),
   );
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [mapActive, setMapActive] = useState<string | null>(null);

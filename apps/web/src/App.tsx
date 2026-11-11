@@ -1,7 +1,7 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, hydrate } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ScrollToTop from "./components/ScrollToTop";
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useLayoutEffect, useState } from "react";
 import { lazyWithReload } from "@/shared/lib/lazy-route";
 import RouteErrorBoundary from "@/shared/components/RouteErrorBoundary";
 import { AuthProvider, useAuth, useAuthState } from "@/shared/hooks/useAuth";
@@ -101,6 +101,32 @@ const queryClient = new QueryClient({
     queries: CRM_QUERY_DEFAULTS,
   },
 });
+
+/*
+ * Пререндер (scripts/prerender-seo.mjs + src/ssr/prerender-entry.tsx) кладёт в страницу
+ * готовую разметку первого экрана (#ssr-shell) и данные запросов (window.__YUG_RQ__).
+ * Данные сразу попадают в кэш: первый рендер приложения совпадает с разметкой, без цепочки
+ * запросов. Устаревшие данные перезапрашиваются в фоне как обычно.
+ */
+{
+  const w = window as Window & { __YUG_RQ__?: unknown };
+  if (w.__YUG_RQ__) {
+    try {
+      hydrate(queryClient, w.__YUG_RQ__);
+    } catch {
+      /* битые данные — просто грузим заново */
+    }
+    delete w.__YUG_RQ__;
+  }
+}
+
+/** Убирает пререндеренную оболочку в том же кадре, когда приложение отрисовало страницу */
+const RemoveSsrShell = () => {
+  useLayoutEffect(() => {
+    document.getElementById("ssr-shell")?.remove();
+  }, []);
+  return null;
+};
 
 /** Только для самой первой загрузки: тонкая полоса сверху вместо спиннера на весь экран */
 const Loading = () => (
@@ -233,6 +259,7 @@ const AppWithAuth = () => {
   return (
     <AuthProvider value={authState}>
       <AppRoutes />
+      <RemoveSsrShell />
     </AuthProvider>
   );
 };

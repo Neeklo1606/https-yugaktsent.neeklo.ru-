@@ -166,7 +166,7 @@ const RedesignComplex = () => {
         '@context': 'https://schema.org',
         '@type': 'Residence',
         name: complex.name,
-        url: `${window.location.origin}${location.pathname}`,
+        url: `${(import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined)?.replace(/\/+$/, '') || (typeof window !== 'undefined' ? window.location.origin : '')}${location.pathname}`,
         ...(complex.images[0] ? { image: complex.images[0] } : {}),
         address: complex.address || complex.district,
       },

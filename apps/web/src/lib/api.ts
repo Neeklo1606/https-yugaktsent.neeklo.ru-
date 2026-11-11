@@ -13,7 +13,9 @@ const API_PREFIX = '/api/v1';
 
 export function apiUrl(path: string): string {
   const p = path.startsWith('/') ? path : `/${path}`;
-  return `${API_PREFIX}${p}`;
+  // Пререндер в Node: относительный адрес не работает, базу задаёт scripts/prerender-seo.mjs
+  const ssrOrigin = typeof window === 'undefined' ? (globalThis as { __SSR_API_ORIGIN__?: string }).__SSR_API_ORIGIN__ : undefined;
+  return `${ssrOrigin ?? ''}${API_PREFIX}${p}`;
 }
 
 /* ─── token storage (in-memory + localStorage backup) ─── */

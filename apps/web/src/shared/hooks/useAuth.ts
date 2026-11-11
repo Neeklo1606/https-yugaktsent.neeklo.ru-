@@ -35,7 +35,7 @@ interface MeResponse {
   isActive: boolean;
 }
 
-interface AuthState {
+export interface AuthState {
   authStatus: AuthStatus;
   authReady: boolean;
   isAuthenticated: boolean;

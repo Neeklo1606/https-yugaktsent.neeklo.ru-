@@ -10,7 +10,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.resolve(__dirname, '../dist');
@@ -109,7 +109,7 @@ function writeHtml(relDir, baseHtml, patch) {
   const dir = path.join(distDir, relDir);
   fs.mkdirSync(dir, { recursive: true });
   const html = patchHtmlHead(baseHtml, patch);
-  fs.writeFileSync(path.join(dir, 'index.html'), html, 'utf8');
+  writeAtomic(path.join(dir, 'index.html'), html);
 }
 
 
@@ -182,6 +182,66 @@ async function homeHeroImage(apiBase) {
   const j = await fetchJson(`${apiBase}/blocks?${sp}`);
   const b = (j.data || []).find((row) => row?.images?.[0]?.url && row.slug);
   return b ? b.images[0].url : null;
+}
+
+
+/* ─── Разметка первого экрана (SSR при сборке) ───
+ * dist-ssr/prerender-entry.mjs (vite build --config vite.ssr.config.ts) рендерит те же React-страницы
+ * с данными. Разметка кладётся в #ssr-shell (приложение убирает его, когда отрисует страницу),
+ * данные — в window.__YUG_RQ__ (кэш React Query). Крупные запросы (списки квартир) не встраиваем. */
+const SSR_QUERY_MAX_BYTES = 45 * 1024;
+
+async function loadSsr(apiBase) {
+  const entry = path.resolve(__dirname, '../dist-ssr/prerender-entry.mjs');
+  if (process.env.SKIP_SSR === '1' || !fs.existsSync(entry)) {
+    console.log('[prerender-seo] SSR-разметка пропущена (нет dist-ssr или SKIP_SSR=1).');
+    return null;
+  }
+  const mem = () => {
+    const m = new Map();
+    return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), clear: () => m.clear(), key: () => null, get length() { return m.size; } };
+  };
+  globalThis.localStorage ??= mem();
+  globalThis.sessionStorage ??= mem();
+  globalThis.__SSR_API_ORIGIN__ = new URL(apiBase).origin;
+  const mod = await import(pathToFileURL(entry).href);
+  return mod.render;
+}
+
+function jsonForScript(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+}
+
+async function withShell(render, html, url) {
+  if (!render) return html;
+  try {
+    const r = await render(url);
+    if (r.failed.length) console.warn(`[prerender-seo] SSR ${url}: не загрузились ${r.failed.length} запросов`);
+    const queries = (r.state.queries || []).filter((q) => JSON.stringify(q).length <= SSR_QUERY_MAX_BYTES);
+    const state = { ...r.state, queries };
+    // Оболочка стоит перед #root; загрузочная заглушка внутри #root при ней не нужна
+    const block =
+      `<style>#ssr-shell~#root>.boot-header,#ssr-shell~#root>.boot-hero{display:none}</style>\n    ` +
+      `<div id="ssr-shell">${r.html}</div>\n    ` +
+      `<script>window.__YUG_RQ__=${jsonForScript(state)}</script>\n    `;
+    console.log(`[prerender-seo] SSR ${url}: разметка ${Math.round(r.html.length / 1024)} КБ, данные ${Math.round(jsonForScript(state).length / 1024)} КБ (${queries.length} запросов)`);
+    return html.replace(/<div id="root">/, (m) => `${block}${m}`);
+  } catch (e) {
+    console.warn(`[prerender-seo] SSR ${url} пропущен: ${e.message}`);
+    return html;
+  }
+}
+
+function writeAtomic(file, content) {
+  const tmp = `${file}.tmp-${process.pid}`;
+  fs.writeFileSync(tmp, content, 'utf8');
+  fs.renameSync(tmp, file);
+}
+
+function writeRaw(relDir, html) {
+  const dir = path.join(distDir, relDir);
+  fs.mkdirSync(dir, { recursive: true });
+  writeAtomic(path.join(dir, 'index.html'), html);
 }
 
 async function fetchJson(url) {
@@ -277,31 +337,33 @@ async function main() {
     console.error('[prerender-seo] Нет dist/index.html. Сначала выполните vite build.');
     process.exit(1);
   }
-  const baseHtml = fs.readFileSync(indexPath, 'utf8');
+  // Чистый шаблон Vite храним отдельно: скрипт перезапускается на сервере после синхронизации
+  // фидов, а index.html к тому моменту уже пропатчен
+  const templatePath = path.join(distDir, 'spa-template.html');
+  if (!fs.existsSync(templatePath)) fs.copyFileSync(indexPath, templatePath);
+  const baseHtml = fs.readFileSync(templatePath, 'utf8');
+  const ssr = await loadSsr(apiBase);
 
   const homeTitle = `${siteBrand} — новостройки и квартиры в Анапе и Майкопе`;
   const homeDesc = 'Агентство недвижимости «Южный Акцент» в Анапе: новостройки Анапы и Майкопа с актуальными ценами застройщиков, подбор, консультация и показ.';
-  fs.writeFileSync(
-    indexPath,
-    patchHtmlHead(baseHtml, {
-      title: homeTitle,
-      description: homeDesc,
-      canonical: `${siteUrl}/`,
-    }),
-    'utf8',
-  );
-
+  // Главную собираем в памяти и пишем одним атомарным rename — nginx не отдаст полуготовый файл
+  let homeHtml = patchHtmlHead(baseHtml, {
+    title: homeTitle,
+    description: homeDesc,
+    canonical: `${siteUrl}/`,
+  });
   const siteHost = new URL(siteUrl).host;
   try {
     const hero = await homeHeroImage(apiBase);
     const tag = hero ? preloadImageTag(hero, '100vw', siteHost) : '';
     if (tag) {
-      fs.writeFileSync(indexPath, injectHead(fs.readFileSync(indexPath, 'utf8'), tag), 'utf8');
+      homeHtml = injectHead(homeHtml, tag);
       console.log(`[prerender-seo] preload героя главной: ${hero}`);
     }
   } catch (e) {
     console.warn(`[prerender-seo] preload героя пропущен (${e.message}).`);
   }
+  writeAtomic(indexPath, await withShell(ssr, homeHtml, '/'));
 
   let catalogPreload = '';
   try {
@@ -310,11 +372,18 @@ async function main() {
   } catch (e) {
     console.warn(`[prerender-seo] preload каталога пропущен (${e.message}).`);
   }
-  writeHtml('catalog', injectHead(baseHtml, catalogPreload), {
-    title: `Каталог недвижимости | ${siteBrand}`,
-    description: 'Подбор ЖК и квартир по цене, району, метро и другим параметрам.',
-    canonical: `${siteUrl}/catalog`,
-  });
+  writeRaw(
+    'catalog',
+    await withShell(
+      ssr,
+      patchHtmlHead(injectHead(baseHtml, catalogPreload), {
+        title: `Каталог недвижимости | ${siteBrand}`,
+        description: 'Подбор ЖК и квартир по цене, району, метро и другим параметрам.',
+        canonical: `${siteUrl}/catalog`,
+      }),
+      '/catalog',
+    ),
+  );
 
   // Статические страницы: свой title/description/canonical прямо в HTML, без JS
   const STATIC_PAGES = [
@@ -351,7 +420,7 @@ async function main() {
     .replace(/\s*<link\s+rel="canonical"[^>]*>/i, '')
     .replace(/\s*<meta\s+name="robots"[^>]*>/i, '')
     .replace(/\s*<meta\s+property="og:url"[^>]*>/i, '');
-  fs.writeFileSync(path.join(distDir, 'spa.html'), shell, 'utf8');
+  writeAtomic(path.join(distDir, 'spa.html'), shell);
   fs.writeFileSync(
     path.join(distDir, '404.html'),
     shell
@@ -371,11 +440,18 @@ async function main() {
   for (const c of complexes) {
     const desc = plainFromMaybeHtml(c.description, 200) || `ЖК ${c.name}: квартиры, планировки, инфраструктура.`;
     const coverTag = c.cover ? preloadImageTag(c.cover, '(min-width: 1024px) 66vw, 100vw', siteHost) : '';
-    writeHtml(`complex/${c.slug}`, injectHead(baseHtml, coverTag), {
-      title: `${c.name} — ЖК | ${siteBrand}`,
-      description: desc,
-      canonical: `${siteUrl}/complex/${encodeURIComponent(c.slug)}`,
-    });
+    writeRaw(
+      `complex/${c.slug}`,
+      await withShell(
+        ssr,
+        patchHtmlHead(injectHead(baseHtml, coverTag), {
+          title: `${c.name} — ЖК | ${siteBrand}`,
+          description: desc,
+          canonical: `${siteUrl}/complex/${encodeURIComponent(c.slug)}`,
+        }),
+        `/complex/${encodeURIComponent(c.slug)}`,
+      ),
+    );
   }
 
   let newsSlugs = [];
@@ -417,7 +493,7 @@ async function main() {
       ...newsSlugs.map((slug) => `/news/${encodeURIComponent(slug)}`),
     ],
   );
-  fs.writeFileSync(path.join(distDir, 'sitemap.xml'), sitemap, 'utf8');
+  writeAtomic(path.join(distDir, 'sitemap.xml'), sitemap);
 
   const robots = `User-agent: *
 Allow: /
@@ -429,7 +505,7 @@ Disallow: /presentation/
 Sitemap: ${sitemapIndexUrl}
 Sitemap: ${siteUrl}/sitemap.xml
 `;
-  fs.writeFileSync(path.join(distDir, 'robots.txt'), robots, 'utf8');
+  writeAtomic(path.join(distDir, 'robots.txt'), robots);
 
   console.log('[prerender-seo] Готово: index.html, catalog/, complex/*/, experts/*/, sitemap.xml, robots.txt');
 }

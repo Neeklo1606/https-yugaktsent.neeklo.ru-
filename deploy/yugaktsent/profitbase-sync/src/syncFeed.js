@@ -1,3 +1,6 @@
+import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { access } from "node:fs/promises";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -631,5 +634,25 @@ async function runSyncUnlocked({ persist, only } = {}) {
     console.warn(`[profitbase-sync] sitemap failed: ${err.message}`);
   }
 
+  // Цены и наличие в пререндеренном HTML (главная, каталог, ЖК) — по свежим данным
+  await rerenderWebPages();
+
   console.log(`[profitbase-sync] done @ ${new Date().toISOString()}`);
+}
+
+async function rerenderWebPages() {
+  const script = process.env.PRERENDER_WEB_SCRIPT || fileURLToPath(new URL("../../scripts/prerender-web.sh", import.meta.url));
+  try {
+    await access(script);
+  } catch {
+    return;
+  }
+  await new Promise((resolve) => {
+    execFile("/bin/bash", [script], { timeout: 330_000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) => {
+      const lines = String(stdout).split("\n").filter((l) => /SSR \/|Готово|пропуск|warn|ошиб/i.test(l));
+      if (err) console.warn(`[profitbase-sync] prerender failed: ${err.message} ${String(stderr).slice(-300)}`);
+      else console.log(`[profitbase-sync] web pages re-rendered (${lines.length} строк лога)`);
+      resolve();
+    });
+  });
 }
