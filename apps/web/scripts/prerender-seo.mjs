@@ -218,11 +218,13 @@ function jsonForScript(value) {
  * и отнимают у неё канал. Приложение через мгновение отрисует их со своей ленивой загрузкой.
  */
 function keepOnlyLcpImage(markup, keepPath) {
+  // <picture><source srcset> грузит файл сам по себе — в оболочке его тоже не нужно
+  markup = markup.replace(/<source\b[^>]*>/gi, (tag) => tag.replace(/\s(srcset|srcSet|sizes)="[^"]*"/gi, ''));
   return markup.replace(/<img\b[^>]*>/g, (tag) => {
     const src = (tag.match(/\ssrc="([^"]*)"/) || [])[1] || '';
     if (keepPath && src === keepPath) return tag;
-    // Свои статичные файлы (логотип в шапке и т.п.) — маленькие и в кэше, оставляем
-    if (src.startsWith('/') && !src.startsWith('/img/') && !src.startsWith('/uploads/')) return tag;
+    // Логотипы в шапке и подвале — маленькие, без них шапка мигнёт
+    if (/^\/logo-[\w-]+\.(png|svg|webp)$/.test(src)) return tag;
     return tag
       .replace(/\s(src|srcset|srcSet|sizes)="[^"]*"/g, '')
       .replace(/^<img/, `<img data-ssr-src="${src.replace(/"/g, '&quot;')}"`);

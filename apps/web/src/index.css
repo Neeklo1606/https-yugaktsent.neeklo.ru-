@@ -1,6 +1,6 @@
 /* Шрифт хостим сами: без обращения к fonts.googleapis.com на первом экране.
    Inter Variable — один файл на все начертания, кириллица в комплекте */
-@import '@fontsource-variable/inter/wght.css';
+@import './fonts/inter.css';
 
 @tailwind base;
 @tailwind components;
