@@ -164,8 +164,10 @@ const LeadForm = ({
       let msg = 'Не удалось отправить заявку. Попробуйте позже.';
       if (err instanceof ApiError) {
         try {
-          const j = JSON.parse(err.message) as { message?: string };
-          if (j?.message) msg = j.message;
+          const j = JSON.parse(err.message) as { message?: string | string[] };
+          // class-validator отдаёт массив — показываем первую понятную причину
+          const m = Array.isArray(j?.message) ? j.message.find((x) => /[а-яё]/i.test(x)) ?? j.message[0] : j?.message;
+          if (m) msg = m;
         } catch {
           if (err.message) msg = err.message;
         }

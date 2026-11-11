@@ -29,4 +29,9 @@ describe('parseSmartQuery', () => {
   it('label', () => {
     expect(smartQueryLabel(parseSmartQuery('2к до 8 млн'))).toBe('2-комнатные · до 8 млн ₽');
   });
+  it('евродвушка и евротрёшка — те же 2 и 3 комнаты, что в фильтре каталога', () => {
+    expect(parseSmartQuery('евродвушка до 8 млн')).toMatchObject({ rooms: [2], priceMax: 8_000_000, rest: '' });
+    expect(parseSmartQuery('евро-трёшка')).toMatchObject({ rooms: [3], rest: '' });
+    expect(parseSmartQuery('2к до 15 млн')).toMatchObject({ rooms: [2], priceMax: 15_000_000, rest: '' });
+  });
 });

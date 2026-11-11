@@ -205,7 +205,9 @@ const HeroBanner = () => {
       <div className="container-page relative z-10 flex h-full flex-col justify-end pb-12 lg:justify-center lg:pb-0">
         <div className="max-w-[680px]">
           {active.tag ? <p className="text-overline mb-2 text-white/75 lg:mb-3">{active.tag}</p> : null}
-          {active.title ? <h1 className="text-display text-white">{active.title}</h1> : null}
+          {/* Один стабильный H1 страницы для поиска и скринридеров; заголовок слайда меняется каждые несколько секунд */}
+          <h1 className="sr-only">Новостройки Анапы и Майкопа — агентство недвижимости {shortName}</h1>
+          {active.title ? <p className="text-display text-white" aria-live="off">{active.title}</p> : null}
           {active.subtitle ? (
             <p className="mt-2 max-w-[560px] text-[16px] leading-snug text-white/85 tabular-nums sm:mt-3 sm:text-lg">{active.subtitle}</p>
           ) : null}
