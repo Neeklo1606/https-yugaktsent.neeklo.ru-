@@ -674,6 +674,9 @@ const RedesignCatalog = () => {
           </div>
           {(regionRows?.length ?? 0) > 1 ? (
             <RegionSelector regions={regionRows} selectedRegionId={regionId} onSelect={handleRegionSelect} className="mt-3 max-w-[900px]" />
+          ) : regionRows === undefined ? (
+            // Список городов ещё грузится: держим место под переключатель (34 px), иначе каталог прыгает вниз (CLS)
+            <div className="mt-3 h-[34px]" aria-hidden />
           ) : null}
         </div>
       </div>

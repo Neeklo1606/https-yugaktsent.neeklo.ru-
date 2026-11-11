@@ -112,6 +112,78 @@ function writeHtml(relDir, baseHtml, patch) {
   fs.writeFileSync(path.join(dir, 'index.html'), html, 'utf8');
 }
 
+
+/* ─── Preload картинки первого экрана (LCP) ───
+ * Приложение находит обложку только после цепочки запросов (настройки → регионы → ЖК),
+ * поэтому кладём <link rel="preload"> с тем же srcset, что у <img> (логика image-media.ts). */
+const IMAGE_WIDTHS = [480, 800, 1280];
+const PROFITBASE_RE = /^https?:\/\/(pb\d+(?:\.tochno)?)\.profitbase\.ru\/(uploads\/.+)$/i;
+const LOCAL_UPLOAD_RE = /^(?:https?:\/\/[^/]+)?\/(uploads\/.+\.(?:jpe?g|png|webp))$/i;
+
+function proxiedUrl(url, width, siteHost) {
+  if (process.env.VITE_IMAGE_PROXY !== '1') return null;
+  const u = String(url || '').trim();
+  const m = PROFITBASE_RE.exec(u);
+  if (m) return `/img/${width}/${m[1]}/${m[2]}`;
+  if (process.env.VITE_IMAGE_PROXY_LOCAL !== '1') return null;
+  const l = LOCAL_UPLOAD_RE.exec(u);
+  if (!l) return null;
+  let own = u.startsWith('/');
+  try { own = own || new URL(u).host === siteHost; } catch { /* относительный адрес */ }
+  return own ? `/img/${width}/local/${l[1]}` : null;
+}
+
+function preloadImageTag(url, sizes, siteHost) {
+  const parts = IMAGE_WIDTHS.map((w) => proxiedUrl(url, w, siteHost));
+  if (!parts.every(Boolean)) {
+    return /^https?:\/\//.test(url) ? `<link rel="preload" as="image" href="${escapeAttr(url)}" fetchpriority="high">` : '';
+  }
+  const srcset = parts.map((u, i) => `${u} ${IMAGE_WIDTHS[i]}w`).join(', ');
+  return `<link rel="preload" as="image" href="${escapeAttr(parts[1])}" imagesrcset="${escapeAttr(srcset)}" imagesizes="${escapeAttr(sizes)}" fetchpriority="high">`;
+}
+
+function injectHead(html, tag) {
+  return tag ? html.replace(/<\/head>/i, `    ${tag}\n  </head>`) : html;
+}
+
+async function defaultRegionId(apiBase) {
+  const code = String(process.env.VITE_DEFAULT_REGION_CODE || '').trim().toLowerCase();
+  const regions = await fetchJson(`${apiBase}/regions`);
+  const region = (Array.isArray(regions) ? regions : regions.data || []).find((r) => String(r.code).toLowerCase() === code);
+  return region ? region.id : null;
+}
+
+/** Обложка первой карточки каталога ЖК — тот же запрос, что делает каталог по умолчанию */
+async function catalogFirstImage(apiBase) {
+  const id = await defaultRegionId(apiBase);
+  if (id == null) return null;
+  const j = await fetchJson(`${apiBase}/blocks?region_id=${id}&page=1&per_page=20&sort=price_asc`);
+  const first = (j.data || [])[0];
+  return first?.images?.[0]?.url || null;
+}
+
+/** Обложка первого слайда главной — как в HeroBanner: баннеры из настроек, иначе первый ЖК города по умолчанию с фото */
+async function homeHeroImage(apiBase) {
+  try {
+    const settings = await fetchJson(`${apiBase}/content/settings`);
+    const all = Object.values(settings || {}).flat();
+    const raw = all.find((x) => x?.key === 'home_banners')?.value;
+    const banners = JSON.parse(raw || '[]');
+    const first = Array.isArray(banners)
+      ? banners.find((b) => b && b.enabled !== false && (b.image || b.title || b.subtitle || b.tag))
+      : null;
+    if (first) return String(first.image || '').trim() || null;
+  } catch { /* нет настроек — идём к ЖК */ }
+  const code = String(process.env.VITE_DEFAULT_REGION_CODE || '').trim().toLowerCase();
+  const regions = await fetchJson(`${apiBase}/regions`);
+  const region = (Array.isArray(regions) ? regions : regions.data || []).find((r) => String(r.code).toLowerCase() === code);
+  if (!region) return null;
+  const sp = new URLSearchParams({ region_id: String(region.id), per_page: '24', page: '1', sort: 'created_desc', require_active_listings: 'true' });
+  const j = await fetchJson(`${apiBase}/blocks?${sp}`);
+  const b = (j.data || []).find((row) => row?.images?.[0]?.url && row.slug);
+  return b ? b.images[0].url : null;
+}
+
 async function fetchJson(url) {
   const res = await fetch(url, {
     headers: { Accept: 'application/json', 'User-Agent': 'LiveGrid-Prerender/1.0' },
@@ -138,7 +210,7 @@ async function loadBlockSlugs(apiBase, maxComplex) {
       if (!row?.slug || seen.has(row.slug)) continue;
       if (row.slug.includes('..') || row.slug.includes('/') || row.slug.includes('\\')) continue;
       seen.add(row.slug);
-      slugs.push({ slug: row.slug, name: row.name || row.slug, description: row.description || '' });
+      slugs.push({ slug: row.slug, name: row.name || row.slug, description: row.description || '', cover: row.images?.[0]?.url || null });
       if (slugs.length >= maxComplex) break;
     }
     page += 1;
@@ -219,7 +291,26 @@ async function main() {
     'utf8',
   );
 
-  writeHtml('catalog', baseHtml, {
+  const siteHost = new URL(siteUrl).host;
+  try {
+    const hero = await homeHeroImage(apiBase);
+    const tag = hero ? preloadImageTag(hero, '100vw', siteHost) : '';
+    if (tag) {
+      fs.writeFileSync(indexPath, injectHead(fs.readFileSync(indexPath, 'utf8'), tag), 'utf8');
+      console.log(`[prerender-seo] preload героя главной: ${hero}`);
+    }
+  } catch (e) {
+    console.warn(`[prerender-seo] preload героя пропущен (${e.message}).`);
+  }
+
+  let catalogPreload = '';
+  try {
+    const img = await catalogFirstImage(apiBase);
+    catalogPreload = img ? preloadImageTag(img, '(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 46vw, 86vw', siteHost) : '';
+  } catch (e) {
+    console.warn(`[prerender-seo] preload каталога пропущен (${e.message}).`);
+  }
+  writeHtml('catalog', injectHead(baseHtml, catalogPreload), {
     title: `Каталог недвижимости | ${siteBrand}`,
     description: 'Подбор ЖК и квартир по цене, району, метро и другим параметрам.',
     canonical: `${siteUrl}/catalog`,
@@ -279,7 +370,8 @@ async function main() {
 
   for (const c of complexes) {
     const desc = plainFromMaybeHtml(c.description, 200) || `ЖК ${c.name}: квартиры, планировки, инфраструктура.`;
-    writeHtml(`complex/${c.slug}`, baseHtml, {
+    const coverTag = c.cover ? preloadImageTag(c.cover, '(min-width: 1024px) 66vw, 100vw', siteHost) : '';
+    writeHtml(`complex/${c.slug}`, injectHead(baseHtml, coverTag), {
       title: `${c.name} — ЖК | ${siteBrand}`,
       description: desc,
       canonical: `${siteUrl}/complex/${encodeURIComponent(c.slug)}`,

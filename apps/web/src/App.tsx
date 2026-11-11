@@ -1,10 +1,7 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ScrollToTop from "./components/ScrollToTop";
-import { Suspense } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { lazyWithReload } from "@/shared/lib/lazy-route";
 import RouteErrorBoundary from "@/shared/components/RouteErrorBoundary";
 import { AuthProvider, useAuth, useAuthState } from "@/shared/hooks/useAuth";
@@ -240,13 +237,32 @@ const AppWithAuth = () => {
   );
 };
 
+/*
+ * Всплывающие уведомления (sonner) не нужны для первой отрисовки — грузим их после неё,
+ * чтобы не утяжелять основной бандл. Подсказки (Tooltip) сами оборачиваются в свой Provider
+ * там, где используются; radix-тостер (use-toast) нигде не вызывался — убран.
+ */
+const Sonner = lazy(() => import("@/components/ui/sonner").then((m) => ({ default: m.Toaster })));
+
+const DeferredToaster = () => {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+    if (w.requestIdleCallback) w.requestIdleCallback(() => setReady(true), { timeout: 2000 });
+    else window.setTimeout(() => setReady(true), 1200);
+  }, []);
+  return ready ? (
+    <Suspense fallback={null}>
+      <Sonner />
+    </Suspense>
+  ) : null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthSessionSync />
     <ThemeBootstrap />
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
+    <DeferredToaster />
       {/* startTransition: при переходе остаётся текущий экран, пока грузится следующий — без спиннера на весь экран */}
       <BrowserRouter future={{ v7_startTransition: true }}>
         <ScrollToTop />
@@ -264,7 +280,6 @@ const App = () => (
           </RouteErrorBoundary>
         </Suspense>
       </BrowserRouter>
-    </TooltipProvider>
   </QueryClientProvider>
 );
 

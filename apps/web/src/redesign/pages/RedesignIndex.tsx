@@ -58,7 +58,19 @@ const RedesignIndex = () => {
       <HeroBanner />
       <QuickSearch />
 
-      <PopularComplexesSection complexes={featured} onCoverError={markBroken} />
+      {blocks.isPending && featured.length === 0 ? (
+        // Место под «Популярные ЖК», пока грузится список: иначе блок появляется из ничего и сдвигает страницу (CLS)
+        <section className="container-page section-y" aria-hidden>
+          <div className="mb-5 h-11 w-56 animate-pulse rounded-xl bg-muted lg:mb-7" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className={`h-[519px] animate-pulse rounded-card bg-muted lg:h-[504px] ${i > 0 ? 'hidden sm:block' : ''} ${i > 1 ? 'sm:hidden lg:block' : ''} ${i > 2 ? 'lg:hidden xl:block' : ''}`} />
+            ))}
+          </div>
+        </section>
+      ) : (
+        <PopularComplexesSection complexes={featured} onCoverError={markBroken} />
+      )}
 
       <HomeApartmentsSection />
       <BuyObjectSection />

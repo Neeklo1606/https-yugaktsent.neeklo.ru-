@@ -40,7 +40,9 @@ const HomeApartmentsSection = () => {
     })),
   });
 
-  const isLoading = blocks.isLoading || results.some((r) => r.isLoading);
+  // isPending, а не isLoading: пока город не определён, запрос выключен и isLoading=false —
+  // секция пропадала, а потом появлялась и сдвигала страницу
+  const isLoading = blocks.isPending || results.some((r) => r.isPending);
   const pages = results.map((r) => r.data);
   const rows = useMemo(() => pickHomeApartments(pages.flatMap((p) => p ?? []), SHOW), [pages]);
   if (!isLoading && rows.length === 0) return null;
@@ -63,9 +65,10 @@ const HomeApartmentsSection = () => {
       </div>
 
       {isLoading && rows.length === 0 ? (
+        // Высота как у готовой ленты: на телефоне один ряд карточек (~312 px), на десктопе два ряда по 4
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5" aria-hidden>
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="h-[300px] animate-pulse rounded-card bg-muted" />
+          {Array.from({ length: SHOW }, (_, i) => (
+            <div key={i} className={`h-[312px] animate-pulse rounded-card bg-muted lg:h-[360px] ${i > 1 ? 'hidden lg:block' : ''}`} />
           ))}
         </div>
       ) : (
