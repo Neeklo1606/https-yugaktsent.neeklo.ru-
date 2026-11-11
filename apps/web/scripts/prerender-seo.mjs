@@ -212,10 +212,32 @@ function jsonForScript(value) {
   return JSON.stringify(value).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }
 
-async function withShell(render, html, url) {
+/**
+ * В оболочке грузится только картинка первого экрана (её же отдаёт preload): у остальных <img>
+ * убираем src/srcset, иначе 20+ фото каруселей и планировок стартуют одновременно с главной
+ * и отнимают у неё канал. Приложение через мгновение отрисует их со своей ленивой загрузкой.
+ */
+function keepOnlyLcpImage(markup, keepPath) {
+  return markup.replace(/<img\b[^>]*>/g, (tag) => {
+    const src = (tag.match(/\ssrc="([^"]*)"/) || [])[1] || '';
+    if (keepPath && src === keepPath) return tag;
+    // Свои статичные файлы (логотип в шапке и т.п.) — маленькие и в кэше, оставляем
+    if (src.startsWith('/') && !src.startsWith('/img/') && !src.startsWith('/uploads/')) return tag;
+    return tag
+      .replace(/\s(src|srcset|srcSet|sizes)="[^"]*"/g, '')
+      .replace(/^<img/, `<img data-ssr-src="${src.replace(/"/g, '&quot;')}"`);
+  });
+}
+
+function preloadHref(tag) {
+  return (String(tag || '').match(/\shref="([^"]*)"/) || [])[1]?.replace(/&amp;/g, '&') || null;
+}
+
+async function withShell(render, html, url, keepPath = null) {
   if (!render) return html;
   try {
     const r = await render(url);
+    r.html = keepOnlyLcpImage(r.html, keepPath);
     if (r.failed.length) console.warn(`[prerender-seo] SSR ${url}: не загрузились ${r.failed.length} запросов`);
     const queries = (r.state.queries || []).filter((q) => JSON.stringify(q).length <= SSR_QUERY_MAX_BYTES);
     const state = { ...r.state, queries };
@@ -353,9 +375,11 @@ async function main() {
     canonical: `${siteUrl}/`,
   });
   const siteHost = new URL(siteUrl).host;
+  let homeKeep = null;
   try {
     const hero = await homeHeroImage(apiBase);
     const tag = hero ? preloadImageTag(hero, '100vw', siteHost) : '';
+    homeKeep = preloadHref(tag);
     if (tag) {
       homeHtml = injectHead(homeHtml, tag);
       console.log(`[prerender-seo] preload героя главной: ${hero}`);
@@ -363,7 +387,7 @@ async function main() {
   } catch (e) {
     console.warn(`[prerender-seo] preload героя пропущен (${e.message}).`);
   }
-  writeAtomic(indexPath, await withShell(ssr, homeHtml, '/'));
+  writeAtomic(indexPath, await withShell(ssr, homeHtml, '/', homeKeep));
 
   let catalogPreload = '';
   try {
@@ -382,6 +406,7 @@ async function main() {
         canonical: `${siteUrl}/catalog`,
       }),
       '/catalog',
+      preloadHref(catalogPreload),
     ),
   );
 
@@ -450,6 +475,7 @@ async function main() {
           canonical: `${siteUrl}/complex/${encodeURIComponent(c.slug)}`,
         }),
         `/complex/${encodeURIComponent(c.slug)}`,
+        preloadHref(coverTag),
       ),
     );
   }
