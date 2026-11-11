@@ -41,7 +41,7 @@ import SavedSearchReminder from '@/redesign/components/SavedSearchReminder';
 import CompareSessionChip from '@/shared/components/CompareSessionChip';
 import { patchSessionSnapshot } from '@/shared/lib/session-continuity';
 import { detectCatalogLanding } from '@/redesign/lib/catalog-landing';
-import { buildCatalogSeoMeta } from '@/redesign/lib/catalog-seo-meta';
+import { buildCatalogSeoMeta, inRegionPhrase } from '@/redesign/lib/catalog-seo-meta';
 import { normalizeSearchQuery } from '@/redesign/lib/search-normalize';
 import {
   buildBlocksSearchParams,
@@ -569,7 +569,7 @@ const RedesignCatalog = () => {
     filters.builder.length > 0,
     filters.district.length > 0,
   ].filter(Boolean).length;
-  const regionIn = regionName === 'Анапа' ? 'Анапе' : regionName;
+  const regionIn = regionName ? inRegionPhrase(regionName).replace(/^ (в|—) /, '') : regionName;
   const headingBase = flatsMode && isApartmentMode ? 'Квартиры в новостройках' : pageTitle;
   const heading = regionName && isApartmentMode ? `${headingBase}${flatsMode ? ':' : ' в'} ${flatsMode ? regionName : regionIn}` : headingBase;
 

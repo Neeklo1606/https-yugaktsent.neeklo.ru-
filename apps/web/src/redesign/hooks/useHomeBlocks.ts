@@ -11,8 +11,10 @@ import type { ApiBlockListRow } from '@/redesign/lib/blocks-from-api';
  * за себя: два одинаковых по сути запроса подряд задерживали отрисовку
  * первого экрана. Теперь оба читают из одного кэша React Query.
  */
-export function useHomeBlocks() {
-  const { data: regionId } = useDefaultRegionId();
+export function useHomeBlocks(opts?: { allRegions?: boolean }) {
+  const { data: selectedRegionId } = useDefaultRegionId();
+  // «Популярные ЖК» показывают все города агентства, остальное на главной — выбранный город
+  const regionId = opts?.allRegions ? 'all' : selectedRegionId;
 
   return useQuery({
     queryKey: ['blocks', 'home', regionId],
@@ -20,7 +22,7 @@ export function useHomeBlocks() {
     staleTime: 300_000,
     queryFn: async () => {
       const sp = new URLSearchParams();
-      sp.set('region_id', String(regionId));
+      if (regionId !== 'all') sp.set('region_id', String(regionId));
       sp.set('per_page', '24');
       sp.set('page', '1');
       sp.set('sort', 'created_desc');

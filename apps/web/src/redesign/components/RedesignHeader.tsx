@@ -7,6 +7,7 @@ import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
 import { telHref } from '@/lib/contact-links';
 import MobileTabBar from '@/redesign/components/MobileTabBar';
 import ConsultationFlow from '@/redesign/components/ConsultationFlow';
+import HeaderCitySwitch from '@/redesign/components/HeaderCitySwitch';
 import { btnClass } from '@/redesign/lib/button-styles';
 
 /** Пять пунктов меню по согласованным макетам. */
@@ -106,7 +107,7 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 shadow-sm backdrop-blur-md">
-        <div className="container-page flex h-16 items-center gap-4 lg:h-[72px]">
+        <div className="container-page flex h-16 items-center gap-2 lg:h-[72px] xl:gap-4">
           {/* В самом логотипе уже есть название — подписывать его ещё раз незачем */}
           <Link to="/" className="flex shrink-0 items-center" aria-label={shortName}>
             <img
@@ -114,10 +115,14 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
               alt={shortName}
               width={194}
               height={48}
-              className="h-10 w-auto lg:h-12"
+              className="h-10 w-auto xl:h-12"
               decoding="async"
             />
           </Link>
+
+          <div className="hidden lg:block">
+            <HeaderCitySwitch />
+          </div>
 
           <nav className="mx-auto hidden items-center gap-1 lg:flex" aria-label="Основное меню">
             {NAV_ITEMS.map((item) => (
@@ -126,7 +131,7 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
                 to={item.href}
                 aria-current={isActive(item) ? 'page' : undefined}
                 className={cn(
-                  'whitespace-nowrap rounded-lg px-2.5 py-2 text-[15px] font-medium transition-colors xl:px-3',
+                  'whitespace-nowrap rounded-lg px-2 py-2 text-[15px] font-medium transition-colors xl:px-3',
                   isActive(item)
                     ? 'bg-primary/10 text-primary'
                     : 'text-foreground hover:bg-muted hover:text-primary',
@@ -134,8 +139,9 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
               >
                 {item.short ? (
                   <>
-                    <span className="xl:hidden">{item.short}</span>
-                    <span className="hidden xl:inline">{item.label}</span>
+                    <span className="min-[1400px]:hidden">{item.short}</span>
+                    <span className="hidden min-[1400px]:inline 2xl:hidden">{item.label}</span>
+                    <span className="hidden 2xl:inline">{item.short}</span>
                   </>
                 ) : (
                   item.label
@@ -164,8 +170,8 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
               </>
             ) : null}
 
-            {/* На 1024 px соцсети не помещаются рядом с меню и кнопкой — показываем с 1280 px */}
-            <div className="hidden items-center gap-1 xl:flex">{socials}</div>
+            {/* Соцсети помещаются рядом с меню, городом, телефоном и кнопкой только с 1536 px; ниже они в подвале и мобильном меню */}
+            <div className="hidden items-center gap-1 2xl:flex">{socials}</div>
 
             <button
               type="button"
@@ -200,6 +206,7 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
             className="absolute inset-x-0 top-0 max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-border bg-background px-4 pb-6 pt-3 shadow-lg"
             aria-label="Мобильное меню"
           >
+            <HeaderCitySwitch variant="mobile" />
             <div className="flex flex-col">
               {[...NAV_ITEMS, ...MOBILE_EXTRA_ITEMS].map((item) => (
                 <Link

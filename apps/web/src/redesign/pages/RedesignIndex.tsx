@@ -21,9 +21,8 @@ import { useDefaultRegionId } from '@/redesign/hooks/useDefaultRegionId';
  * карточки без фото), квиз (вызывается кнопкой «Подобрать объект»), карта (есть в нижнем меню).
  */
 const RedesignIndex = () => {
-  const blocks = useHomeBlocks();
-  const { data: regionId, rows: regionRows } = useDefaultRegionId();
-  const cityName = regionRows?.find((r) => r.id === regionId)?.name;
+  const blocks = useHomeBlocks({ allRegions: true });
+  const { data: regionId } = useDefaultRegionId();
 
   // ЖК, у которых фото битое на стороне источника: на главной их не показываем (ТЗ v3, 4.4)
   const [brokenCovers, setBrokenCovers] = useState<ReadonlySet<string>>(() => new Set());
@@ -34,12 +33,19 @@ const RedesignIndex = () => {
     // В подборку — только ЖК с квартирами в продаже и с настоящим фото. Без фото — в каталоге, не здесь
     const pool = rows.filter((b) => (b._count?.listings ?? 0) > 0 && (b.images?.length ?? 0) > 0);
     const promoted = pool.filter((b) => b.isPromoted);
+    // Сначала ЖК выбранного города, затем остальных городов
+    const own = (b: (typeof pool)[number]) => b.region?.id === regionId ? 0 : 1;
     return (promoted.length >= 3 ? promoted : pool)
       .slice()
-      .sort((a, z) => (z._count?.listings ?? 0) - (a._count?.listings ?? 0))
+      .sort((a, z) => own(a) - own(z) || (z._count?.listings ?? 0) - (a._count?.listings ?? 0))
       .slice(0, 12)
-      .map(mapApiBlockListRowToResidentialComplex);
-  }, [blocks.data]);
+      // ЖК без адреса в фиде подписываем его городом, а не выбранным (на главной — оба города)
+      .map((b) =>
+        mapApiBlockListRowToResidentialComplex(
+          b.addresses?.length || !b.region?.name ? b : ({ ...b, addresses: [{ address: b.region.name }] } as typeof b),
+        ),
+      );
+  }, [blocks.data, regionId]);
   const withCovers = candidates.filter((c) => !brokenCovers.has(c.id));
   // Сетка по 4 в ряд (референс): только полные ряды, чтобы не оставалась одинокая карточка
   const featured = withCovers.slice(0, withCovers.length > 4 ? Math.min(8, Math.floor(withCovers.length / 4) * 4) : withCovers.length);
@@ -52,7 +58,7 @@ const RedesignIndex = () => {
       <HeroBanner />
       <QuickSearch />
 
-      <PopularComplexesSection complexes={featured} cityFallback={cityName} onCoverError={markBroken} />
+      <PopularComplexesSection complexes={featured} onCoverError={markBroken} />
 
       <HomeApartmentsSection />
       <BuyObjectSection />

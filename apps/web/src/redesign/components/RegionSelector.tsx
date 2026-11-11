@@ -53,6 +53,32 @@ const RegionSelector = ({ regions, selectedRegionId, onSelect, className }: Prop
     setOpen(false);
   };
 
+  // Городов присутствия немного — показываем их сразу кнопками, без окна с поиском
+  if (ordered.length <= 4) {
+    return (
+      <div className={cn('flex flex-wrap items-center gap-2 min-w-0 max-w-full', className)} role="group" aria-label="Город">
+        {ordered.map((r) => {
+          const active = r.id === selectedRegionId;
+          return (
+            <button
+              key={r.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onSelect(r.id)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors shrink-0',
+                active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:border-primary/40 hover:text-primary',
+              )}
+            >
+              <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {regionLabel(r)}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   const picker = (
     <RegionPickerPanel
       regions={ordered}

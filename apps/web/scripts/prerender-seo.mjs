@@ -207,8 +207,8 @@ async function main() {
   }
   const baseHtml = fs.readFileSync(indexPath, 'utf8');
 
-  const homeTitle = `${siteBrand} — новостройки и квартиры в Анапе`;
-  const homeDesc = 'Агентство недвижимости «Южный Акцент» в Анапе: новостройки и квартиры с актуальными ценами застройщиков, подбор, консультация и показ.';
+  const homeTitle = `${siteBrand} — новостройки и квартиры в Анапе и Майкопе`;
+  const homeDesc = 'Агентство недвижимости «Южный Акцент» в Анапе: новостройки Анапы и Майкопа с актуальными ценами застройщиков, подбор, консультация и показ.';
   fs.writeFileSync(
     indexPath,
     patchHtmlHead(baseHtml, {
