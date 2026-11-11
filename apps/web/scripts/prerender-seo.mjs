@@ -225,6 +225,50 @@ async function main() {
     canonical: `${siteUrl}/catalog`,
   });
 
+  // Статические страницы: свой title/description/canonical прямо в HTML, без JS
+  const STATIC_PAGES = [
+    ['about', `О компании | ${siteBrand}`, `${siteBrand}, агентство недвижимости в Анапе: подбор новостроек Анапы и Майкопа, проверка документов, сопровождение сделки и помощь с ипотекой.`],
+    ['contacts', `Контакты | ${siteBrand}`, `Офис ${siteBrand} в Анапе: адрес на карте, телефоны, мессенджеры. Консультация по подбору новостроек бесплатная.`],
+    ['news', `Новости недвижимости | ${siteBrand}`, 'Новости рынка недвижимости Анапы и Майкопа, проектов и застройщиков.'],
+    ['map', `Новостройки на карте | ${siteBrand}`, 'Жилые комплексы Анапы и Майкопа на карте: цены, сроки сдачи и квартиры в продаже.'],
+    ['privacy', `Политика обработки персональных данных | ${siteBrand}`, `Какие персональные данные обрабатывает сайт ${siteBrand}, зачем, сколько хранит и как отозвать согласие.`],
+    ['personal-data-consent', `Согласие на обработку персональных данных | ${siteBrand}`, `Текст согласия на обработку персональных данных при отправке заявки на сайте ${siteBrand}.`],
+    ['cookies', `Cookie и аналитика | ${siteBrand}`, `Какие записи сайт ${siteBrand} хранит в браузере и какие сторонние сервисы загружает.`],
+    ['terms', `Пользовательское соглашение | ${siteBrand}`, `Условия использования сайта ${siteBrand}: статус сведений об объектах, права и ответственность.`],
+  ];
+  for (const [rel, title, description] of STATIC_PAGES) {
+    writeHtml(rel, baseHtml, { title, description, canonical: `${siteUrl}/${rel}` });
+  }
+  // Служебные и личные страницы: в индекс не нужны
+  for (const rel of ['favorites', 'login']) {
+    writeHtml(rel, baseHtml, {
+      title: rel === 'login' ? `Вход для сотрудников | ${siteBrand}` : `Избранное | ${siteBrand}`,
+      description: `Служебная страница сайта ${siteBrand}.`,
+      canonical: `${siteUrl}/${rel}`,
+      robots: 'noindex, nofollow',
+    });
+  }
+
+  // Оболочки для nginx: spa.html — известные динамические маршруты (/apartment/:id и т.п.):
+  // без canonical и без noindex (мета ставит приложение; noindex в исходном HTML Google
+  // может счесть окончательным). 404.html — неизвестные адреса, отдаются с кодом 404.
+  const shell = patchHtmlHead(baseHtml, {
+    title: siteBrand,
+    description: homeDesc,
+    canonical: `${siteUrl}/`,
+  })
+    .replace(/\s*<link\s+rel="canonical"[^>]*>/i, '')
+    .replace(/\s*<meta\s+name="robots"[^>]*>/i, '')
+    .replace(/\s*<meta\s+property="og:url"[^>]*>/i, '');
+  fs.writeFileSync(path.join(distDir, 'spa.html'), shell, 'utf8');
+  fs.writeFileSync(
+    path.join(distDir, '404.html'),
+    shell
+      .replace(/<title>[^<]*<\/title>/i, `<title>Страница не найдена | ${escapeAttr(siteBrand)}</title>`)
+      .replace(/<meta\s+charset[^>]+>/i, (m) => `${m}\n    <meta name="robots" content="noindex, follow">`),
+    'utf8',
+  );
+
   let complexes = [];
   try {
     complexes = await loadBlockSlugs(apiBase, maxComplex);
@@ -242,6 +286,24 @@ async function main() {
     });
   }
 
+  let newsSlugs = [];
+  try {
+    const j = await fetchJson(`${apiBase}/news?page=1&per_page=100`);
+    const rows = Array.isArray(j) ? j : j.data || [];
+    for (const n of rows) {
+      if (!n?.slug || String(n.slug).includes('/') || String(n.slug).includes('..')) continue;
+      newsSlugs.push(n.slug);
+      writeHtml(`news/${n.slug}`, baseHtml, {
+        title: `${n.title || n.slug} | ${siteBrand}`,
+        description: plainFromMaybeHtml(n.excerpt || n.summary || n.body || n.content || '', 200) || `Новость ${siteBrand}.`,
+        canonical: `${siteUrl}/news/${encodeURIComponent(n.slug)}`,
+      });
+    }
+    console.log(`[prerender-seo] API: ${newsSlugs.length} новостей.`);
+  } catch (e) {
+    console.warn(`[prerender-seo] Новости не загружены (${e.message}).`);
+  }
+
   // Визитки экспертов: превью ссылки в Telegram/MAX должно работать без JS
   const experts = JSON.parse(
     fs.readFileSync(path.resolve(__dirname, '../src/shared/experts/expert-seo.json'), 'utf8'),
@@ -257,13 +319,20 @@ async function main() {
   const sitemap = buildSitemapXml(
     siteUrl,
     complexes.map((c) => c.slug),
-    experts.map((e) => `/experts/${e.slug}`),
+    [
+      '/personal-data-consent',
+      ...experts.map((e) => `/experts/${e.slug}`),
+      ...newsSlugs.map((slug) => `/news/${encodeURIComponent(slug)}`),
+    ],
   );
   fs.writeFileSync(path.join(distDir, 'sitemap.xml'), sitemap, 'utf8');
 
   const robots = `User-agent: *
 Allow: /
 Disallow: /admin
+Disallow: /login
+Disallow: /favorites
+Disallow: /presentation/
 
 Sitemap: ${sitemapIndexUrl}
 Sitemap: ${siteUrl}/sitemap.xml

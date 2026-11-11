@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle } from 'lucide-react';
 import { apiPost, ApiError } from '@/lib/api';
 import PrivacyConsent from '@/shared/components/forms/PrivacyConsent';
-import { validatePrivacyConsent } from '@/shared/lib/privacy-consent';
+import { consentPayload, validatePrivacyConsent } from '@/shared/lib/privacy-consent';
+import { cleanSourceUrl, readUtm } from '@/shared/lib/utm';
 import {
   conversionObsFormError,
   conversionObsFormSubmit,
@@ -108,6 +109,7 @@ const LeadForm = ({
   const [error, setError] = useState('');
   const [duplicateNote, setDuplicateNote] = useState<string | null>(null);
   const [consentAccepted, setConsentAccepted] = useState(false);
+  const [honeypot, setHoneypot] = useState('');
   const [consentError, setConsentError] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -137,15 +139,18 @@ const LeadForm = ({
       const res = await apiPost<{
         id?: number;
         buyerToken?: string;
-        duplicateWarning?: { recentRequestId: number; messageRu: string };
+        duplicateWarning?: { messageRu: string };
       }>('/requests', {
         name: name.trim(),
         phone: normalizedPhone,
         type,
         comment: commentPayload,
-        sourceUrl: typeof window !== 'undefined' ? window.location.href : undefined,
+        sourceUrl: cleanSourceUrl(),
         ...(blockId != null ? { blockId } : {}),
         ...(listingId != null ? { listingId } : {}),
+        ...consentPayload(),
+        ...readUtm(),
+        website: honeypot || undefined,
       });
       if (res?.buyerToken) {
         persistBuyerToken(res.buyerToken, res.id);
@@ -199,8 +204,21 @@ const LeadForm = ({
       {title ? <h3 className="font-bold text-lg mb-4">{title}</h3> : null}
       <ResponsivenessHint className="mb-4" />
       <form onSubmit={handleSubmit} className="space-y-3">
+        {/* Ловушка для ботов: человеку не видна и не попадает в фокус */}
+        <input
+          type="text"
+          name="website"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          className="absolute left-[-9999px] h-px w-px overflow-hidden opacity-0"
+        />
         <Input
           placeholder="Имя"
+          aria-label="Имя"
+          maxLength={100}
           value={name}
           onChange={e => setName(e.target.value)}
           required

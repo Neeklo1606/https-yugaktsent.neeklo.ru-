@@ -1508,6 +1508,11 @@ model Request {
   assignedTo   String?       @map("assigned_to") @db.Uuid
   comment      String?       @db.Text
   telegramSent Boolean       @default(false) @map("telegram_sent")
+  /// Редакция текста согласия на обработку ПД, которую принял посетитель (152-ФЗ, ст. 9)
+  consentVersion String?     @map("consent_version")
+  consentAt    DateTime?     @map("consent_at")
+  /// utm_source / utm_medium / utm_campaign / utm_content / utm_term первого захода
+  utm          Json?
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
   lastActivityAt DateTime    @default(now()) @map("last_activity_at")

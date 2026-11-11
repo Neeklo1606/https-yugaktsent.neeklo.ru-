@@ -18,7 +18,8 @@ export const FOOTER_COMPANY_LINKS = [
 ] as const;
 
 export const FOOTER_LEGAL_LINKS = [
-  { label: 'Политика конфиденциальности', to: '/privacy' },
+  { label: 'Политика обработки персональных данных', to: '/privacy' },
+  { label: 'Согласие на обработку данных', to: '/personal-data-consent' },
   { label: 'Пользовательское соглашение', to: '/terms' },
   { label: 'Cookie', to: '/cookies' },
 ] as const;

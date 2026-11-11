@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { captureUtmFromLocation } from "@/shared/lib/utm";
 import { useEffect } from "react";
 import {
   createRoutesFromChildren,
@@ -49,6 +50,7 @@ if (!rootEl) {
 
 const app = <App />;
 
+captureUtmFromLocation();
 createRoot(rootEl).render(
   sentryDsn ? (
     <Sentry.ErrorBoundary fallback={<p>Что-то пошло не так. Обновите страницу.</p>}>{app}</Sentry.ErrorBoundary>

@@ -74,7 +74,7 @@ const Terms = () => {
             <p>
               {typo('Порядок обработки персональных данных описан в отдельном документе: ')}
               <Link to="/privacy" className="text-primary underline-offset-4 hover:underline">
-                Политика конфиденциальности
+                Политика обработки персональных данных
               </Link>
               .
             </p>

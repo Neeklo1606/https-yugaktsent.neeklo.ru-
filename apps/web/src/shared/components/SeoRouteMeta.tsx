@@ -174,8 +174,14 @@ function buildMeta(
   }
   if (pathname === '/privacy') {
     return {
-      title: 'Политика конфиденциальности',
-      description: `Условия обработки персональных данных на сайте ${siteName}.`,
+      title: 'Политика обработки персональных данных',
+      description: `Какие персональные данные обрабатывает сайт ${siteName}, зачем, сколько хранит и как отозвать согласие.`,
+    };
+  }
+  if (pathname === '/personal-data-consent') {
+    return {
+      title: 'Согласие на обработку персональных данных',
+      description: `Текст согласия на обработку персональных данных при отправке заявки на сайте ${siteName}.`,
     };
   }
   if (pathname === '/about') {
@@ -197,14 +203,14 @@ function buildMeta(
   }
   if (pathname === '/cookies') {
     return {
-      title: 'Политика использования cookie',
+      title: 'Cookie и аналитика',
       description: `Какие cookie и данные браузера использует сайт ${siteName} и как их отключить.`,
     };
   }
   if (pathname === '/terms') {
     return {
       title: 'Пользовательское соглашение',
-      description: `Условия использования сайта ${siteName}.`,
+      description: `Условия использования сайта ${siteName}: статус сведений об объектах, права и ответственность.`,
     };
   }
   if (pathname === '/compare') {
@@ -271,8 +277,13 @@ export default function SeoRouteMeta() {
       : `${meta.title} | ${siteName}`;
     const sp = new URLSearchParams(search);
     if (pathname.startsWith('/catalog')) {
-      sp.delete('page');
-      sp.delete('sort');
+      // Canonical каталога — только город и раздел. Комбинации фильтров (цена, комнаты,
+      // площадь, поиск, сортировка, страница) склеиваются с ними, а не плодят дубли в индексе.
+      const keep = new Set(['region_id', 'type', 'market', 'group']);
+      for (const k of Array.from(sp.keys())) if (!keep.has(k)) sp.delete(k);
+    } else {
+      // utm и прочие метки не должны попадать в canonical других страниц
+      for (const k of Array.from(sp.keys())) if (k.startsWith('utm_') || k === 'yclid' || k === 'gclid') sp.delete(k);
     }
     const cleanSearch = sp.toString();
     const canonicalUrl = meta.noindex

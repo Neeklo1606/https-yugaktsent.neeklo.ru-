@@ -20,12 +20,19 @@ function renderConsent(props: Partial<PrivacyConsentProps> = {}) {
 }
 
 describe('PrivacyConsent', () => {
-  it('renders privacy policy link', () => {
+  it('links to the separate consent text and to the policy', () => {
     renderConsent();
-    const link = screen.getByRole('link', { name: /политикой конфиденциальности/i });
-    expect(link).toHaveAttribute('href', '/privacy');
-    expect(link).toHaveAttribute('target', '_blank');
-    expect(link).toHaveAttribute('rel', 'noreferrer');
+    const consent = screen.getByRole('link', { name: /согласие на обработку персональных данных/i });
+    expect(consent).toHaveAttribute('href', '/personal-data-consent');
+    expect(consent).toHaveAttribute('target', '_blank');
+    const policy = screen.getByRole('link', { name: /политикой обработки персональных данных/i });
+    expect(policy).toHaveAttribute('href', '/privacy');
+    expect(policy).toHaveAttribute('rel', 'noreferrer');
+  });
+
+  it('is not pre-checked', () => {
+    renderConsent();
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
   });
 
   it('shows validation error when provided', () => {

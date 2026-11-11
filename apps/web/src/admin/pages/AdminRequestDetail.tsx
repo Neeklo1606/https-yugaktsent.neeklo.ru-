@@ -61,6 +61,9 @@ type RequestDetail = {
   status: string;
   comment: string | null;
   sourceUrl: string | null;
+  consentVersion?: string | null;
+  consentAt?: string | null;
+  utm?: Record<string, string> | null;
   blockId: number | null;
   listingId: number | null;
   telegramSent: boolean;
@@ -164,6 +167,7 @@ export default function AdminRequestDetail() {
   });
 
   const data = detailQuery.data;
+  const consentInfo = (data ?? {}) as Pick<RequestDetail, 'consentAt' | 'consentVersion' | 'utm'>;
   const nextStatuses = useMemo(
     () => (data ? allowedNextStatuses(data.status) : []),
     [data],
@@ -502,6 +506,22 @@ export default function AdminRequestDetail() {
               <dt className="text-muted-foreground">Источник</dt>
               <dd className="text-right truncate max-w-[200px]" title={data.sourceUrl ?? ''}>
                 {sourceLabel(data.sourceUrl)}
+              </dd>
+            </div>
+            {consentInfo.utm && Object.keys(consentInfo.utm).length ? (
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">Метки</dt>
+                <dd className="text-right break-all max-w-[220px] text-xs">
+                  {Object.entries(consentInfo.utm).map(([k, v]) => `${k}=${v}`).join(' · ')}
+                </dd>
+              </div>
+            ) : null}
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">Согласие на обработку ПД</dt>
+              <dd className="text-right">
+                {consentInfo.consentAt
+                  ? `${new Date(consentInfo.consentAt).toLocaleString('ru-RU')} · ред. ${consentInfo.consentVersion ?? '—'}`
+                  : 'не зафиксировано (заявка до 11.11.2026)'}
               </dd>
             </div>
           </dl>

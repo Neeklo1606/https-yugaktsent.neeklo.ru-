@@ -1,77 +1,99 @@
 import { Link } from 'react-router-dom';
-import RedesignHeader from '@/redesign/components/RedesignHeader';
-import FooterSection from '@/components/FooterSection';
-import { useSiteContacts } from '@/shared/hooks/useSiteContacts';
+import LegalLayout, { LegalSection } from '@/pages/legal/LegalLayout';
+import { COOKIE_NOTICE_STORAGE_KEY } from '@/shared/components/CookieBanner';
 
-/** Что сайт хранит в браузере — по факту кода, без выдуманных сервисов */
-const STORED: { what: string; why: string }[] = [
-  { what: 'Избранное', why: 'Список сохранённых объектов, чтобы он не пропадал между визитами. Регистрация не нужна.' },
-  { what: 'Выбранный город', why: 'Чтобы каталог и главная сразу открывались в вашем регионе.' },
-  { what: 'Недавно просмотренное', why: 'Чтобы быстро вернуться к объектам, которые вы уже смотрели.' },
-  { what: 'Справочники каталога', why: 'Копия списков городов и фильтров, чтобы страницы открывались быстрее.' },
-  { what: 'Вход сотрудника', why: 'Только для сотрудников агентства в служебном разделе: держит сеанс входа.' },
+/**
+ * Инвентаризация того, что сайт хранит в браузере и какие сторонние сервисы загружает —
+ * по факту кода (grep localStorage/sessionStorage, внешние домены). Счётчиков аналитики и
+ * рекламных пикселей на сайте нет; при их подключении нужен выбор посетителя и обновление страницы.
+ */
+const STORAGE: { name: string; purpose: string; term: string }[] = [
+  { name: 'lg_favorites_guest_v2', purpose: 'Избранные квартиры и ЖК', term: 'Пока вы не очистите браузер' },
+  { name: 'lg_region_id', purpose: 'Выбранный город (Анапа или Майкоп)', term: 'Пока вы не очистите браузер' },
+  { name: 'lg_browse_history_v1', purpose: 'Недавно просмотренные объекты', term: 'Пока вы не очистите браузер' },
+  { name: 'yug_qcache:*', purpose: 'Копия справочников каталога, чтобы страницы открывались быстрее', term: 'До суток' },
+  { name: COOKIE_NOTICE_STORAGE_KEY, purpose: 'Отметка, что вы закрыли уведомление о cookie', term: 'Пока вы не очистите браузер' },
+  { name: 'lg_inquiry_threads', purpose: 'Номер вашей заявки, чтобы показать её статус на этом устройстве', term: 'Пока вы не очистите браузер' },
+  { name: 'yug_utm_v1', purpose: 'Метки рекламной кампании, с которой вы пришли (без личных данных)', term: 'До закрытия вкладки' },
+  { name: 'chunk_reload_at', purpose: 'Перезагрузка страницы после обновления сайта', term: 'До закрытия вкладки' },
+  { name: 'lg_access_token, lg_refresh_token, lg_user', purpose: 'Сеанс входа — только у сотрудников агентства в служебном разделе', term: 'До выхода или окончания сеанса' },
 ];
 
-const Cookies = () => {
-  const { brandName, siteDomain, legalEntity, email, phone } = useSiteContacts();
-  const operator = legalEntity ?? brandName;
-  const contactParts = [email, phone].filter(Boolean).join(', ');
+const THIRD_PARTY: { name: string; where: string; data: string }[] = [
+  {
+    name: 'Яндекс Карты (ООО «Яндекс», Россия)',
+    where: 'Карта каталога, страницы ЖК и «Контакты»',
+    data: 'При показе карты браузер загружает её с серверов Яндекса; Яндекс получает IP-адрес и может установить свои cookie по своим правилам',
+  },
+  {
+    name: 'YouTube (Google LLC)',
+    where: 'Видео о компании',
+    data: 'Видео не загружается, пока вы не нажмёте «Смотреть». После нажатия проигрыватель открывается в режиме youtube-nocookie.com',
+  },
+];
 
-  return (
-    <div className="min-h-screen bg-background pb-16 lg:pb-0">
-      <RedesignHeader />
-      <div className="max-w-[800px] mx-auto px-4 py-8 sm:py-12">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-8">Политика использования cookie</h1>
-        <div className="prose prose-sm max-w-none text-muted-foreground space-y-6">
-          <section>
-            <h2 className="text-lg font-bold text-foreground">1. Что это</h2>
-            <p>
-              Cookie и локальное хранилище браузера — небольшие файлы и записи, которые сайт
-              {siteDomain ? ` ${siteDomain}` : ''} сохраняет на вашем устройстве. Оператор сайта — {operator}.
-            </p>
-          </section>
-          <section>
-            <h2 className="text-lg font-bold text-foreground">2. Что мы храним и зачем</h2>
-            <ul className="list-disc pl-5 space-y-2">
-              {STORED.map((row) => (
-                <li key={row.what}>
-                  <span className="font-medium text-foreground">{row.what}.</span> {row.why}
-                </li>
-              ))}
-            </ul>
-            <p>
-              Эти данные нужны для работы сайта, остаются в вашем браузере и не передаются третьим лицам.
-              Рекламных cookie сайт не использует.
-            </p>
-          </section>
-          <section>
-            <h2 className="text-lg font-bold text-foreground">3. Аналитика</h2>
-            <p>
-              Если на сайте подключены сервисы веб-аналитики (например, Яндекс Метрика), они используют
-              cookie для обезличенной статистики посещений: какие страницы смотрят и откуда приходят.
-              Эти данные помогают делать сайт удобнее.
-            </p>
-          </section>
-          <section>
-            <h2 className="text-lg font-bold text-foreground">4. Как отключить</h2>
-            <p>
-              Cookie и локальное хранилище можно удалить или запретить в настройках браузера. Сайт продолжит
-              работать, но избранное, выбранный город и история просмотров перестанут сохраняться.
-            </p>
-          </section>
-          <section>
-            <h2 className="text-lg font-bold text-foreground">5. Персональные данные</h2>
-            <p>
-              Как мы обрабатываем имя и телефон из форм заявок, описано в{' '}
-              <Link to="/privacy" className="text-primary underline underline-offset-2">политике конфиденциальности</Link>.
-              {contactParts ? ` Вопросы можно задать: ${contactParts}.` : ''}
-            </p>
-          </section>
-        </div>
+const Cookies = () => (
+  <LegalLayout title="Cookie и аналитика">
+    <LegalSection title="1. Что сайт хранит в браузере">
+      <p>
+        Сайт не использует рекламные cookie и счётчики аналитики. В браузере хранятся только записи,
+        без которых не работают избранное, выбор города и служебный раздел. Они не передаются третьим
+        лицам и не используются для рекламы.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[520px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-foreground">
+              <th className="py-2 pr-3 font-semibold">Запись</th>
+              <th className="py-2 pr-3 font-semibold">Зачем</th>
+              <th className="py-2 font-semibold">Срок</th>
+            </tr>
+          </thead>
+          <tbody className="align-top">
+            {STORAGE.map((r) => (
+              <tr key={r.name} className="border-b border-border">
+                <td className="py-2 pr-3 font-mono text-xs text-foreground">{r.name}</td>
+                <td className="py-2 pr-3">{r.purpose}</td>
+                <td className="py-2">{r.term}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <FooterSection />
-    </div>
-  );
-};
+    </LegalSection>
+
+    <LegalSection title="2. Сторонние сервисы">
+      <ul>
+        {THIRD_PARTY.map((t) => (
+          <li key={t.name}>
+            <span className="font-medium text-foreground">{t.name}.</span> {t.where}. {t.data}.
+          </li>
+        ))}
+      </ul>
+    </LegalSection>
+
+    <LegalSection title="3. Аналитика">
+      <p>
+        Сейчас счётчики посещаемости (например, Яндекс Метрика) на сайте не установлены. Если они
+        появятся, эта страница будет обновлена до их подключения, а посетитель сможет отказаться от
+        аналитических cookie, не теряя доступа к сайту.
+      </p>
+    </LegalSection>
+
+    <LegalSection title="4. Как удалить или запретить">
+      <p>
+        Записи можно удалить в настройках браузера («Очистить данные сайтов»). Сайт продолжит работать,
+        но избранное, выбранный город и история просмотров сбросятся.
+      </p>
+    </LegalSection>
+
+    <LegalSection title="5. Персональные данные">
+      <p>
+        Как обрабатываются имя и телефон из форм заявок, описано в{' '}
+        <Link to="/privacy" className="underline underline-offset-2">Политике обработки персональных данных</Link>.
+      </p>
+    </LegalSection>
+  </LegalLayout>
+);
 
 export default Cookies;

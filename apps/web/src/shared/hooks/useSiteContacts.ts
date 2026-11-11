@@ -21,6 +21,10 @@ export function useSiteContacts() {
     address: settingOptional(settings, 'address'),
     /** Юридическое лицо оператора, например «ООО Ромашка» */
     legalEntity: settingOptional(settings, 'legal_entity'),
+    inn: settingOptional(settings, 'inn'),
+    ogrn: settingOptional(settings, 'ogrn'),
+    /** Юридический адрес оператора (если отличается от адреса офиса) */
+    legalAddress: settingOptional(settings, 'legal_address'),
     /** Домен сайта без протокола — для юридических текстов */
     siteDomain: publicUrl?.replace(/^https?:\/\//, '').replace(/\/+$/, ''),
   };

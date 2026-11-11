@@ -25,7 +25,7 @@ describe('Privacy page', () => {
   it('renders policy heading', () => {
     renderPrivacy();
     expect(
-      screen.getByRole('heading', { level: 1, name: /политика конфиденциальности/i }),
+      screen.getByRole('heading', { level: 1, name: /политика обработки персональных данных/i }),
     ).toBeInTheDocument();
   });
 

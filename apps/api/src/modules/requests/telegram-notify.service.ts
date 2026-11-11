@@ -88,11 +88,20 @@ export class TelegramNotifyService implements OnModuleInit {
 
     const typeLabel = this.requestTypeRu(row.type);
     const obj = await this.resolveRequestObject(row);
+    // Серверы Telegram за пределами РФ: имя и телефон уходят туда только если оператор
+    // явно включил настройку telegram_notify_include_pd (после уведомления РКН по ст. 12 152-ФЗ).
+    // По умолчанию — только номер заявки и ссылка в админку, без персональных данных.
+    const includePd = await this.prisma.siteSetting
+      .findUnique({ where: { key: 'telegram_notify_include_pd' }, select: { value: true } })
+      .then((r) => ['1', 'true', 'yes'].includes(String(r?.value ?? '').trim().toLowerCase()))
+      .catch(() => false);
+    const pdLines = includePd
+      ? [`<b>Имя:</b> ${escapeHtml(row.name || '—')}`, `<b>Телефон:</b> ${escapeHtml(row.phone || '—')}`]
+      : [`<b>Заявка №${row.id}</b> — контакты в админке: ${escapeHtml(`${this.publicSiteUrl}/admin/requests/${row.id}`)}`];
     const lines = [
       '<b>Новая заявка с сайта «Южный Акцент»</b>',
       '',
-      `<b>Имя:</b> ${escapeHtml(row.name || '—')}`,
-      `<b>Телефон:</b> ${escapeHtml(row.phone || '—')}`,
+      ...pdLines,
       `<b>Тип заявки:</b> ${escapeHtml(typeLabel)}`,
       `<b>Объект:</b> ${escapeHtml(obj.label)}`,
       obj.url ? `<b>Ссылка:</b> ${escapeHtml(obj.url)}` : null,

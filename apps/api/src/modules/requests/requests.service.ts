@@ -39,6 +39,9 @@ const listSelect = {
   blockId: true,
   listingId: true,
   telegramSent: true,
+  consentVersion: true,
+  consentAt: true,
+  utm: true,
   createdAt: true,
   lastActivityAt: true,
   interactionCount: true,
@@ -71,8 +74,21 @@ export class RequestsService {
   ) {}
 
   async create(dto: CreateRequestDto, userId?: string | null) {
+    // Ловушка для ботов: людям поле не видно. Отвечаем как обычно, но ничего не сохраняем.
+    if (dto.website && dto.website.trim() !== '') {
+      this.logger.warn('Request honeypot triggered — dropped');
+      return { id: 0 };
+    }
     const type = this.resolveType(dto.type);
     const now = new Date();
+    const utmEntries = Object.entries({
+      utm_source: dto.utmSource,
+      utm_medium: dto.utmMedium,
+      utm_campaign: dto.utmCampaign,
+      utm_content: dto.utmContent,
+      utm_term: dto.utmTerm,
+    }).filter(([, v]) => typeof v === 'string' && v.trim() !== '');
+    const utm = utmEntries.length ? Object.fromEntries(utmEntries) : undefined;
     const duplicateWarning = dto.phone
       ? await this.findRecentDuplicatePhone(dto.phone)
       : null;
@@ -87,6 +103,9 @@ export class RequestsService {
         listingId: dto.listingId,
         sourceUrl: dto.sourceUrl,
         comment: dto.comment,
+        consentVersion: dto.consentVersion,
+        consentAt: now,
+        ...(utm ? { utm } : {}),
         lastActivityAt: now,
         ...(userId ? { userId } : {}),
       } as Prisma.RequestCreateInput,
@@ -123,10 +142,13 @@ export class RequestsService {
       })();
     }
 
+    // Публичный ответ — только то, что нужно форме: без служебных полей и чужих заявок
     return {
-      ...row,
+      id: row.id,
       buyerToken,
-      ...(duplicateWarning ? { duplicateWarning } : {}),
+      ...(duplicateWarning
+        ? { duplicateWarning: { messageRu: 'Заявка с этим номером уже есть — менеджер свяжется с вами.' } }
+        : {}),
     };
   }
 

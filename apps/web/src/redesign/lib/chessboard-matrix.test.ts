@@ -28,13 +28,18 @@ describe('chessboard-matrix', () => {
     expect(matchScore(a, b)).toBeLessThan(matchScore(a, c));
   });
 
+  // Движок v4 (packages/shared, topology.ts) связывает стояк только через соседние этажи —
+  // тест приведён к той же спецификации, что и src/chessboard/matrix.test.ts в shared:
+  // одинаковая планировка на 34, 33 и 31 этажах (32-й пустой) — один столбец.
   it('aligns repeating layouts in the same shaft column', () => {
+    const plan93 = 'https://cdn.example/plan-93.png';
     const matrix = buildShaftMatrix([
-      apt({ id: 'top', floor: 34, number: '326', rooms: 3, area: 93.2 }),
-      apt({ id: 'mid-4e', floor: 33, number: '319', rooms: 4, area: 93.9 }),
-      apt({ id: 'mid-2e', floor: 33, number: '322', rooms: 2, area: 49.3 }),
-      apt({ id: 'low-3e', floor: 31, number: '302', rooms: 3, area: 93.2 }),
-      apt({ id: 'low-2e', floor: 31, number: '304', rooms: 2, area: 47.4 }),
+      apt({ id: 'top', floor: 34, number: '326', rooms: 3, area: 93.2, planImage: plan93 }),
+      apt({ id: 'bridge-33', floor: 33, number: '318', rooms: 3, area: 93.2, planImage: plan93 }),
+      apt({ id: 'mid-4e', floor: 33, number: '319', rooms: 4, area: 93.9, planImage: 'https://cdn.example/plan-94.png' }),
+      apt({ id: 'mid-2e', floor: 33, number: '322', rooms: 2, area: 49.3, planImage: 'https://cdn.example/plan-49.png' }),
+      apt({ id: 'low-3e', floor: 31, number: '302', rooms: 3, area: 93.2, planImage: plan93 }),
+      apt({ id: 'low-2e', floor: 31, number: '304', rooms: 2, area: 47.4, planImage: 'https://cdn.example/plan-47.png' }),
     ]);
 
     expect(matrix.floors).toEqual([34, 33, 32, 31]);
@@ -42,6 +47,8 @@ describe('chessboard-matrix', () => {
 
     const colWithTop = matrix.columns.find((col) => col[0]?.id === 'top');
     expect(colWithTop).toBeDefined();
+    expect(colWithTop?.[1]?.id).toBe('bridge-33');
+    expect(colWithTop?.[2]).toBeNull();
     expect(colWithTop?.[3]?.id).toBe('low-3e');
   });
 

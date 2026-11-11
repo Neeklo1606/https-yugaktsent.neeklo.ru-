@@ -34,6 +34,7 @@ const Contacts = lazyWithReload("./pages/Contacts", () => import("./pages/Contac
 const Privacy = lazyWithReload("./pages/Privacy", () => import("./pages/Privacy"));
 const Terms = lazyWithReload("./pages/Terms", () => import("./pages/Terms"));
 const Cookies = lazyWithReload("./pages/Cookies", () => import("./pages/Cookies"));
+const PersonalDataConsent = lazyWithReload("./pages/PersonalDataConsent", () => import("./pages/PersonalDataConsent"));
 const AboutCompany = lazyWithReload("./pages/AboutCompany", () => import("./pages/AboutCompany"));
 const ExpertPage = lazyWithReload(() => import("./pages/ExpertPage"));
 
@@ -149,6 +150,7 @@ const AppRoutes = () => (
     <Route path="/privacy" element={<Privacy />} />
     <Route path="/terms" element={<Terms />} />
     <Route path="/cookies" element={<Cookies />} />
+    <Route path="/personal-data-consent" element={<PersonalDataConsent />} />
 
     <Route path="/agency/*" element={<Navigate to="/about" replace />} />
 

@@ -40,7 +40,17 @@ const PrivacyConsent = ({
           htmlFor={id}
           className="text-xs sm:text-sm text-neutral-500 font-normal leading-snug cursor-pointer"
         >
-          Нажимая кнопку, вы соглашаетесь с{' '}
+          Даю{' '}
+          <Link
+            to="/personal-data-consent"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2 transition-colors hover:text-primary"
+            onClick={(e) => e.stopPropagation()}
+          >
+            согласие на обработку персональных данных
+          </Link>{' '}
+          и подтверждаю, что ознакомлен(а) с{' '}
           <Link
             to="/privacy"
             target="_blank"
@@ -48,7 +58,7 @@ const PrivacyConsent = ({
             className="underline underline-offset-2 transition-colors hover:text-primary"
             onClick={(e) => e.stopPropagation()}
           >
-            политикой конфиденциальности
+            политикой обработки персональных данных
           </Link>
         </Label>
       </div>

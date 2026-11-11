@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import PrivacyConsent from '@/shared/components/forms/PrivacyConsent';
-import { validatePrivacyConsent } from '@/shared/lib/privacy-consent';
+import { consentPayload, validatePrivacyConsent } from '@/shared/lib/privacy-consent';
+import { cleanSourceUrl, readUtm } from '@/shared/lib/utm';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Building2, Home, TreePine, Store, Trees, CheckCircle2 } from 'lucide-react';
@@ -109,7 +110,9 @@ const QuizSection = () => {
         phone: contact,
         type: 'SELECTION',
         comment: `Тип: ${selectedType}. ${comment}`,
-        sourceUrl: window.location.href,
+        sourceUrl: cleanSourceUrl(),
+        ...consentPayload(),
+        ...readUtm(),
       });
       void queryClient.invalidateQueries({ queryKey: ['requests', 'me'] });
       setSubmitted(true);
