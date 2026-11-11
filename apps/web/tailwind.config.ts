@@ -80,7 +80,7 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Inter Variable", "Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Arial", "sans-serif"],
+        sans: ["Inter Variable", "Inter", "Inter Fallback", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Arial", "sans-serif"],
       },
       boxShadow: {
         card: "var(--shadow-card)",

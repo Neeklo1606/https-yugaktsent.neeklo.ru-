@@ -189,7 +189,7 @@ async function homeHeroImage(apiBase) {
  * dist-ssr/prerender-entry.mjs (vite build --config vite.ssr.config.ts) рендерит те же React-страницы
  * с данными. Разметка кладётся в #ssr-shell (приложение убирает его, когда отрисует страницу),
  * данные — в window.__YUG_RQ__ (кэш React Query). Крупные запросы (списки квартир) не встраиваем. */
-const SSR_QUERY_MAX_BYTES = 45 * 1024;
+const SSR_QUERY_MAX_BYTES = 20 * 1024;
 
 async function loadSsr(apiBase) {
   const entry = path.resolve(__dirname, '../dist-ssr/prerender-entry.mjs');
@@ -231,6 +231,32 @@ function keepOnlyLcpImage(markup, keepPath) {
   });
 }
 
+/**
+ * Вырезает из оболочки секции ниже первого экрана (<section id="…"> с учётом вложенных section).
+ * Шахматка и планировки — сотни элементов: их разбор и вёрстка в оболочке занимали главный поток,
+ * а приложение всё равно перерисует их через мгновение.
+ */
+function dropSections(markup, ids) {
+  let out = markup;
+  for (const id of ids) {
+    const open = new RegExp(`<section\\b[^>]*\\sid="${id}"[^>]*>`);
+    const m = open.exec(out);
+    if (!m) continue;
+    const re = /<section\b[^>]*>|<\/section>/g;
+    re.lastIndex = m.index + m[0].length;
+    let depth = 1;
+    let end = -1;
+    for (let t = re.exec(out); t; t = re.exec(out)) {
+      depth += t[0].startsWith('</') ? -1 : 1;
+      if (depth === 0) { end = t.index + t[0].length; break; }
+    }
+    if (end > 0) out = out.slice(0, m.index) + out.slice(end);
+  }
+  return out;
+}
+
+const SHELL_DROP_SECTIONS = ['layouts', 'chessboard', 'plans', 'lead', 'similar'];
+
 function preloadHref(tag) {
   return (String(tag || '').match(/\shref="([^"]*)"/) || [])[1]?.replace(/&amp;/g, '&') || null;
 }
@@ -239,7 +265,7 @@ async function withShell(render, html, url, keepPath = null) {
   if (!render) return html;
   try {
     const r = await render(url);
-    r.html = keepOnlyLcpImage(r.html, keepPath);
+    r.html = keepOnlyLcpImage(dropSections(r.html, SHELL_DROP_SECTIONS), keepPath);
     if (r.failed.length) console.warn(`[prerender-seo] SSR ${url}: не загрузились ${r.failed.length} запросов`);
     const queries = (r.state.queries || []).filter((q) => JSON.stringify(q).length <= SSR_QUERY_MAX_BYTES);
     const state = { ...r.state, queries };
