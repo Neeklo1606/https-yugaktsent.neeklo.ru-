@@ -54,8 +54,9 @@ export class LiveGridClient {
     return res.json();
   }
 
+  /** Все фиды из админки, включая выключенные: по ним видно, что список ведётся в базе */
   async loadFeedLinks() {
-    const rows = await this.api("/admin/feed-links?enabled=1");
+    const rows = await this.api("/admin/feed-links");
     return Array.isArray(rows) ? rows : [];
   }
 

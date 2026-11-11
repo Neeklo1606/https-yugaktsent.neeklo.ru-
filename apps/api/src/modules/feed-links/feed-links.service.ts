@@ -4,6 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { gunzipSync } from 'node:zlib';
+import { isIP } from 'node:net';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFeedLinkDto } from './dto/create-feed-link.dto';
 import { UpdateFeedLinkDto } from './dto/update-feed-link.dto';
@@ -55,6 +57,7 @@ export class FeedLinksService {
           provider: dto.provider?.trim() || 'profitbase',
           isEnabled: dto.isEnabled ?? true,
           sortOrder: dto.sortOrder ?? 0,
+          mediaMode: dto.mediaMode ?? 'remote',
         },
         include: FEED_LINK_INCLUDE,
       });
@@ -87,6 +90,7 @@ export class FeedLinksService {
     if (dto.provider !== undefined) data.provider = dto.provider.trim() || 'profitbase';
     if (dto.isEnabled !== undefined) data.isEnabled = dto.isEnabled;
     if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
+    if (dto.mediaMode !== undefined) data.mediaMode = dto.mediaMode;
 
     try {
       return await this.prisma.feedLink.update({
@@ -118,6 +122,12 @@ export class FeedLinksService {
         ...(stats?.created !== undefined ? { lastSyncCreated: stats.created } : {}),
         ...(stats?.updated !== undefined ? { lastSyncUpdated: stats.updated } : {}),
         ...(stats?.errors !== undefined ? { lastSyncErrors: stats.errors } : {}),
+        // Успешный прогон стирает старую ошибку
+        ...(stats?.errorMessage !== undefined
+          ? { lastSyncError: stats.errorMessage.slice(0, 1000) || null }
+          : stats?.status === 'ok' || stats?.status === 'empty'
+            ? { lastSyncError: null }
+            : {}),
       },
       include: FEED_LINK_INCLUDE,
     });
@@ -126,7 +136,18 @@ export class FeedLinksService {
   async probe(id: number) {
     const link = await this.findOne(id);
     const started = Date.now();
-    const res = await fetch(link.feedUrl, { signal: AbortSignal.timeout(60_000) });
+    let res: Response;
+    try {
+      res = await fetch(link.feedUrl, { signal: AbortSignal.timeout(60_000) });
+    } catch (err) {
+      return {
+        ok: false,
+        httpStatus: 0,
+        offerCount: 0,
+        durationMs: Date.now() - started,
+        error: `Источник не отвечает: ${err instanceof Error ? (err.cause as Error | undefined)?.message ?? err.message : 'ошибка сети'}`,
+      };
+    }
     if (!res.ok) {
       return {
         ok: false,
@@ -136,15 +157,31 @@ export class FeedLinksService {
         error: `HTTP ${res.status}`,
       };
     }
-    const xml = await res.text();
-    const offerCount = (xml.match(/<offer[\s>]/g) ?? []).length;
+    let buf = Buffer.from(await res.arrayBuffer());
+    // Profitbase отдаёт выгрузку ЦИАН gzip-файлом без Content-Encoding
+    if (buf[0] === 0x1f && buf[1] === 0x8b) buf = gunzipSync(buf);
+    const xml = buf.toString('utf8');
+    const { format, count } = FeedLinksService.countLots(xml);
     return {
-      ok: true,
+      ok: count > 0,
       httpStatus: res.status,
-      offerCount,
+      offerCount: count,
+      format,
       durationMs: Date.now() - started,
-      bytes: xml.length,
+      bytes: buf.length,
+      ...(count > 0 ? {} : { error: 'В файле нет лотов или формат не распознан' }),
     };
+  }
+
+  /** Число лотов в выгрузке: Profitbase/JCAT — <offer>, ЦИАН — <object>, ДомКлик — <flat> */
+  static countLots(xml: string): { format: string; count: number } {
+    const offers = (xml.match(/<offer[\s>]/g) ?? []).length;
+    if (offers > 0) return { format: /<realty-feed/i.test(xml.slice(0, 2000)) ? 'profitbase/jcat' : 'xml', count: offers };
+    const objects = (xml.match(/<object[\s>]/g) ?? []).length;
+    if (objects > 0) return { format: 'cian', count: objects };
+    const flats = (xml.match(/<flat[\s>]/g) ?? []).length;
+    if (flats > 0) return { format: 'domclick', count: flats };
+    return { format: 'unknown', count: 0 };
   }
 
   private async assertRegion(regionId: number) {
@@ -162,6 +199,21 @@ export class FeedLinksService {
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       throw new BadRequestException('URL фида должен начинаться с http:// или https://');
     }
+    // Сервер сам скачивает фид — внутренние адреса запрещены, иначе через форму можно опросить локальные службы
+    if (FeedLinksService.isPrivateHost(parsed.hostname)) {
+      throw new BadRequestException('URL фида должен вести на внешний сайт');
+    }
+  }
+
+  static isPrivateHost(hostname: string): boolean {
+    const h = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return true;
+    if (isIP(h) === 4) {
+      const [a, b] = h.split('.').map(Number);
+      return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+    }
+    if (isIP(h) === 6) return h === '::1' || h === '::' || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80') || h.startsWith('::ffff:');
+    return false;
   }
 
   private isUniqueViolation(err: unknown) {

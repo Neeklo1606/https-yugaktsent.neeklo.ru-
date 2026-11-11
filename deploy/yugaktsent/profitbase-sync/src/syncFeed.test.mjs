@@ -126,3 +126,25 @@ test("обложка: локальный путь → полный адрес с
   assert.equal(absoluteMediaUrl("/uploads/media/x.jpg", "https://s.ru/"), "https://s.ru/uploads/media/x.jpg");
   assert.equal(absoluteMediaUrl("https://pb1.profitbase.ru/x.jpg", "https://s.ru"), "https://pb1.profitbase.ru/x.jpg");
 });
+
+import { feedFromLink, stateKeyFor, syncErrorText } from "./syncFeed.js";
+
+test("feedFromLink maps admin row and media mode", () => {
+  const f = feedFromLink({ id: 3, name: "Долина", feedUrl: "https://x/f", blockName: null, regionId: 10, mediaMode: "remote" });
+  assert.equal(f.block_name, "Долина");
+  assert.equal(f.media, "remote");
+  assert.equal(f.regionId, 10);
+  assert.equal(feedFromLink({ id: 1, name: "Н", feedUrl: "u", mediaMode: "local" }).media, "local");
+});
+
+test("stateKeyFor keeps FEEDS_JSON name keys, falls back to id buckets", () => {
+  assert.equal(stateKeyFor({ id: 5, name: "Николай 1" }, { feeds: { "Николай 1": {} } }), "Николай 1");
+  assert.equal(stateKeyFor({ id: 5, name: "Новое имя" }, { feeds: { "5": { a: 1 } } }), "5");
+  assert.equal(stateKeyFor({ name: "X" }, { feeds: {} }), "X");
+});
+
+test("syncErrorText includes network cause", () => {
+  const err = new Error("fetch failed");
+  err.cause = { code: "ERR_TLS_CERT_ALTNAME_INVALID" };
+  assert.equal(syncErrorText(err), "fetch failed: ERR_TLS_CERT_ALTNAME_INVALID");
+});

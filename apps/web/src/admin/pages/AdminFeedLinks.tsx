@@ -30,6 +30,8 @@ type FeedLinkRow = {
   lastSyncCreated: number | null;
   lastSyncUpdated: number | null;
   lastSyncErrors: number | null;
+  lastSyncError: string | null;
+  mediaMode: 'remote' | 'local';
   createdAt: string;
   updatedAt: string;
   region: FeedRegion;
@@ -41,12 +43,26 @@ type ProbeResult = {
   offerCount: number;
   durationMs: number;
   bytes?: number;
+  format?: string;
   error?: string;
+};
+
+const FORMAT_LABEL: Record<string, string> = {
+  'profitbase/jcat': 'Profitbase / JCAT',
+  cian: 'ЦИАН',
+  domclick: 'ДомКлик',
+  xml: 'XML',
+  unknown: 'не распознан',
+};
+
+const MEDIA_LABEL: Record<FeedLinkRow['mediaMode'], string> = {
+  remote: 'По ссылке источника',
+  local: 'Копировать к нам',
 };
 
 type DraftMap = Record<
   number,
-  Partial<Pick<FeedLinkRow, 'name' | 'feedUrl' | 'blockName' | 'provider' | 'isEnabled' | 'sortOrder' | 'regionId'>>
+  Partial<Pick<FeedLinkRow, 'name' | 'feedUrl' | 'blockName' | 'provider' | 'isEnabled' | 'sortOrder' | 'regionId' | 'mediaMode'>>
 >;
 
 function formatDate(value: string | null) {
@@ -91,7 +107,7 @@ function FeedSyncStatus({ row, probe }: { row: FeedLinkRow; probe?: ProbeResult 
         </span>
         {when ? <div className="text-xs text-muted-foreground">{when}</div> : null}
         {probe?.ok ? (
-          <div className="text-xs text-muted-foreground">В XML: {probe.offerCount} объектов</div>
+          <div className="text-xs text-muted-foreground">В файле: {probe.offerCount} объектов</div>
         ) : null}
       </div>
     );
@@ -106,6 +122,11 @@ function FeedSyncStatus({ row, probe }: { row: FeedLinkRow; probe?: ProbeResult 
         {when ? <div className="text-xs text-muted-foreground">{when}</div> : null}
         {row.lastSyncErrors != null && row.lastSyncErrors > 0 ? (
           <div className="text-xs text-destructive">{row.lastSyncErrors} ошибок</div>
+        ) : null}
+        {row.lastSyncError ? (
+          <div className="max-w-[220px] whitespace-normal break-words text-xs text-destructive" title={row.lastSyncError}>
+            {row.lastSyncError.length > 140 ? `${row.lastSyncError.slice(0, 140)}…` : row.lastSyncError}
+          </div>
         ) : null}
       </div>
     );
@@ -139,7 +160,9 @@ function FeedSyncStatus({ row, probe }: { row: FeedLinkRow; probe?: ProbeResult 
         <span className="inline-flex rounded-full bg-muted text-muted-foreground px-2 py-0.5 text-xs font-medium">
           Не синхронизирован
         </span>
-        <div className="text-xs text-primary">В фиде: {probe.offerCount} объектов</div>
+        <div className="text-xs text-primary">
+          В фиде: {probe.offerCount} объектов{probe.format ? ` · ${FORMAT_LABEL[probe.format] ?? probe.format}` : ''}
+        </div>
       </div>
     );
   }
@@ -168,6 +191,7 @@ export default function AdminFeedLinks() {
   const [newFeedUrl, setNewFeedUrl] = useState('');
   const [newBlockName, setNewBlockName] = useState('');
   const [newRegionId, setNewRegionId] = useState<number | ''>('');
+  const [newMediaMode, setNewMediaMode] = useState<FeedLinkRow['mediaMode']>('remote');
 
   const query = useMemo(() => {
     const p = new URLSearchParams();
@@ -203,6 +227,7 @@ export default function AdminFeedLinks() {
         blockName: newBlockName.trim() || undefined,
         provider: 'profitbase',
         isEnabled: true,
+        mediaMode: newMediaMode,
       });
     },
     onSuccess: async () => {
@@ -264,7 +289,7 @@ export default function AdminFeedLinks() {
     onSuccess: (result, id) => {
       setProbeResults((prev) => ({ ...prev, [id]: result }));
       if (result.ok) {
-        toast.success(`Фид доступен: ${result.offerCount} объектов`);
+        toast.success(`Фид доступен: ${result.offerCount} объектов${result.format ? ` (${FORMAT_LABEL[result.format] ?? result.format})` : ''}`);
       } else {
         toast.error(result.error ?? 'Фид недоступен');
       }
@@ -286,6 +311,7 @@ export default function AdminFeedLinks() {
       isEnabled: patch.isEnabled ?? row.isEnabled,
       sortOrder: patch.sortOrder ?? row.sortOrder,
       regionId: patch.regionId ?? row.regionId,
+      mediaMode: patch.mediaMode ?? row.mediaMode,
     };
   };
 
@@ -303,15 +329,13 @@ export default function AdminFeedLinks() {
         <div>
           <h1 className="text-2xl font-bold inline-flex items-center gap-2">
             <Link2 className="w-6 h-6 text-primary" />
-            Ссылки на фиды
+            Фиды и источники
           </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            XML-фиды застройщиков (Profitbase XML и ДомКлик). Каждые 6 часов служба{' '}
-            <code className="text-xs bg-muted px-1 py-0.5 rounded">profitbase-sync</code> обновляет цены, статусы и
-            планировки, скачивает фото на наш сервер и снимает с сайта проданные лоты. Новый или изменённый фид
-            синхронизируется в течение нескольких минут; ЖК создаётся автоматически по названию.
-            TrendAgent-фиды настраиваются в{' '}
-            <Link to="/admin/regions" className="text-primary hover:underline">регионах</Link>.
+            Выгрузки застройщиков: Profitbase XML, JCAT, ЦИАН и ДомКлик — формат определяется сам. Каждые 6 часов
+            служба синхронизации обновляет цены, статусы и планировки и снимает с сайта проданные лоты. Новый или
+            изменённый фид синхронизируется в течение нескольких минут; ЖК создаётся автоматически по названию.
+            Ссылки с токенами видны только здесь и на сайт не попадают.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -369,6 +393,7 @@ export default function AdminFeedLinks() {
                 <th className="px-3 py-2 font-medium">Регион</th>
                 <th className="px-3 py-2 font-medium min-w-[220px]">URL фида</th>
                 <th className="px-3 py-2 font-medium">ЖК / блок</th>
+                <th className="px-3 py-2 font-medium">Планировки</th>
                 <th className="px-3 py-2 font-medium">Вкл.</th>
                 <th className="px-3 py-2 font-medium">Синхр.</th>
                 <th className="px-3 py-2 font-medium w-28" />
@@ -377,7 +402,7 @@ export default function AdminFeedLinks() {
             <tbody>
               {feeds.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                     Фиды не добавлены. Создайте первый фид ниже.
                   </td>
                 </tr>
@@ -429,6 +454,20 @@ export default function AdminFeedLinks() {
                           onChange={(e) => patchRow(row.id, { blockName: e.target.value })}
                           className="h-9 min-w-[140px]"
                         />
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          className="h-9 rounded-md border border-input bg-background px-2 text-sm min-w-[150px]"
+                          value={d.mediaMode}
+                          title="«По ссылке» не занимает место на сервере; «Копировать» — если источник часто недоступен"
+                          onChange={(e) => patchRow(row.id, { mediaMode: e.target.value as FeedLinkRow['mediaMode'] })}
+                        >
+                          {(Object.keys(MEDIA_LABEL) as FeedLinkRow['mediaMode'][]).map((m) => (
+                            <option key={m} value={m}>
+                              {MEDIA_LABEL[m]}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-3 py-2">
                         <input
@@ -526,7 +565,7 @@ export default function AdminFeedLinks() {
             </select>
           </label>
           <label className="text-sm space-y-1 md:col-span-2">
-            <span className="text-muted-foreground">URL фида (Profitbase XML или ДомКлик)</span>
+            <span className="text-muted-foreground">URL фида (Profitbase XML, JCAT, ЦИАН или ДомКлик)</span>
             <Input
               value={newFeedUrl}
               onChange={(e) => setNewFeedUrl(e.target.value)}
@@ -534,7 +573,21 @@ export default function AdminFeedLinks() {
               className="font-mono text-xs"
             />
           </label>
-          <label className="text-sm space-y-1 md:col-span-2">
+          <label className="text-sm space-y-1">
+            <span className="text-muted-foreground">Планировки</span>
+            <select
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={newMediaMode}
+              onChange={(e) => setNewMediaMode(e.target.value as FeedLinkRow['mediaMode'])}
+            >
+              {(Object.keys(MEDIA_LABEL) as FeedLinkRow['mediaMode'][]).map((m) => (
+                <option key={m} value={m}>
+                  {MEDIA_LABEL[m]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm space-y-1">
             <span className="text-muted-foreground">Название ЖК / блока (куда импортировать)</span>
             <Input
               value={newBlockName}

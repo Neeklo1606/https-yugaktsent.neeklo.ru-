@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateFeedLinkDto {
   @ApiProperty({ example: 1 })
@@ -40,4 +40,13 @@ export class CreateFeedLinkDto {
   @IsOptional()
   @IsInt()
   sortOrder?: number;
+
+  @ApiPropertyOptional({
+    enum: ['remote', 'local'],
+    default: 'remote',
+    description: 'remote — планировки показываются по ссылке источника, local — копируются на наш сервер',
+  })
+  @IsOptional()
+  @IsIn(['remote', 'local'])
+  mediaMode?: 'remote' | 'local';
 }

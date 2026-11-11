@@ -403,6 +403,7 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
         created: result.created,
         updated: result.updated,
         errors: result.errors?.length ?? 0,
+        ...(result.errors?.length ? { errorMessage: String(result.errors[0]).slice(0, 1000) } : {}),
       });
     } catch (err) {
       console.warn(`[profitbase-sync] mark-synced ${feedConfig.id}: ${err.message}`);
@@ -435,19 +436,37 @@ export async function findPendingFeeds() {
   return pendingFeedIds(await lg.loadFeedLinks());
 }
 
+/** Фид из админки → настройки синхронизации */
+export function feedFromLink(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    feed_url: row.feedUrl,
+    block_name: row.blockName || row.name,
+    regionId: row.regionId,
+    region: row.region,
+    media: row.mediaMode === "local" ? "local" : "remote",
+  };
+}
+
+/**
+ * Ключ состояния синхронизации — название фида, как было, пока фиды жили в FEEDS_JSON.
+ * Так перенос фидов в админку не теряет связку «лот → объявление» и не плодит дубли.
+ * Если когда-то состояние писалось по id — продолжаем по id.
+ */
+export function stateKeyFor(feed, state, idx = 0) {
+  if (feed.id != null && state?.feeds?.[String(feed.id)]) return String(feed.id);
+  return feed.name || (feed.id != null ? String(feed.id) : `feed-${idx}`);
+}
+
 async function resolveFeeds(lg) {
   try {
     const rows = await lg.loadFeedLinks();
+    // Список ведётся в админке, как только там есть хоть один фид (даже выключенный)
     if (Array.isArray(rows) && rows.length > 0) {
-      console.log(`[profitbase-sync] loaded ${rows.length} feed(s) from API`);
-      return rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        feed_url: row.feedUrl,
-        block_name: row.blockName || row.name,
-        regionId: row.regionId,
-        region: row.region,
-      }));
+      const enabled = rows.filter((r) => r.isEnabled !== false);
+      console.log(`[profitbase-sync] loaded ${enabled.length}/${rows.length} enabled feed(s) from admin`);
+      return enabled.map(feedFromLink);
     }
   } catch (err) {
     console.warn(`[profitbase-sync] feed-links API unavailable: ${err.message}`);
@@ -459,6 +478,13 @@ async function resolveFeeds(lg) {
   }
 
   return [];
+}
+
+/** Понятная причина сбоя для админки: «fetch failed» без причины ничего не говорит */
+export function syncErrorText(err) {
+  const cause = err?.cause?.code || err?.cause?.message;
+  const base = err?.message || String(err);
+  return (cause && !base.includes(cause) ? `${base}: ${cause}` : base).slice(0, 1000);
 }
 
 function requireEnv(name) {
@@ -565,7 +591,7 @@ async function runSyncUnlocked({ persist, only } = {}) {
 
   for (let idx = 0; idx < feeds.length; idx++) {
     const feed = feeds[idx];
-    const key = feed.id || feed.name || `feed-${idx}`;
+    const key = stateKeyFor(feed, state, idx);
     console.log(`[profitbase-sync] syncing "${key}"…`);
     // Один недоступный фид (битый сертификат, 404 у источника) не должен
     // останавливать синхронизацию остальных ЖК.
@@ -575,7 +601,7 @@ async function runSyncUnlocked({ persist, only } = {}) {
     } catch (err) {
       console.error(`[profitbase-sync] feed "${key}" failed: ${err.message}`);
       if (feed.id) {
-        await lg.markFeedSynced(feed.id, { status: "error", total: 0, created: 0, updated: 0, errors: 1 }).catch(() => {});
+        await lg.markFeedSynced(feed.id, { status: "error", total: 0, created: 0, updated: 0, errors: 1, errorMessage: syncErrorText(err) }).catch(() => {});
       }
       continue;
     }

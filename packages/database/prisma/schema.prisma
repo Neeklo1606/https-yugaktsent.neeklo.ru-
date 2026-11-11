@@ -487,6 +487,10 @@ model FeedLink {
   lastSyncCreated Int?     @map("last_sync_created")
   lastSyncUpdated Int?     @map("last_sync_updated")
   lastSyncErrors Int?      @map("last_sync_errors")
+  /// Текст последней ошибки синхронизации (недоступен, битый XML…)
+  lastSyncError  String?   @map("last_sync_error")
+  /// local — планировки копируются к нам; remote — показываются по ссылке источника (экономит диск)
+  mediaMode    String    @default("remote") @map("media_mode")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 

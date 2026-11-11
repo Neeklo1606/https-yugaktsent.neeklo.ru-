@@ -84,7 +84,6 @@ const AdminManualLand = lazyWithReload('AdminManualLand', () => import("./admin/
 const AdminManualCommercial = lazyWithReload('AdminManualCommercial', () => import("./admin/pages/AdminManualCommercial"));
 const AdminManualParking = lazyWithReload('AdminManualParking', () => import("./admin/pages/AdminManualParking"));
 const AdminFeedImport = lazyWithReload('AdminFeedImport', () => import("./admin/pages/AdminFeedImport"));
-const AdminFeedLinks = lazyWithReload('AdminFeedLinks', () => import("./admin/pages/AdminFeedLinks"));
 const AdminNews = lazyWithReload('AdminNews', () => import("./admin/pages/AdminNews"));
 const AdminRegions = lazyWithReload('AdminRegions', () => import("./admin/pages/AdminRegions"));
 const AdminHomepage = lazyWithReload('AdminHomepage', () => import("./admin/pages/AdminHomepage"));
@@ -204,7 +203,7 @@ const AppRoutes = () => (
       <Route path="listings/manual-parking/new" element={<RequireAuth roles={['admin', 'editor', 'agent']}><AdminManualParking /></RequireAuth>} />
       <Route path="listings/manual-parking/:listingId/edit" element={<RequireAuth roles={['admin', 'editor', 'agent']}><AdminManualParking /></RequireAuth>} />
       <Route path="feed-import" element={<RequireAuth roles={['admin', 'editor']}><AdminFeedImport /></RequireAuth>} />
-      <Route path="feed-links" element={<RequireAuth roles={['admin', 'editor']}><AdminFeedLinks /></RequireAuth>} />
+      <Route path="feed-links" element={<Navigate to="/admin/data-sources" replace />} />
       <Route path="news" element={<RequireAuth roles={['admin', 'editor']}><AdminNews /></RequireAuth>} />
       <Route path="regions" element={<RequireAuth roles={['admin', 'editor']}><AdminRegions /></RequireAuth>} />
       <Route path="reference" element={<RequireAuth roles={['admin', 'editor']}><AdminReference /></RequireAuth>} />

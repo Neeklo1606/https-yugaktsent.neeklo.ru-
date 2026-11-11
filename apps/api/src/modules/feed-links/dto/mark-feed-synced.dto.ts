@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsInt, IsOptional, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class MarkFeedSyncedDto {
   @ApiPropertyOptional({ enum: ['ok', 'empty', 'error'] })
@@ -30,4 +30,10 @@ export class MarkFeedSyncedDto {
   @IsInt()
   @Min(0)
   errors?: number;
+
+  @ApiPropertyOptional({ description: 'Текст ошибки последней синхронизации' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  errorMessage?: string;
 }
