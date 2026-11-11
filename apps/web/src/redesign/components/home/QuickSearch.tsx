@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import PriceRangeField from '@/redesign/components/PriceRangeField';
 import CatalogSearchHintsDropdown from '@/redesign/components/CatalogSearchHintsDropdown';
 import type { CatalogHints } from '@/redesign/lib/catalog-hints-types';
+import { applySmartQuery, hasSmartFilters, parseSmartQuery, smartQueryLabel } from '@/redesign/lib/smart-query';
 import { catalogFiltersIntoSearchParams } from '@/redesign/lib/catalog-url-sync';
 import { resetFiltersForObjectType } from '@/redesign/lib/catalog-filter-config';
 import { useHomeFilterOptions } from '@/redesign/hooks/useHomeFilterOptions';
@@ -123,8 +124,12 @@ const QuickSearch = () => {
     return () => document.removeEventListener('mousedown', onDown);
   }, []);
 
+  const smartQuery = useMemo(() => parseSmartQuery(deferredSearch), [deferredSearch]);
+  const smartHint = hasSmartFilters(smartQuery) ? smartQueryLabel(smartQuery) : null;
+
   const params = useCallback(() => {
-    const sp = catalogFiltersIntoSearchParams(new URLSearchParams(), filters);
+    // «2к до 8 млн» в строке поиска превращается в фильтры комнат и цены
+    const sp = catalogFiltersIntoSearchParams(new URLSearchParams(), applySmartQuery(filters));
     if (regionId != null) sp.set('region_id', String(regionId));
     return sp.toString();
   }, [filters, regionId]);
@@ -230,6 +235,7 @@ const QuickSearch = () => {
               <CatalogSearchHintsDropdown
                 hints={hints}
                 isLoading={hintsLoading}
+                smart={smartHint ? { label: smartHint, onApply: () => go('/catalog') } : null}
                 className="absolute left-0 right-0 top-full z-[60] mt-2 max-h-[min(60vh,420px)] overflow-y-auto"
                 onPick={() => {
                   setSearchFocused(false);

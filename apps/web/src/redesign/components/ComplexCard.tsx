@@ -7,6 +7,7 @@ import StableMediaFrame from '@/redesign/components/StableMediaFrame';
 import { complexMinPrice, complexPopularCompletionLine, complexTotalUnits } from '@/redesign/lib/card-visual';
 import { prefetchHandlers } from '@/shared/lib/route-prefetch';
 import { formatPriceFrom } from '@/redesign/lib/display-price';
+import ComplexOfferCard, { priceRows } from '@/redesign/components/ComplexOfferCard';
 
 interface Props {
   complex: ResidentialComplex;
@@ -38,10 +39,18 @@ function flatsLabel(n: number): string {
 }
 
 /**
- * Карточка ЖК каталога (ТЗ v3, 4.4): фото, статус, название, локация, срок, цена «от»
- * и число квартир. Цены по комнатности — на странице ЖК. Метро не выводим.
+ * Карточка ЖК каталога. Плитка — общая карточка по референсу LiveGrid (карусель фото,
+ * цены «от» по комнатности); список — фото слева, данные и цены по комнатам справа;
+ * compact — короткая карточка для подборок. Метро не выводим.
  */
-const ComplexCard = ({ complex, variant = 'grid', coverAspect = '4/3', priority = false, cityFallback }: Props) => {
+const ComplexCard = (props: Props) => {
+  if ((props.variant ?? 'grid') === 'grid') {
+    return <ComplexOfferCard complex={props.complex} priority={props.priority} cityFallback={props.cityFallback} />;
+  }
+  return <ComplexCardRow {...props} />;
+};
+
+const ComplexCardRow = ({ complex, variant = 'grid', coverAspect = '4/3', priority = false, cityFallback }: Props) => {
   const { isBlockFavorite, toggleBlock } = useFavorites();
   const blockNum = parseApiBlockId(complex.id);
   const liked = blockNum != null && isBlockFavorite(blockNum);
@@ -55,6 +64,7 @@ const ComplexCard = ({ complex, variant = 'grid', coverAspect = '4/3', priority 
   const units = complexTotalUnits(complex);
   const badge = statusBadge(complex);
   const isList = variant === 'list';
+  const rows = isList ? priceRows(complex).slice(0, 3) : [];
 
   // Избранное гостя живёт в localStorage — вход для него не нужен (ТЗ v3, 4.1)
   const handleLike = (e: React.MouseEvent) => {
@@ -110,6 +120,17 @@ const ComplexCard = ({ complex, variant = 'grid', coverAspect = '4/3', priority 
           </li>
         ) : null}
       </ul>
+      {rows.length > 0 ? (
+        <dl className="mt-2.5 hidden max-w-[420px] space-y-1 text-[14px] sm:block">
+          {rows.map((r) => (
+            <div key={r.rooms} className="flex items-baseline gap-2">
+              <dt className="shrink-0 text-muted-foreground">{r.label}</dt>
+              <span className="mb-[3px] min-w-[12px] flex-1 border-b border-dotted border-border" aria-hidden />
+              <dd className="shrink-0 font-semibold tabular-nums text-foreground">{r.price}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
       <div className="mt-auto flex items-end justify-between gap-3 pt-3">
         <div className="min-w-0">
           {minPrice != null ? <p className="text-price text-[17px] text-foreground">{formatPriceFrom(minPrice)}</p> : null}

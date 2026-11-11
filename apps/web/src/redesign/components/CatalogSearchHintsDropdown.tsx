@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Train, MapPin, MapPinned, Landmark, Loader2 } from 'lucide-react';
+import { Train, MapPin, MapPinned, Landmark, Loader2, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CatalogHints } from '@/redesign/lib/catalog-hints-types';
 import { getSafeImageUrl, handleImageError, IMAGE_PLACEHOLDER } from '@/redesign/lib/image-media';
@@ -10,6 +10,8 @@ type Props = {
   isLoading: boolean;
   className?: string;
   onPick?: () => void;
+  /** Распознанная фраза («2к до 8 млн») — строка «Показать: …» над подсказками */
+  smart?: { label: string; onApply: () => void } | null;
 };
 
 function SectionTitle({ children }: { children: string }) {
@@ -35,7 +37,7 @@ function HintCategorySection({ title, children }: { title: string; children: Rea
   );
 }
 
-export default function CatalogSearchHintsDropdown({ hints, isLoading, className, onPick }: Props) {
+export default function CatalogSearchHintsDropdown({ hints, isLoading, className, onPick, smart }: Props) {
   const navigate = useNavigate();
   const c = hints?.complexes ?? [];
   const m = hints?.metro ?? [];
@@ -62,6 +64,21 @@ export default function CatalogSearchHintsDropdown({ hints, isLoading, className
         className,
       )}
     >
+      {smart ? (
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={smart.onApply}
+          className="flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors hover:bg-muted/50"
+        >
+          <SlidersHorizontal className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-foreground">Показать: {smart.label}</span>
+            <span className="block text-xs text-muted-foreground">Подставим в фильтры · Enter</span>
+          </span>
+        </button>
+      ) : null}
+
       {isLoading && (
         <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
           <Loader2 className="w-4 h-4 animate-spin shrink-0" />
@@ -69,7 +86,7 @@ export default function CatalogSearchHintsDropdown({ hints, isLoading, className
         </div>
       )}
 
-      {!isLoading && !hasAny && (
+      {!isLoading && !hasAny && !smart && (
         <p className="py-8 px-4 text-center text-sm text-muted-foreground">Ничего не найдено</p>
       )}
 

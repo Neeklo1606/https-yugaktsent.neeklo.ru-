@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useSearchParams, Link } from 'react-router-dom';
 import { AlertCircle, Info, LayoutGrid, List, Map, MapPin, Search, SearchX, SlidersHorizontal } from 'lucide-react';
@@ -42,6 +42,9 @@ import CompareSessionChip from '@/shared/components/CompareSessionChip';
 import { patchSessionSnapshot } from '@/shared/lib/session-continuity';
 import { detectCatalogLanding } from '@/redesign/lib/catalog-landing';
 import { buildCatalogSeoMeta, inRegionPhrase } from '@/redesign/lib/catalog-seo-meta';
+import { applySmartQuery, hasSmartFilters, parseSmartQuery, smartQueryLabel } from '@/redesign/lib/smart-query';
+import CatalogSearchHintsDropdown from '@/redesign/components/CatalogSearchHintsDropdown';
+import type { CatalogHints } from '@/redesign/lib/catalog-hints-types';
 import { normalizeSearchQuery } from '@/redesign/lib/search-normalize';
 import {
   buildBlocksSearchParams,
@@ -213,6 +216,8 @@ const RedesignCatalog = () => {
 
   const debouncedSearch = useDebouncedValue(filters.search, CATALOG_SEARCH_DEBOUNCE_MS);
   const isSearchPending = filters.search !== debouncedSearch;
+  /** «2к до 8 млн» в строке поиска сразу работает как фильтры, даже до нажатия Enter */
+  const smartFilters = useMemo(() => applySmartQuery({ ...filters, search: debouncedSearch }), [filters, debouncedSearch]);
 
   useEffect(() => {
     syncDebouncedSearchInUrl(setSearchParams, filters.search, debouncedSearch);
@@ -285,7 +290,7 @@ const RedesignCatalog = () => {
     placeholderData: keepPreviousData,
     queryFn: async ({ pageParam }) => {
       const sp = buildListingsSearchParams({
-        filters: { ...filters, search: debouncedSearch },
+        filters: smartFilters,
         regionId,
         kind: listingKind,
         page: pageParam,
@@ -311,7 +316,7 @@ const RedesignCatalog = () => {
     queryKey: ['listings', 'catalog', 'map', regionId, listingKind, filters.objectType, debouncedSearch, filters.priceMin, filters.priceMax, filterKeyPart(filters.rooms), filters.areaMin, filters.areaMax, filters.landAreaMin, filters.landAreaMax, filters.distanceMin, filters.distanceMax, filterKeyPart(filters.directions), filterKeyPart(filters.houseLocation), filters.floorMin, filters.floorMax, filterKeyPart(filters.landPurpose), filterKeyPart(filters.commercialTypes), filterKeyPart(filters.houseMaterials), filterKeyPart(filters.district), filters.marketType],
     queryFn: async () => {
       const sp = buildListingsSearchParams({
-        filters: { ...filters, search: debouncedSearch },
+        filters: smartFilters,
         regionId,
         kind: listingKind,
         page: 1,
@@ -353,7 +358,7 @@ const RedesignCatalog = () => {
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       const sp = buildBlocksSearchParams({
-        filters: { ...filters, search: debouncedSearch },
+        filters: smartFilters,
         regionId,
         page: pageParam,
         perPage: PER_PAGE,
@@ -482,6 +487,29 @@ const RedesignCatalog = () => {
     setFilters((prev) => ({ ...prev, search }));
   }, []);
 
+  // Подсказки под строкой поиска: ЖК, районы, улицы + распознанная фраза
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
+  const hintsQueryText = filters.search.trim();
+  const hintsEnabled = searchFocused && hintsQueryText.length >= 2 && regionId != null;
+  const { data: searchHints, isFetching: searchHintsLoading } = useQuery({
+    queryKey: ['search', 'catalog-hints', regionId, debouncedSearch.trim()],
+    queryFn: () =>
+      apiGet<CatalogHints>(`/search/catalog-hints?region_id=${regionId}&q=${encodeURIComponent(debouncedSearch.trim())}&limit=10`),
+    enabled: hintsEnabled && debouncedSearch.trim().length >= 2,
+    staleTime: 20_000,
+  });
+  const smartParsed = useMemo(() => parseSmartQuery(filters.search), [filters.search]);
+  const smartHint = hasSmartFilters(smartParsed) ? smartQueryLabel(smartParsed) : null;
+  useEffect(() => {
+    if (!searchFocused) return;
+    const onDown = (e: MouseEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) setSearchFocused(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [searchFocused]);
+
   const handleResetFilters = useCallback(() => {
     handleFiltersChange({ ...defaultFilters, objectType: filters.objectType });
   }, [handleFiltersChange, filters.objectType]);
@@ -593,17 +621,45 @@ const RedesignCatalog = () => {
       <div className="border-b border-border bg-card">
         <div className="container-page py-3">
           <div className="flex items-center gap-2">
-            <div className="relative flex-1 lg:max-w-[640px]">
+            <div ref={searchBoxRef} className="relative flex-1 lg:max-w-[640px]">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
                 type="search"
                 aria-label="Поиск по каталогу"
-                placeholder="ЖК, улица или застройщик"
+                placeholder="ЖК, улица или «2к до 8 млн»"
                 className={cn('h-11 pl-10', isSearchPending && 'border-focus')}
                 value={filters.search}
                 onChange={(e) => handleSearchInputChange(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setSearchFocused(false);
+                    if (smartHint) handleFiltersChange(applySmartQuery(filters));
+                  } else if (e.key === 'Escape') {
+                    setSearchFocused(false);
+                  }
+                }}
                 aria-busy={isSearchPending}
               />
+              {hintsEnabled ? (
+                <CatalogSearchHintsDropdown
+                  hints={searchHints}
+                  isLoading={searchHintsLoading && !searchHints}
+                  className="absolute left-0 right-0 top-full z-[60] mt-2 max-h-[min(60vh,420px)] overflow-y-auto"
+                  onPick={() => setSearchFocused(false)}
+                  smart={
+                    smartHint
+                      ? {
+                          label: smartHint,
+                          onApply: () => {
+                            setSearchFocused(false);
+                            handleFiltersChange(applySmartQuery(filters));
+                          },
+                        }
+                      : null
+                  }
+                />
+              ) : null}
             </div>
             <Link to={mapHref} className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[14px] font-medium hover:bg-surface-soft sm:px-4">
               <MapPin className="h-4 w-4 text-primary" aria-hidden />
