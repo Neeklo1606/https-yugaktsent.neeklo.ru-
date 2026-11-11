@@ -933,7 +933,9 @@ export class BlocksService {
     const wanted = new Set(categories);
     const ids: number[] = [];
     for (const rt of roomTypes) {
-      const cat = this.roomCategoryFromName(rt.nameOne ?? rt.name);
+      const band = this.roomCategoryFromName(rt.nameOne ?? rt.name);
+      // 21 (классическая 2-к) — отдельная строка только в ценах; фильтр «2» включает и евро-, и обычные двушки
+      const cat = band === 21 ? 2 : band;
       if (cat != null && wanted.has(cat)) ids.push(rt.id);
     }
     return Array.from(new Set(ids));
