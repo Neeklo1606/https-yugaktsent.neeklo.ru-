@@ -148,3 +148,13 @@ test("syncErrorText includes network cause", () => {
   err.cause = { code: "ERR_TLS_CERT_ALTNAME_INVALID" };
   assert.equal(syncErrorText(err), "fetch failed: ERR_TLS_CERT_ALTNAME_INVALID");
 });
+
+test("кандидаты обложки: кадры дома, затем фото без типа, без повторов", async () => {
+  const { coverCandidates } = await import("./syncFeed.js");
+  const offers = [
+    { buildingImage: "a.jpg", images: [{ url: "a.jpg", type: null }, { url: "p.png", type: "plan" }, { url: "b.jpg", type: null }] },
+    { buildingImage: "a.jpg", images: [{ url: "c.jpg", type: null }] },
+  ];
+  assert.deepEqual(coverCandidates(offers), ["a.jpg", "b.jpg", "c.jpg"]);
+  assert.deepEqual(coverCandidates([]), []);
+});

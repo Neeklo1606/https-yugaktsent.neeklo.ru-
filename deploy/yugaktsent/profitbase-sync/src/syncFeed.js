@@ -150,7 +150,22 @@ export function absoluteMediaUrl(url, site = process.env.PUBLIC_SITE_URL || "htt
   return typeof url === "string" && url.startsWith("/") ? `${site.replace(/\/$/, "")}${url}` : url;
 }
 
-async function syncCover(lg, state, blockId, src, skipMedia) {
+/**
+ * Кандидаты в обложку по порядку: кадры дома из лотов, затем остальные фото без типа.
+ * Нужны запасные: у ССК первое фото «Корсакова» отдаёт 404 у самого застройщика.
+ */
+export function coverCandidates(offers, limit = 5) {
+  const out = [];
+  const add = (url) => {
+    if (url && !out.includes(url) && out.length < limit) out.push(url);
+  };
+  for (const o of offers) add(o.buildingImage);
+  for (const o of offers) for (const img of o.images ?? []) if (!img.type) add(img.url);
+  return out;
+}
+
+async function syncCover(lg, state, blockId, sources, skipMedia) {
+  const src = sources[0];
   const covers = (state.covers ??= {});
   const saved = covers[blockId];
   const savedAbs = saved?.url ? absoluteMediaUrl(saved.url) : null;
@@ -164,7 +179,7 @@ async function syncCover(lg, state, blockId, src, skipMedia) {
   const isOurs =
     !current || /profitbase\.ru\//i.test(current) || current === src || current === savedAbs || current === saved?.url;
   if (!isOurs) return "admin";
-  if (saved?.src === src && savedAbs) {
+  if (saved?.src && sources.includes(saved.src) && savedAbs) {
     if (current !== savedAbs) await lg.setBlockCover(blockId, savedAbs);
     return "kept";
   }
@@ -172,15 +187,17 @@ async function syncCover(lg, state, blockId, src, skipMedia) {
     await lg.setBlockCover(blockId, src);
     return "remote";
   }
-  try {
-    const url = await lg.uploadRemoteImage(src);
-    covers[blockId] = { src, url };
-    await lg.setBlockCover(blockId, absoluteMediaUrl(url));
-    return "uploaded";
-  } catch (err) {
-    console.warn(`[profitbase-sync] обложка ЖК ${blockId} не скачана: ${err.message}`);
-    return "failed";
+  for (const candidate of sources) {
+    try {
+      const url = await lg.uploadRemoteImage(candidate);
+      covers[blockId] = { src: candidate, url };
+      await lg.setBlockCover(blockId, absoluteMediaUrl(url));
+      return "uploaded";
+    } catch (err) {
+      console.warn(`[profitbase-sync] обложка ЖК ${blockId} не скачана (${candidate}): ${err.message}`);
+    }
   }
+  return "failed";
 }
 
 /**
@@ -244,10 +261,10 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
     await lg.ensureBuilding(block.id, name, deadline);
   }
 
-  const cover = offers.find((o) => o.buildingImage)?.buildingImage;
+  const covers = coverCandidates(offers);
     // Обложку (одна на ЖК) храним у себя даже в режиме «фото по ссылке»: исходники у застройщиков
   // бывают по 5000 px, а локальный ресайзер nginx отдаёт их сжатыми.
-  const coverState = cover ? await syncCover(lg, state, block.id, cover, skipMedia) : null;
+  const coverState = covers.length ? await syncCover(lg, state, block.id, covers, skipMedia) : null;
 
   const blockListings = offers.length > 0 ? await lg.loadBlockListings(block.id) : [];
   const bound = bindOffers(offers, bucket, blockListings);
@@ -264,7 +281,7 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
     plansReused: 0,
     plansFailed: 0,
     withoutPlan: 0,
-    hasCover: Boolean(cover),
+    hasCover: covers.length > 0,
     cover: coverState,
     bound: bound.size,
     hidden: 0,
