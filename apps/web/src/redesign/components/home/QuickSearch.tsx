@@ -33,7 +33,7 @@ const fmt = (v?: number) => (v == null ? '' : v.toLocaleString('ru-RU'));
 
 const fieldLabel = 'mb-1.5 block text-[13px] font-medium text-muted-foreground';
 const control =
-  'h-12 w-full rounded-lg border border-input bg-card px-3 text-base text-foreground outline-none transition-[border-color,box-shadow] focus:border-focus focus:ring-[3px] focus:ring-focus/20 lg:h-11 lg:text-[15px]';
+  'h-11 w-full rounded-lg border border-input bg-card px-3 text-base text-foreground outline-none transition-[border-color,box-shadow] focus:border-focus focus:ring-[3px] focus:ring-focus/20 lg:h-11 lg:text-[15px]';
 
 /** Пара полей «от — до» для числовых диапазонов */
 const RangeInputs = ({
@@ -211,12 +211,17 @@ const QuickSearch = () => {
           </div>
         ) : null}
 
-        <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_auto] lg:items-end lg:gap-3">
-          <div ref={searchRef} className="relative">
+        {/*
+          Телефон (аудит 19.11): строка поиска + кнопка параметров, ниже город + «Показать объекты».
+          Тип показываем, только если выбрать есть из чего. Порядок на телефоне задают order-*,
+          на десктопе — порядок в разметке (одна строка из шести ячеек).
+        */}
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] gap-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_auto_auto] lg:items-end lg:gap-3">
+          <div ref={searchRef} className="relative order-1 col-span-2 lg:order-none lg:col-span-1">
             <label htmlFor="qs-search" className={cn(fieldLabel, 'sr-only lg:not-sr-only lg:block')}>
               Поиск
             </label>
-            <Search className="pointer-events-none absolute bottom-[15px] left-3 h-[18px] w-[18px] text-muted-foreground lg:bottom-[13px]" aria-hidden />
+            <Search className="pointer-events-none absolute bottom-[13px] left-3 h-[18px] w-[18px] text-muted-foreground" aria-hidden />
             <input
               id="qs-search"
               type="search"
@@ -245,15 +250,15 @@ const QuickSearch = () => {
             ) : null}
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 lg:contents">
+          <div className={cn('order-3 grid gap-2 lg:contents', types.length > 1 ? 'col-span-3 grid-cols-2' : 'grid-cols-1')}>
             <div>
-              <label htmlFor="qs-location" className={fieldLabel}>
+              <label htmlFor="qs-location" className={cn(fieldLabel, 'max-lg:sr-only')}>
                 Локация
               </label>
               {locationField}
             </div>
-            <div>
-              <label htmlFor="qs-type" className={fieldLabel}>
+            <div className={types.length > 1 ? undefined : 'max-lg:hidden'}>
+              <label htmlFor="qs-type" className={cn(fieldLabel, 'max-lg:sr-only')}>
                 Тип
               </label>
               {typeField}
@@ -265,27 +270,30 @@ const QuickSearch = () => {
             <PriceRangeField showSlider={false} min={filters.priceMin} max={filters.priceMax} onChange={setPrice} />
           </div>
 
-          <div className="mt-1 flex gap-2 lg:mt-0">
-            <button type="button" onClick={() => go('/catalog')} className={btnClass('primary', { className: 'flex-1 lg:flex-none lg:px-6' })}>
-              Показать объекты
-            </button>
-            <button
-              type="button"
-              onClick={() => setSheetOpen(true)}
-              aria-label={extraCount ? `Параметры, выбрано: ${extraCount}` : 'Параметры'}
-              className={btnClass('secondary', { className: 'relative w-12 shrink-0 !px-0 lg:w-11' })}
-            >
+          <button
+            type="button"
+            onClick={() => go('/catalog')}
+            className={btnClass('primary', { className: cn('order-4 max-sm:h-11 lg:order-none lg:col-span-1 lg:px-6', types.length > 1 ? 'col-span-3' : 'col-span-2') })}
+          >
+            Показать объекты
+          </button>
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            aria-label={extraCount ? `Параметры, выбрано: ${extraCount}` : 'Параметры'}
+            className={btnClass('secondary', { className: 'relative order-2 w-11 shrink-0 !px-0 max-sm:h-11 lg:order-none' })}
+          >
               <SlidersHorizontal />
               {extraCount ? (
                 <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-primary-foreground">
                   {extraCount}
                 </span>
-              ) : null}
-            </button>
-          </div>
+            ) : null}
+          </button>
         </div>
 
-        <div className="mt-2.5 flex items-center justify-between">
+        {/* На телефоне карта — в нижнем меню, здесь лишняя строка */}
+        <div className="mt-2.5 hidden items-center justify-between lg:flex">
           <button type="button" onClick={() => go('/map')} className="inline-flex h-10 items-center gap-1.5 rounded-lg px-1 text-[14px] font-medium text-primary hover:underline underline-offset-4">
             <MapPin className="h-4 w-4" aria-hidden />
             Искать на карте

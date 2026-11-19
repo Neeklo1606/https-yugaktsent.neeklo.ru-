@@ -113,7 +113,8 @@ export function normalizeOffer(offer) {
   return {
     externalId: String(externalId),
     number: text(offer.number),
-    rooms: num(offer.rooms) ?? (String(offer.studio).toLowerCase() === "true" ? 0 : null),
+    // JCAT (ССК) пишет <studio>да</studio>, Profitbase — "true": без этого 408 студий ССК шли без комнатности
+    rooms: num(offer.rooms) ?? (/^(true|1|да|yes)$/i.test(String(offer.studio ?? "").trim()) ? 0 : null),
     floor: num(offer.floor),
     area,
     livingArea: num(offer["living-space"]?.value),
@@ -125,7 +126,8 @@ export function normalizeOffer(offer) {
     propertyTypeLabel: text(offer.property_type),
     windowView: text(offer["window-view"]),
     description: text(offer.description),
-    complexName: text(offer.object?.name) ?? custom.Комплекс,
+    // JCAT: имя ЖК в <building-name>; синхронизация ЖК берёт из настроек фида, поле — для пробы и админки
+    complexName: text(offer.object?.name) ?? custom.Комплекс ?? text(offer["building-name"]),
     // JCAT/Яндекс: <house> нет, корпус — это «Литер N» в building-section
     buildingName:
       text(offer.house?.name) ??

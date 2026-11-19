@@ -46,7 +46,7 @@
     --shadow-card: 0 1px 2px hsl(203 17% 15% / 0.04), 0 1px 1px hsl(203 17% 15% / 0.03);
     --shadow-raised: 0 8px 24px -12px hsl(203 17% 15% / 0.18);
     --shadow-overlay: 0 24px 48px -16px hsl(203 17% 15% / 0.28);
-    --mobile-nav-h: 64px;           /* нижняя панель на мобильном, без safe-area */
+    --mobile-nav-h: 56px;           /* нижняя панель на мобильном, без safe-area */
     /* Поверхности из согласованных макетов */
     --mint: 160 20% 94%;
     --mint-foreground: 167 58% 16%;

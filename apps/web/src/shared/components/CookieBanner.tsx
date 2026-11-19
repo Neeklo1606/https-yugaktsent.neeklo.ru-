@@ -14,6 +14,7 @@ function alreadyAccepted(): boolean {
 
 /**
  * Уведомление о cookie (152-ФЗ): один раз, над нижним меню на телефоне.
+ * z-40 — ниже шторок и диалогов (z-50), иначе баннер закрывал кнопки в шторке параметров.
  * В служебном разделе не показывается.
  */
 const CookieBanner = () => {
@@ -34,10 +35,10 @@ const CookieBanner = () => {
     <div
       role="region"
       aria-label="Уведомление о cookie"
-      className="fixed inset-x-3 bottom-mobile-nav mb-2 z-[90] mx-auto flex max-w-[560px] items-center gap-3 rounded-card border border-border bg-card px-4 py-3 shadow-raised lg:bottom-6 lg:mb-0"
+      className="fixed inset-x-3 bottom-mobile-nav mb-2 z-40 mx-auto flex max-w-[560px] items-center gap-3 rounded-card border border-border bg-card px-3 py-2 shadow-raised sm:px-4 sm:py-3 lg:bottom-6 lg:mb-0"
     >
-      <p className="flex-1 text-[13px] leading-snug text-foreground">
-        Сайт использует cookie, чтобы помнить избранное и город.{' '}
+      <p className="flex-1 text-[12px] leading-snug text-foreground sm:text-[13px]">
+        Cookie нужны, чтобы помнить избранное и город.{' '}
         <Link to="/cookies" className="text-primary underline underline-offset-2">Подробнее</Link>
       </p>
       <button type="button" onClick={accept} className={btnClass('primary', { size: 'sm', className: 'shrink-0' })}>

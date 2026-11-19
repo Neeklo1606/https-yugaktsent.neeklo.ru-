@@ -50,3 +50,25 @@ test("составной тип изображения разбирается п
   const floorPlan = first.images.find((i) => i.url.endsWith("floor.png"));
   assert.equal(floorPlan.type, "plan floor");
 });
+
+test("JCAT: студия «да» — 0 комнат, имя ЖК из building-name", () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<realty-feed>
+  <offer internal-id="77">
+    <building-name>Мореград</building-name>
+    <studio>да</studio>
+    <price><value>5000000</value></price>
+    <area><value>24</value></area>
+  </offer>
+  <offer internal-id="78">
+    <studio>нет</studio>
+    <rooms>2</rooms>
+    <price><value>8000000</value></price>
+    <area><value>55</value></area>
+  </offer>
+</realty-feed>`;
+  const [studio, twoRoom] = parseProfitbaseXml(xml);
+  assert.equal(studio.rooms, 0);
+  assert.equal(studio.complexName, "Мореград");
+  assert.equal(twoRoom.rooms, 2);
+});

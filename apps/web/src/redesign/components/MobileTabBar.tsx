@@ -4,7 +4,7 @@ import { Home, LayoutGrid, MapPin, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TAB_CLASS =
-  'flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors';
+  'flex h-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors';
 
 /** Четыре раздела по ТЗ v3 (4.1). Избранное — в карточках и меню, поиск — на главной и в каталоге */
 const TABS = [

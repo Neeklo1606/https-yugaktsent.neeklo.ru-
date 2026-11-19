@@ -9,7 +9,7 @@ import { COOKIE_NOTICE_STORAGE_KEY } from '@/shared/components/CookieBanner';
  */
 const STORAGE: { name: string; purpose: string; term: string }[] = [
   { name: 'lg_favorites_guest_v2', purpose: 'Избранные квартиры и ЖК', term: 'Пока вы не очистите браузер' },
-  { name: 'lg_region_id', purpose: 'Выбранный город (Анапа или Майкоп)', term: 'Пока вы не очистите браузер' },
+  { name: 'lg_region_id', purpose: 'Выбранный город', term: 'Пока вы не очистите браузер' },
   { name: 'lg_browse_history_v1', purpose: 'Недавно просмотренные объекты', term: 'Пока вы не очистите браузер' },
   { name: 'yug_qcache:*', purpose: 'Копия справочников каталога, чтобы страницы открывались быстрее', term: 'До суток' },
   { name: COOKIE_NOTICE_STORAGE_KEY, purpose: 'Отметка, что вы закрыли уведомление о cookie', term: 'Пока вы не очистите браузер' },

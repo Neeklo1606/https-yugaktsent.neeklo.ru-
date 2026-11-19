@@ -13,6 +13,7 @@ import { complexMinPrice } from '@/redesign/lib/card-visual';
 import { mapApiBlockListRowToResidentialComplex } from '@/redesign/lib/blocks-from-api';
 import { btnClass } from '@/redesign/lib/button-styles';
 import { usePrefersReducedMotion } from '@/shared/hooks/usePrefersReducedMotion';
+import { SERVICE_AREA_GENITIVE } from '@/shared/lib/service-area';
 
 const AUTOPLAY_MS = 6500;
 /** Ниже этого сдвига палец считаем дрожанием, а не свайпом */
@@ -56,7 +57,8 @@ const HeroBanner = () => {
         return {
           id: b.slug,
           image: b.images![0].url,
-          tag: 'Новостройки Анапы',
+          // Город берём у самого ЖК: раньше у всех слайдов было «Новостройки Анапы», в том числе у майкопских
+          tag: b.region?.name ? `Новостройки · ${b.region.name}` : 'Новостройки',
           title: b.name,
           subtitle: priceFrom ? `Квартиры ${priceFrom.toLowerCase().startsWith('от') ? '' : 'от '}${priceFrom}` : '',
           buttonText: 'Смотреть комплекс',
@@ -114,10 +116,11 @@ const HeroBanner = () => {
    * Высота от видимой высоты экрана (svh — без прыжков панели Safari), а не фиксированные пиксели.
    * На десктопе первый экран = шапка 72 px + баннер + панель поиска (наезжает на баннер на 48 px,
    * сама ~160 px): баннер = 100svh − 196 px, чтобы поиск целиком помещался без прокрутки.
-   * На телефоне баннер ~половина экрана — под ним сразу видны поле поиска и кнопка.
+   * На телефоне баннер ~треть экрана (240–300 px): под ним компактный поиск и уже первые карточки ЖК —
+   * объекты видны без прокрутки (аудит 19.11, сравнение с ЦИАН).
    */
   const heroHeight =
-    'h-[clamp(320px,52svh,460px)] sm:h-[clamp(420px,60svh,560px)] lg:h-[clamp(440px,calc(100svh-196px),700px)]';
+    'h-[clamp(240px,36svh,300px)] sm:h-[clamp(420px,60svh,560px)] lg:h-[clamp(440px,calc(100svh-196px),700px)]';
   // Пока не знаем, что показывать, держим место той же высоты: без запасного слайда и прыжка вёрстки
   if (settingsLoading || blocksLoading) {
     return <section aria-busy="true" aria-label="Загрузка" className={cn('relative w-full animate-pulse bg-graphite', heroHeight)} />;
@@ -132,13 +135,13 @@ const HeroBanner = () => {
   const primaryCta = active.buttonText && active.buttonLink
     ? isExternal(active.buttonLink)
       ? (
-        <a href={active.buttonLink} target="_blank" rel="noopener noreferrer" className={btnClass('inverse', { className: 'w-full sm:w-auto sm:px-6' })}>
+        <a href={active.buttonLink} target="_blank" rel="noopener noreferrer" className={btnClass('inverse', { className: 'max-sm:h-11 max-sm:px-4 sm:px-6' })}>
           {active.buttonText}
           <ArrowRight />
         </a>
       )
       : (
-        <Link to={active.buttonLink} className={btnClass('inverse', { className: 'w-full sm:w-auto sm:px-6' })}>
+        <Link to={active.buttonLink} className={btnClass('inverse', { className: 'max-sm:h-11 max-sm:px-4 sm:px-6' })}>
           {active.buttonText}
           <ArrowRight />
         </Link>
@@ -202,25 +205,25 @@ const HeroBanner = () => {
       {/* Скрим: на телефоне снизу (там текст), на десктопе — слева */}
       <div className="absolute inset-0 bg-gradient-to-t from-graphite/90 via-graphite/45 to-graphite/5 lg:bg-gradient-to-r lg:from-graphite/80 lg:via-graphite/40 lg:to-transparent" aria-hidden />
 
-      <div className="container-page relative z-10 flex h-full flex-col justify-end pb-12 lg:justify-center lg:pb-0">
+      <div className="container-page relative z-10 flex h-full flex-col justify-end pb-9 sm:pb-12 lg:justify-center lg:pb-0">
         <div className="max-w-[680px]">
-          {active.tag ? <p className="text-overline mb-2 text-white/75 lg:mb-3">{active.tag}</p> : null}
+          {active.tag ? <p className="text-overline mb-1 text-white/75 sm:mb-2 lg:mb-3">{active.tag}</p> : null}
           {/* Один стабильный H1 страницы для поиска и скринридеров; заголовок слайда меняется каждые несколько секунд */}
-          <h1 className="sr-only">Новостройки Анапы и Майкопа — агентство недвижимости {shortName}</h1>
-          {active.title ? <p className="text-display text-white" aria-live="off">{active.title}</p> : null}
+          <h1 className="sr-only">Новостройки {SERVICE_AREA_GENITIVE} — агентство недвижимости {shortName}</h1>
+          {active.title ? <p className="text-display line-clamp-2 text-white max-sm:text-[1.625rem]" aria-live="off">{active.title}</p> : null}
           {active.subtitle ? (
-            <p className="mt-2 max-w-[560px] text-[16px] leading-snug text-white/85 tabular-nums sm:mt-3 sm:text-lg">{active.subtitle}</p>
+            <p className="mt-1 max-w-[560px] text-[15px] leading-snug text-white/85 tabular-nums sm:mt-3 sm:text-lg">{active.subtitle}</p>
           ) : null}
 
-          {/* Телефон: одна главная кнопка и тихая текстовая вторая — не две равные плашки */}
-          <div className="mt-5 flex flex-col gap-1 sm:mt-7 sm:flex-row sm:gap-3">
+          {/* Телефон: компактная главная кнопка и рядом тихая текстовая вторая — в одну строку */}
+          <div className="mt-3 flex flex-row flex-wrap items-center gap-x-3 gap-y-1 sm:mt-7 sm:gap-3">
             {primaryCta}
             <button
               type="button"
               onClick={() => setConsultOpen(true)}
               className={cn(
                 btnClass('inverseOutline', { className: 'sm:px-6' }),
-                'max-sm:border-transparent max-sm:bg-transparent max-sm:backdrop-blur-none max-sm:underline max-sm:underline-offset-4',
+                'max-sm:h-11 max-sm:border-transparent max-sm:bg-transparent max-sm:px-0 max-sm:text-[14px] max-sm:backdrop-blur-none max-sm:underline max-sm:underline-offset-4',
               )}
             >
               {secondaryLabel}
@@ -230,11 +233,11 @@ const HeroBanner = () => {
       </div>
 
       {total > 1 ? (
-        <div className="absolute bottom-6 right-4 z-20 flex items-center gap-1 sm:right-5 lg:bottom-auto lg:right-8 lg:top-1/2 lg:-translate-y-1/2 lg:flex-col">
+        <div className="absolute right-4 top-3 z-20 flex items-center gap-1 sm:bottom-6 sm:right-5 sm:top-auto lg:bottom-auto lg:right-8 lg:top-1/2 lg:-translate-y-1/2 lg:flex-col">
           <button type="button" aria-label="Предыдущий комплекс" onClick={() => go(index - 1)} className="hidden h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/25 lg:flex">
             <ChevronLeft className="h-5 w-5 lg:rotate-90" />
           </button>
-          <p className="min-w-[3.25rem] text-center text-[13px] font-medium tabular-nums text-white/85" aria-live="polite">
+          <p className="min-w-[3.25rem] rounded-full text-center text-[13px] font-medium tabular-nums text-white/85 max-sm:bg-graphite/45 max-sm:px-2 max-sm:py-0.5 max-sm:backdrop-blur-sm" aria-live="polite">
             {index + 1} / {total}
           </p>
           <button type="button" aria-label="Следующий комплекс" onClick={() => go(index + 1)} className="hidden h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/25 lg:flex">

@@ -35,7 +35,7 @@
       }
       .boot-header img { height: 40px; width: auto; }
       .boot-hero {
-        height: calc(100svh - 64px); min-height: 520px; background: #1a1d21;
+        height: clamp(240px, 36svh, 300px); background: #1a1d21;
         display: flex; align-items: center; padding: 0 16px;
       }
       .boot-lines { width: min(720px, 100%); }
@@ -48,6 +48,7 @@
       .boot-line.sm { width: 46%; }
       @keyframes boot-shimmer { 0% { background-position: 100% 0 } 100% { background-position: 0 0 } }
       @media (prefers-reduced-motion: reduce) { .boot-line { animation: none } }
+      @media (min-width: 640px) { .boot-hero { height: calc(100svh - 64px); min-height: 520px; } }
       @media (min-width: 1024px) {
         .boot-header { height: 72px; padding: 0 32px; }
         .boot-hero { height: calc(100svh - 72px); padding: 0 32px; }
