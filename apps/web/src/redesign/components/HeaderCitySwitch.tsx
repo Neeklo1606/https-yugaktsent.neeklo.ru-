@@ -82,7 +82,10 @@ export default function HeaderCitySwitch({ variant = 'desktop' }: { variant?: 'd
         className="inline-flex h-10 items-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[15px] font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
       >
         <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-        {current ? regionLabel(current) : 'Город'}
+        {/* «Новороссийск» на 1024–1399 px выталкивал «Оставить заявку» за край — обрезаем, полное имя в aria-label/title */}
+        <span className="max-w-[5rem] truncate min-[1400px]:max-w-none" title={current ? regionLabel(current) : undefined}>
+          {current ? regionLabel(current) : 'Город'}
+        </span>
         <ChevronDown className={cn('hidden h-4 w-4 shrink-0 text-muted-foreground transition-transform xl:block', open && 'rotate-180')} aria-hidden />
       </button>
       {open ? (

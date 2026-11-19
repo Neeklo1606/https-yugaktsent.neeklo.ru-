@@ -765,7 +765,7 @@ const RedesignComplex = () => {
             <section id="similar" className="scroll-mt-32">
               {sectionHeading('Похожие жилые комплексы')}
               {/* Телефон: лента со свайпом — одной колонкой блок был 2 300 px */}
-              <SnapRail label="Похожие жилые комплексы" desktopCols={2} wideCols={3}>
+              <SnapRail label="Похожие жилые комплексы" desktopCols={2} wideCols={3} className="sm:-mx-4">
                 {similarComplexes.map((c) => (
                   <div key={c.id} className="flex h-full min-h-0">
                     <ComplexCard complex={c} />
