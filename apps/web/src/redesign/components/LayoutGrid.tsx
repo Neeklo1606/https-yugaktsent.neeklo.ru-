@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { formatArea } from '@/redesign/lib/listing-format';
+import { btnClass } from '@/redesign/lib/button-styles';
 import { useNavigate } from 'react-router-dom';
 import type { LayoutGroup } from '@/redesign/data/types';
 import { formatPriceFrom, isPriceFallbackText } from '@/redesign/lib/display-price';
@@ -26,7 +28,7 @@ const LayoutCard = ({ layout }: { layout: LayoutGroup }) => {
       onKeyDown={(e) => e.key === 'Enter' && open()}
       className={cn(cardVisual.cardShell, 'cursor-pointer hover:shadow-md group')}
     >
-      <div className="aspect-square bg-muted/50 flex items-center justify-center p-6">
+      <div className="aspect-square bg-muted/50 flex items-center justify-center p-4 sm:p-6">
         <img
           src={getSafeImageUrl(layout.planImage)}
           alt={`${layout.rooms}-комн`}
@@ -53,12 +55,27 @@ const LayoutCard = ({ layout }: { layout: LayoutGroup }) => {
   );
 };
 
-const LayoutGrid = ({ layouts, complexSlug }: Props) => (
-  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-    {layouts.map(l => (
-      <LayoutCard key={l.id} layout={l} />
-    ))}
-  </div>
-);
+/** Сколько планировок видно сразу: у «Мореграда» их 48, и на телефоне блок занимал 6 000+ px */
+const INITIAL_VISIBLE = 8;
+
+const LayoutGrid = ({ layouts }: Props) => {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? layouts : layouts.slice(0, INITIAL_VISIBLE);
+  const hidden = layouts.length - visible.length;
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+        {visible.map((l) => (
+          <LayoutCard key={l.id} layout={l} />
+        ))}
+      </div>
+      {hidden > 0 ? (
+        <button type="button" onClick={() => setExpanded(true)} className={btnClass('secondary', { className: 'mt-4 w-full sm:w-auto' })}>
+          Показать все планировки ({layouts.length})
+        </button>
+      ) : null}
+    </div>
+  );
+};
 
 export default LayoutGrid;

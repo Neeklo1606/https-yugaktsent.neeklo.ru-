@@ -552,7 +552,8 @@ const RedesignApartment = () => {
           {similarApts.length > 0 ? (
             <section id="similar" className="scroll-mt-28">
               {sectionHeading(`Похожие квартиры в ${complex.name}`)}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Телефон: лента со свайпом (две карточки в кадре) — одной колонкой блок был ~1 500 px */}
+              <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4 [&>*]:w-[64%] [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-auto">
                 {similarApts.map((a) => (
                   <Link
                     key={a.id}

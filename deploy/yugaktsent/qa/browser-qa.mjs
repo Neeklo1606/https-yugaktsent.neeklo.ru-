@@ -33,11 +33,18 @@ const { chromium } = loadPlaywright();
 const BASE = (process.env.QA_BASE || "https://yugaktsent.neeklo.ru").replace(/\/$/, "");
 const ADMIN_BASE = process.env.QA_ADMIN_BASE?.replace(/\/$/, "");
 const OUT_DIR = join(process.cwd(), "qa-artifacts", new Date().toISOString().slice(0, 10));
-const VIEWPORTS = [
-  { name: "mobile", width: 375, height: 812 },
-  { name: "tablet", width: 768, height: 1024 },
-  { name: "desktop", width: 1280, height: 900 },
-];
+// QA_WIDTHS=320,375,390,430,768,1024,1280,1440,1920 — полная матрица ширин из плана запуска
+const VIEWPORTS = process.env.QA_WIDTHS
+  ? process.env.QA_WIDTHS.split(",").map((w) => Number(w.trim())).filter(Boolean).map((width) => ({
+      name: String(width),
+      width,
+      height: width < 768 ? 812 : width < 1024 ? 1024 : 900,
+    }))
+  : [
+      { name: "mobile", width: 375, height: 812 },
+      { name: "tablet", width: 768, height: 1024 },
+      { name: "desktop", width: 1280, height: 900 },
+    ];
 const ERROR_MARKERS = ["Что-то пошло не так", "Something went wrong", "Unexpected Application Error"];
 
 async function api(path) {
@@ -59,10 +66,13 @@ async function publicRoutes() {
     { path: "/privacy", name: "Политика" },
     { path: "/terms", name: "Условия" },
     { path: "/cookies", name: "Cookies" },
+    { path: "/personal-data-consent", name: "Согласие ПД" },
+    { path: "/catalog?region_id=12", name: "Каталог Краснодар" },
+    { path: "/catalog?region_id=11", name: "Каталог Новороссийск" },
     { path: "/login", name: "Вход" },
     { path: "/no-such-page-qa", name: "404", expect404: true },
   ];
-  const blocks = await api("/blocks?per_page=20");
+  const blocks = await api("/blocks?per_page=50");
   for (const b of blocks.data ?? blocks) routes.push({ path: `/complex/${b.slug}`, name: `ЖК ${b.name}` });
   const listings = await api("/listings?per_page=1&kind=APARTMENT").catch(() => null);
   const first = listings?.data?.[0];

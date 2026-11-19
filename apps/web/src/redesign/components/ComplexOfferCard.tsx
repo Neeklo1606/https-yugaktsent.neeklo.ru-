@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import StableMediaFrame from '@/redesign/components/StableMediaFrame';
 import type { ResidentialComplex } from '@/redesign/data/types';
 import { complexPopularCompletionLine, complexTotalUnits } from '@/redesign/lib/card-visual';
-import { formatPriceFromExact, normalizePriceValue } from '@/redesign/lib/display-price';
+import { formatPriceFrom, formatPriceFromExact, normalizePriceValue } from '@/redesign/lib/display-price';
 import { parseApiBlockId, useFavorites } from '@/shared/hooks/useFavorites';
 import { prefetchHandlers } from '@/shared/lib/route-prefetch';
 
@@ -126,6 +126,13 @@ export default function ComplexOfferCard({
   const deadline = completion || (complex.status === 'completed' ? 'Дом сдан' : '');
   const rows = priceRows(complex);
   const units = complexTotalUnits(complex);
+  // Главная цифра карточки — минимальная цена по всем комнатностям (как «от» в ЦИАН)
+  const minPrice = (complex.priceRanges ?? [])
+    .map((r) => normalizePriceValue(r.priceMin))
+    .filter((v): v is number => v != null)
+    .reduce<number | null>((m, v) => (m == null || v < m ? v : m), null);
+  const statusLabel = complex.status === 'completed' ? 'Дом сдан' : complex.status === 'planned' ? 'Старт продаж' : complex.status ? 'Строится' : '';
+  // Статус, адрес и срок — одной строкой: на телефоне карточка была 550 px, из них 90 px на три строки мета
 
   const onLike = (e: MouseEvent) => {
     e.preventDefault();
@@ -148,32 +155,34 @@ export default function ComplexOfferCard({
         <Heart className={cn('h-[18px] w-[18px]', liked && 'fill-primary text-primary')} aria-hidden />
       </button>
 
-      <div className="flex flex-1 flex-col px-4 pb-4 pt-3.5">
+      <div className="flex flex-1 flex-col px-4 pb-4 pt-3">
         <h3 className="line-clamp-1 text-[18px] font-bold leading-snug tracking-tight text-foreground">
           <Link to={href} {...prefetchHandlers('/complex/')} className="after:absolute after:inset-0 after:content-[''] hover:text-primary focus-visible:outline-none">
             {complex.name}
           </Link>
         </h3>
 
-        <div className="mt-2.5 space-y-1.5 text-[14px] text-muted-foreground">
-          {complex.status ? (
-            <p className="flex items-center gap-2">
-              <span className={cn('h-2 w-2 shrink-0 rounded-full', complex.status === 'completed' ? 'bg-success' : 'bg-primary')} aria-hidden />
-              <span className="truncate">{complex.status === 'completed' ? 'Дом сдан' : complex.status === 'planned' ? 'Старт продаж' : 'Строится'}</span>
-            </p>
-          ) : null}
-          {address ? (
-            <p className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 shrink-0" aria-hidden />
-              <span className="truncate">{address}</span>
-            </p>
-          ) : null}
-        </div>
+        {minPrice != null ? (
+          <p className="mt-1 text-[17px] font-bold tabular-nums text-foreground">{formatPriceFrom(minPrice)}</p>
+        ) : null}
 
-        {deadline ? <p className="mt-2 text-[15px] font-semibold text-foreground">{deadline}</p> : null}
+        <p className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[14px] text-muted-foreground">
+          {statusLabel ? (
+            <span className={cn('h-2 w-2 shrink-0 rounded-full', complex.status === 'completed' ? 'bg-success' : 'bg-primary')} aria-hidden />
+          ) : null}
+          <span className="truncate">
+            {[statusLabel, deadline && deadline !== statusLabel ? deadline : ''].filter(Boolean).join(' · ')}
+          </span>
+        </p>
+        {address ? (
+          <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[14px] text-muted-foreground">
+            <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="truncate">{address}</span>
+          </p>
+        ) : null}
 
         {rows.length > 0 ? (
-          <dl className="mt-3 space-y-1.5 text-[14px]">
+          <dl className="mt-2.5 space-y-1 text-[14px]">
             {rows.map((r) => (
               <div key={r.rooms} className="flex items-baseline gap-2">
                 <dt className="shrink-0 text-muted-foreground">{r.label}</dt>
@@ -186,9 +195,10 @@ export default function ComplexOfferCard({
           <p className="mt-3 text-[15px] text-foreground">Цена по запросу</p>
         )}
 
-        {units ? <p className="mt-3 text-[13px] text-muted-foreground">Квартир {units.toLocaleString('ru-RU')}</p> : null}
+        {units ? <p className="mt-2.5 text-[13px] text-muted-foreground">Квартир {units.toLocaleString('ru-RU')}</p> : null}
 
-        <div className="mt-auto pt-4">
+        {/* Тег «Новостройки» по референсу — на телефоне лишние 70 px: все ЖК в каталоге новостройки */}
+        <div className="mt-auto pt-4 max-sm:hidden">
           <div className="border-t border-border/70 pt-4">
             <span className="inline-flex h-9 items-center rounded-lg border border-primary/70 px-3.5 text-[14px] font-semibold text-primary">Новостройки</span>
           </div>

@@ -92,12 +92,13 @@ export default function SaveSearchButton({ filters, regionId, geo }: Props) {
     <Button
       variant="outline"
       size="sm"
-      className="h-9 min-h-[44px] gap-1.5"
+      className="h-9 min-h-[44px] gap-1.5 max-sm:w-11 max-sm:px-0"
       onClick={() => setOpen(true)}
+      aria-label="Сохранить поиск"
     >
       <Bookmark className="w-4 h-4" />
-      <span className="hidden xs:inline">Сохранить поиск</span>
-      <span className="xs:hidden">Сохранить</span>
+      {/* Телефон: только иконка — с текстом не помещалась сортировка («Снача…») */}
+      <span className="hidden sm:inline">Сохранить поиск</span>
     </Button>
   );
 }

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { MapPin, Heart, Share2, FileText, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ComplexCard from '@/redesign/components/ComplexCard';
+import SnapRail from '@/redesign/components/home/SnapRail';
 import RedesignHeader from '@/redesign/components/RedesignHeader';
 import FooterSection from '@/components/FooterSection';
 import ComplexPremiumGallery from '@/redesign/components/ComplexPremiumGallery';
@@ -763,13 +764,14 @@ const RedesignComplex = () => {
           {similarComplexes.length > 0 ? (
             <section id="similar" className="scroll-mt-32">
               {sectionHeading('Похожие жилые комплексы')}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
+              {/* Телефон: лента со свайпом — одной колонкой блок был 2 300 px */}
+              <SnapRail label="Похожие жилые комплексы" desktopCols={2} wideCols={3}>
                 {similarComplexes.map((c) => (
                   <div key={c.id} className="flex h-full min-h-0">
                     <ComplexCard complex={c} />
                   </div>
                 ))}
-              </div>
+              </SnapRail>
             </section>
           ) : null}
         </div>
