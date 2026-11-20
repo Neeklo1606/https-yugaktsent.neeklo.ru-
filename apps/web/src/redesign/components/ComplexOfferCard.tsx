@@ -4,7 +4,7 @@ import { Heart, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import StableMediaFrame from '@/redesign/components/StableMediaFrame';
 import type { ResidentialComplex } from '@/redesign/data/types';
-import { complexPopularCompletionLine, complexTotalUnits } from '@/redesign/lib/card-visual';
+import { complexMinPrice, complexPopularCompletionLine, complexTotalUnits } from '@/redesign/lib/card-visual';
 import { formatPriceFrom, formatPriceFromExact, normalizePriceValue } from '@/redesign/lib/display-price';
 import { parseApiBlockId, useFavorites } from '@/shared/hooks/useFavorites';
 import { prefetchHandlers } from '@/shared/lib/route-prefetch';
@@ -127,10 +127,8 @@ export default function ComplexOfferCard({
   const rows = priceRows(complex);
   const units = complexTotalUnits(complex);
   // Главная цифра карточки — минимальная цена по всем комнатностям (как «от» в ЦИАН)
-  const minPrice = (complex.priceRanges ?? [])
-    .map((r) => normalizePriceValue(r.priceMin))
-    .filter((v): v is number => v != null)
-    .reduce<number | null>((m, v) => (m == null || v < m ? v : m), null);
+  // priceRanges нет у карточки из /blocks/:id (избранное) — тогда «от» из агрегата priceFrom
+  const minPrice = complexMinPrice(complex);
   const statusLabel = complex.status === 'completed' ? 'Дом сдан' : complex.status === 'planned' ? 'Старт продаж' : complex.status ? 'Строится' : '';
   // Статус, адрес и срок — одной строкой: на телефоне карточка была 550 px, из них 90 px на три строки мета
 
@@ -191,9 +189,9 @@ export default function ComplexOfferCard({
               </div>
             ))}
           </dl>
-        ) : (
+        ) : minPrice == null ? (
           <p className="mt-3 text-[15px] text-foreground">Цена по запросу</p>
-        )}
+        ) : null}
 
         {units ? <p className="mt-2.5 text-[13px] text-muted-foreground">Квартир {units.toLocaleString('ru-RU')}</p> : null}
 

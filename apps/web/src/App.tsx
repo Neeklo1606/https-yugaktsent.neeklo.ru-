@@ -12,6 +12,7 @@ import SeoJsonLd from "@/shared/components/SeoJsonLd";
 import StagingBadge from "@/shared/components/StagingBadge";
 import CookieBanner from "@/shared/components/CookieBanner";
 import ThemeBootstrap from "@/shared/theme/ThemeBootstrap";
+import { SHARE_EVENT } from "@/lib/share-event";
 
 // Main pages
 const RedesignIndex = lazyWithReload(() => import("./redesign/pages/RedesignIndex"));
@@ -285,11 +286,34 @@ const DeferredToaster = () => {
   ) : null;
 };
 
+const ShareDialog = lazy(() => import("@/shared/components/ShareDialog"));
+
+/** Окно «Поделиться» (компьютер) грузится только при первом вызове shareCurrentPage */
+const ShareDialogHost = () => {
+  const [state, setState] = useState<{ title: string; url: string } | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const onShare = (e: Event) => {
+      const d = (e as CustomEvent<{ title: string; url: string }>).detail;
+      setState(d);
+      setOpen(true);
+    };
+    window.addEventListener(SHARE_EVENT, onShare);
+    return () => window.removeEventListener(SHARE_EVENT, onShare);
+  }, []);
+  return state ? (
+    <Suspense fallback={null}>
+      <ShareDialog open={open} onOpenChange={setOpen} title={state.title} url={state.url} />
+    </Suspense>
+  ) : null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthSessionSync />
     <ThemeBootstrap />
     <DeferredToaster />
+    <ShareDialogHost />
       {/* startTransition: при переходе остаётся текущий экран, пока грузится следующий — без спиннера на весь экран */}
       <BrowserRouter future={{ v7_startTransition: true }}>
         <ScrollToTop />

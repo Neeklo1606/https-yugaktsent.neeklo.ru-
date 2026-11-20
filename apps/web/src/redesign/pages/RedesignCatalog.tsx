@@ -33,6 +33,7 @@ import {
 import { useDebouncedValue } from '@/redesign/hooks/useDebouncedValue';
 import SaveSearchButton from '@/account/components/SaveSearchButton';
 import CatalogActiveFilterChips from '@/redesign/components/CatalogActiveFilterChips';
+import CatalogRoomCountChips from '@/redesign/components/CatalogRoomCountChips';
 import CatalogFilterPresets from '@/redesign/components/CatalogFilterPresets';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import CatalogLandingPanel from '@/redesign/components/CatalogLandingPanel';
@@ -833,6 +834,7 @@ const RedesignCatalog = () => {
           </div>
         )}
 
+        <CatalogRoomCountChips filters={filters} regionId={regionId} onChange={handleFiltersChange} className="mb-2" />
         <CatalogFilterPresets filters={filters} onChange={handleFiltersChange} showNewBuildPresets={showBlocks} className="mb-2" />
         <CatalogActiveFilterChips filters={filters} onChange={handleFiltersChange} className="mb-3" />
 

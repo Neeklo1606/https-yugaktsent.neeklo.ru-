@@ -12,6 +12,8 @@ type Props = {
   onPick?: () => void;
   /** Распознанная фраза («2к до 8 млн») — строка «Показать: …» над подсказками */
   smart?: { label: string; onApply: () => void } | null;
+  /** Полноэкранный поиск на телефоне: группы без собственного скролла, листается весь список */
+  expanded?: boolean;
 };
 
 function SectionTitle({ children }: { children: string }) {
@@ -26,18 +28,18 @@ function SectionTitle({ children }: { children: string }) {
  * Одна категория подсказок: заголовок всегда снаружи скролла; список — отдельный скролл-контейнер
  * У каждой группы — ЖК, метро, улицы — свой скролл, общего скролла панели нет.
  */
-function HintCategorySection({ title, children }: { title: string; children: ReactNode }) {
+function HintCategorySection({ title, children, expanded }: { title: string; children: ReactNode; expanded?: boolean }) {
   return (
     <div className="flex flex-col min-h-0 isolate">
       <SectionTitle>{title}</SectionTitle>
-      <div className="min-h-0 max-h-[min(260px,38vh)] overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y [scrollbar-gutter:stable]">
+      <div className={cn('min-h-0', !expanded && 'max-h-[min(260px,38vh)]', 'overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y [scrollbar-gutter:stable]')}>
         {children}
       </div>
     </div>
   );
 }
 
-export default function CatalogSearchHintsDropdown({ hints, isLoading, className, onPick, smart }: Props) {
+export default function CatalogSearchHintsDropdown({ hints, isLoading, className, onPick, smart, expanded }: Props) {
   const navigate = useNavigate();
   const c = hints?.complexes ?? [];
   const m = hints?.metro ?? [];
@@ -93,7 +95,7 @@ export default function CatalogSearchHintsDropdown({ hints, isLoading, className
       {!isLoading && hasAny && (
         <>
           {c.length > 0 && (
-            <HintCategorySection title="Жилые комплексы">
+            <HintCategorySection title="Жилые комплексы" expanded={expanded}>
               {c.map((row) => (
                 <Link
                   key={row.id}
@@ -123,7 +125,7 @@ export default function CatalogSearchHintsDropdown({ hints, isLoading, className
           {c.length > 0 && (m.length > 0 || d.length > 0 || s.length > 0) && <div className="h-px bg-border mx-2" />}
 
           {m.length > 0 && (
-            <HintCategorySection title="Метро">
+            <HintCategorySection title="Метро" expanded={expanded}>
               {m.map((row) => (
                 <button
                   key={row.id}
@@ -142,7 +144,7 @@ export default function CatalogSearchHintsDropdown({ hints, isLoading, className
           {m.length > 0 && (d.length > 0 || s.length > 0) && <div className="h-px bg-border mx-2" />}
 
           {d.length > 0 && (
-            <HintCategorySection title="Районы">
+            <HintCategorySection title="Районы" expanded={expanded}>
               {d.map((row) => (
                 <button
                   key={row.id}
@@ -161,7 +163,7 @@ export default function CatalogSearchHintsDropdown({ hints, isLoading, className
           {d.length > 0 && s.length > 0 && <div className="h-px bg-border mx-2" />}
 
           {s.length > 0 && (
-            <HintCategorySection title="Улицы и адреса">
+            <HintCategorySection title="Улицы и адреса" expanded={expanded}>
               {s.map((row, idx) => (
                 <button
                   key={`${row.blockId}-${idx}-${row.address.slice(0, 40)}`}

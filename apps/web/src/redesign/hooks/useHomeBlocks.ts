@@ -33,3 +33,20 @@ export function useHomeBlocks(opts?: { allRegions?: boolean }) {
     ...persistedQueryOptions<{ data: ApiBlockListRow[] }>(`home-blocks-${regionId}`),
   });
 }
+
+/** Порядок городов в подписи первого экрана — от моря вглубь, как в текстах сайта */
+const CITY_ORDER = ['Анапа', 'Новороссийск', 'Краснодар', 'Майкоп'];
+
+/**
+ * Итог по всем городам для подписи над поиском: «Анапа, … · 16 ЖК и 11 178 квартир».
+ * Берётся из того же кэша, что «Популярные ЖК» (allRegions) — лишнего запроса нет.
+ */
+export function useHomeBlocksTotals(): { cities: string[]; complexes: number; flats: number } | null {
+  const { data } = useHomeBlocks({ allRegions: true });
+  const rows = data?.data ?? [];
+  if (rows.length === 0) return null;
+  const flats = rows.reduce((sum, b) => sum + (b._count?.listings ?? 0), 0);
+  const names = [...new Set(rows.map((b) => b.region?.name).filter((n): n is string => Boolean(n)))];
+  names.sort((a, b) => (CITY_ORDER.indexOf(a) + 99) % 99 - ((CITY_ORDER.indexOf(b) + 99) % 99) || a.localeCompare(b, 'ru'));
+  return { cities: names, complexes: rows.length, flats };
+}

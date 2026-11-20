@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,7 @@ import { mapApiBlockListRowToResidentialComplex } from '@/redesign/lib/blocks-fr
 import { btnClass } from '@/redesign/lib/button-styles';
 import { usePrefersReducedMotion } from '@/shared/hooks/usePrefersReducedMotion';
 import { SERVICE_AREA_GENITIVE } from '@/shared/lib/service-area';
+import { useHomeBlocksTotals } from '@/redesign/hooks/useHomeBlocks';
 
 const AUTOPLAY_MS = 6500;
 /** Ниже этого сдвига палец считаем дрожанием, а не свайпом */
@@ -28,7 +29,7 @@ function isExternal(href: string): boolean {
  * Слайды заводятся в админке («Главная: баннеры»), текст лежит на тёмном
  * градиенте слева — читаемость не зависит от того, какое фото загрузили.
  */
-const HeroBanner = () => {
+const HeroBanner = ({ search }: { search?: ReactNode }) => {
   const { data: settings, isLoading: settingsLoading } = useSiteSettings();
   const { shortName } = useSiteBrand();
   const [index, setIndex] = useState(0);
@@ -112,6 +113,10 @@ const HeroBanner = () => {
   }, [total, paused, consultOpen, reducedMotion]);
 
   const active = slides[Math.min(index, total - 1)];
+  const totals = useHomeBlocksTotals();
+  const heroSubline = totals
+    ? `${totals.cities.join(', ')} · ${totals.complexes} ЖК и ${totals.flats.toLocaleString('ru-RU')} квартир от застройщиков`
+    : 'Анапа, Новороссийск, Краснодар, Майкоп — квартиры от застройщиков';
   /**
    * Высота от видимой высоты экрана (svh — без прыжков панели Safari), а не фиксированные пиксели.
    * На десктопе первый экран = шапка 72 px + баннер + панель поиска (наезжает на баннер на 48 px,
@@ -120,10 +125,30 @@ const HeroBanner = () => {
    * объекты видны без прокрутки (аудит 19.11, сравнение с ЦИАН).
    */
   const heroHeight =
-    'h-[clamp(240px,36svh,300px)] sm:h-[clamp(420px,60svh,560px)] lg:h-[clamp(440px,calc(100svh-196px),700px)]';
+    'h-[clamp(240px,36svh,300px)] sm:h-[clamp(420px,60svh,560px)] lg:h-[clamp(560px,calc(100svh-72px),820px)]';
+  /**
+   * Десктоп (20.11): поиск по центру баннера на весь экран, как у Аякса; слайд ЖК — строкой внизу слева.
+   * Телефон и планшет: прежняя раскладка, поиск под баннером (variant="below").
+   */
+  const centerSearch = search ? (
+    <div className="pointer-events-none absolute inset-0 z-30 hidden lg:flex lg:flex-col lg:items-center lg:justify-center lg:px-8">
+      <div className="pointer-events-auto flex w-full flex-col items-center gap-5 text-center">
+        <div>
+          <p className="text-display text-white">Квартиры в новостройках юга</p>
+          <p className="mt-2 text-lg text-white/85 tabular-nums">{heroSubline}</p>
+        </div>
+        {search}
+      </div>
+    </div>
+  ) : null;
   // Пока не знаем, что показывать, держим место той же высоты: без запасного слайда и прыжка вёрстки
   if (settingsLoading || blocksLoading) {
-    return <section aria-busy="true" aria-label="Загрузка" className={cn('relative w-full animate-pulse bg-graphite', heroHeight)} />;
+    return (
+      <section aria-busy="true" aria-label="Загрузка" className={cn('relative w-full bg-graphite', heroHeight)}>
+        <div className="absolute inset-0 animate-pulse bg-graphite" aria-hidden />
+        {centerSearch}
+      </section>
+    );
   }
   if (!active) return null;
 
@@ -151,7 +176,8 @@ const HeroBanner = () => {
   return (
     <section
       className={cn(
-        'relative w-full overflow-hidden bg-graphite',
+        // overflow-hidden только у слоя слайдов: подсказки поиска выпадают за край баннера
+        'relative w-full bg-graphite',
         // Телефон: заметно ниже прежнего «во весь экран» — смысл и кнопки видны сразу, ниже уже поиск
         hasAnyImage ? heroHeight : 'min-h-[380px] lg:min-h-[520px]',
       )}
@@ -174,6 +200,7 @@ const HeroBanner = () => {
       }}
     >
       {/* Слайды лежат стопкой и меняются прозрачностью: высота не скачет */}
+      <div className="absolute inset-0 overflow-hidden">
       {slides.map((slide, i) => (
         <div
           key={slide.id}
@@ -201,11 +228,12 @@ const HeroBanner = () => {
           ) : null}
         </div>
       ))}
+      </div>
 
-      {/* Скрим: на телефоне снизу (там текст), на десктопе — слева */}
-      <div className="absolute inset-0 bg-gradient-to-t from-graphite/90 via-graphite/45 to-graphite/5 lg:bg-gradient-to-r lg:from-graphite/80 lg:via-graphite/40 lg:to-transparent" aria-hidden />
+      {/* Скрим: на телефоне снизу (там текст); на десктопе ровное затемнение — по центру поиск и заголовок */}
+      <div className={cn('absolute inset-0 bg-gradient-to-t from-graphite/90 via-graphite/45 to-graphite/5', search ? 'lg:bg-none lg:bg-graphite/55' : 'lg:bg-gradient-to-r lg:from-graphite/80 lg:via-graphite/40 lg:to-transparent')} aria-hidden />
 
-      <div className="container-page relative z-10 flex h-full flex-col justify-end pb-9 sm:pb-12 lg:justify-center lg:pb-0">
+      <div className={cn('container-page relative z-10 flex h-full flex-col justify-end pb-9 sm:pb-12 lg:justify-center lg:pb-0', search && 'lg:hidden')}>
         <div className="max-w-[680px]">
           {active.tag ? <p className="text-overline mb-1 text-white/75 sm:mb-2 lg:mb-3">{active.tag}</p> : null}
           {/* Один стабильный H1 страницы для поиска и скринридеров; заголовок слайда меняется каждые несколько секунд */}
@@ -232,16 +260,47 @@ const HeroBanner = () => {
         </div>
       </div>
 
+      {centerSearch}
+
+      {/* Десктоп с поиском по центру: текущий ЖК — тихой строкой внизу слева */}
+      {search ? (
+        <div className="absolute bottom-6 left-0 right-0 z-20 hidden lg:block">
+          <div className="container-page flex items-end justify-between gap-6">
+            {active.buttonLink ? (
+              <Link
+                to={active.buttonLink}
+                className="group inline-flex max-w-[620px] items-center gap-3 rounded-xl bg-graphite/55 px-4 py-2.5 text-white backdrop-blur-sm transition-colors hover:bg-graphite/75"
+              >
+                <span className="min-w-0">
+                  {active.tag ? <span className="block text-[12px] text-white/70">{active.tag}</span> : null}
+                  <span className="block truncate text-[17px] font-semibold">
+                    {active.title}
+                    {active.subtitle ? <span className="font-normal text-white/80"> · {active.subtitle}</span> : null}
+                  </span>
+                </span>
+                <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-0.5" aria-hidden />
+              </Link>
+            ) : <span />}
+          </div>
+        </div>
+      ) : null}
+
       {total > 1 ? (
-        <div className="absolute right-4 top-3 z-20 flex items-center gap-1 sm:bottom-6 sm:right-5 sm:top-auto lg:bottom-auto lg:right-8 lg:top-1/2 lg:-translate-y-1/2 lg:flex-col">
+        <div
+          className={cn(
+            'absolute right-4 top-3 z-20 flex items-center gap-1 sm:bottom-6 sm:right-5 sm:top-auto',
+            // С поиском по центру стрелки справа налезали на карточку на 1024 px — уводим вниз, в строку с ЖК
+            search ? 'lg:right-8' : 'lg:bottom-auto lg:right-8 lg:top-1/2 lg:-translate-y-1/2 lg:flex-col',
+          )}
+        >
           <button type="button" aria-label="Предыдущий комплекс" onClick={() => go(index - 1)} className="hidden h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/25 lg:flex">
-            <ChevronLeft className="h-5 w-5 lg:rotate-90" />
+            <ChevronLeft className={cn('h-5 w-5', !search && 'lg:rotate-90')} />
           </button>
           <p className="min-w-[3.25rem] rounded-full text-center text-[13px] font-medium tabular-nums text-white/85 max-sm:bg-graphite/45 max-sm:px-2 max-sm:py-0.5 max-sm:backdrop-blur-sm" aria-live="polite">
             {index + 1} / {total}
           </p>
           <button type="button" aria-label="Следующий комплекс" onClick={() => go(index + 1)} className="hidden h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/25 lg:flex">
-            <ChevronRight className="h-5 w-5 lg:rotate-90" />
+            <ChevronRight className={cn('h-5 w-5', !search && 'lg:rotate-90')} />
           </button>
         </div>
       ) : null}

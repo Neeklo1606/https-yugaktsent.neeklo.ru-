@@ -55,8 +55,11 @@ const RedesignIndex = () => {
       <RedesignHeader />
       <ApiConnectionStrip />
       <main id="main">
-      <HeroBanner />
-      <QuickSearch />
+      {/* Десктоп: поиск по центру баннера; телефон и планшет — под баннером (20.11) */}
+      <HeroBanner search={<QuickSearch variant="hero" />} />
+      <div className="lg:hidden">
+        <QuickSearch variant="below" />
+      </div>
 
       {blocks.isPending && featured.length === 0 ? (
         // Место под «Популярные ЖК», пока грузится список: иначе блок появляется из ничего и сдвигает страницу (CLS)
