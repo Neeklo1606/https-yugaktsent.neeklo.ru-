@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils';
 import { parseApiBlockId, useFavorites } from '@/shared/hooks/useFavorites';
 import { shareCurrentPage } from '@/lib/share-page';
 import { useEntitySeoMeta } from '@/shared/hooks/useEntitySeoMeta';
+import { complexJsonLd, complexSeoText } from '@/shared/seo/structured-seo';
 import { useYandexMapsReady } from '@/shared/hooks/useYandexMapsReady';
 import { useInViewOnce } from '@/shared/hooks/useInViewOnce';
 import { prefersReducedMotion } from '@/redesign/lib/map-sidebar-scroll-utils';
@@ -151,28 +152,39 @@ const RedesignComplex = () => {
 
   const entitySeo = useMemo(() => {
     if (!complex) return null;
-    // Пустые поля (район, адрес) пропускаем, иначе в описании «. .»
-    const place = [complex.district, complex.address].find((v) => v && v.trim() && v.trim() !== '—');
-    const desc = [`${complex.name} ${formatPriceFrom(complex.priceFrom)}`, place, `Квартиры, планировки и шахматка на ${shortName}`]
-      .filter(Boolean)
-      .join('. ')
-      .concat('.')
-      .slice(0, 160);
+    const siteUrl = (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined)?.replace(/\/+$/, '') || 'https://yugaktsent.neeklo.ru';
+    const city = apiBlockQuery.data?.region?.name ?? null;
+    const block = apiBlockQuery.data as { addresses?: { address?: string | null }[] } | undefined;
+    const text = complexSeoText({
+      name: complex.name,
+      city,
+      priceFrom: complex.priceFrom,
+      offerCount: complex.listingCount ?? null,
+      description: complex.description,
+      brand: shortName,
+    });
     return {
-      title: complex.name,
-      description: desc,
+      title: text.title,
+      description: text.description,
       pathname: location.pathname,
       imageUrl: complex.images[0] ?? null,
-      jsonLd: {
-        '@context': 'https://schema.org',
-        '@type': 'Residence',
+      jsonLd: complexJsonLd({
+        slug: complex.slug,
         name: complex.name,
-        url: `${(import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined)?.replace(/\/+$/, '') || (typeof window !== 'undefined' ? window.location.origin : '')}${location.pathname}`,
-        ...(complex.images[0] ? { image: complex.images[0] } : {}),
-        address: complex.address || complex.district,
-      },
+        description: complex.description || null,
+        address: block?.addresses?.[0]?.address ?? (complex.address && complex.address !== '—' ? complex.address : null),
+        city,
+        image: complex.images[0] ?? null,
+        priceFrom: complex.priceFrom,
+        priceTo: complex.priceTo,
+        offerCount: complex.listingCount ?? null,
+        lat: complex.hasCoords === false ? null : complex.coords?.[0] ?? null,
+        lng: complex.hasCoords === false ? null : complex.coords?.[1] ?? null,
+        siteUrl,
+        brand: shortName,
+      }),
     };
-  }, [complex, location.pathname, shortName]);
+  }, [complex, apiBlockQuery.data, location.pathname, shortName]);
   useEntitySeoMeta(entitySeo);
 
   useEffect(() => {

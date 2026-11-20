@@ -128,6 +128,9 @@ export default function SeoJsonLd() {
     }
 
     let el = document.getElementById(JSON_LD_ID) as HTMLScriptElement | null;
+    // Разметка из пререндера (главная: агентство с телефоном и адресом) полнее клиентской — оставляем её
+    if (el && el.dataset.path === pathname) return;
+    if (el) delete el.dataset.path;
     if (!el) {
       el = document.createElement('script');
       el.id = JSON_LD_ID;

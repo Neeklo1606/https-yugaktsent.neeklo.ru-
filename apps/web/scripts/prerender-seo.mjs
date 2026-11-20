@@ -105,6 +105,19 @@ function patchHtmlHead(html, p) {
   return out;
 }
 
+function patchOgImage(html, image) {
+  if (!image || !/^https?:\/\//.test(image)) return html;
+  return html
+    .replace(/<meta\s+property="og:image"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:image" content="${escapeAttr(image)}">`)
+    .replace(/<meta\s+name="twitter:image"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:image" content="${escapeAttr(image)}">`);
+}
+
+/** id совпадает с тем, что ставит приложение (useEntitySeoMeta / SeoJsonLd) — после загрузки JS скрипт не дублируется */
+function jsonLdTag(value, id, dataPath = null) {
+  if (!value) return '';
+  return `<script type="application/ld+json" id="${id}"${dataPath ? ` data-path="${escapeAttr(dataPath)}"` : ''}>${JSON.stringify(value).replace(/</g, '\\u003c')}</script>`;
+}
+
 function writeHtml(relDir, baseHtml, patch) {
   const dir = path.join(distDir, relDir);
   fs.mkdirSync(dir, { recursive: true });
@@ -204,8 +217,7 @@ async function loadSsr(apiBase) {
   globalThis.localStorage ??= mem();
   globalThis.sessionStorage ??= mem();
   globalThis.__SSR_API_ORIGIN__ = new URL(apiBase).origin;
-  const mod = await import(pathToFileURL(entry).href);
-  return mod.render;
+  return import(pathToFileURL(entry).href);
 }
 
 function jsonForScript(value) {
@@ -320,7 +332,19 @@ async function loadBlockSlugs(apiBase, maxComplex) {
       if (!row?.slug || seen.has(row.slug)) continue;
       if (row.slug.includes('..') || row.slug.includes('/') || row.slug.includes('\\')) continue;
       seen.add(row.slug);
-      slugs.push({ slug: row.slug, name: row.name || row.slug, description: row.description || '', cover: row.images?.[0]?.url || null });
+      slugs.push({
+        slug: row.slug,
+        name: row.name || row.slug,
+        description: row.description || '',
+        cover: row.images?.[0]?.url || null,
+        city: row.region?.name || null,
+        address: row.addresses?.[0]?.address || null,
+        priceFrom: row.listingPriceMin ?? null,
+        priceTo: row.listingPriceMax ?? null,
+        count: row._count?.listings ?? null,
+        lat: row.latitude ?? null,
+        lng: row.longitude ?? null,
+      });
       if (slugs.length >= maxComplex) break;
     }
     page += 1;
@@ -370,6 +394,70 @@ ${body}
 `;
 }
 
+/**
+ * /apartment/:id — лёгкий HTML без SSR-разметки: свой title/description/canonical/og и JSON-LD.
+ * nginx отдаёт apartment/<id>/index.html (try_files $uri/index.html), для остальных id — spa.html.
+ * Пишем в соседнюю папку и меняем местами: проданные квартиры исчезают, недописанный набор не виден.
+ */
+async function writeApartmentPages(apiBase, baseHtml, mod, siteUrl, siteBrand) {
+  const shellBase = patchHtmlHead(baseHtml, { title: siteBrand, description: '', canonical: `${siteUrl}/` });
+  const tmpDir = path.join(distDir, `apartment.tmp-${process.pid}`);
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+  fs.mkdirSync(tmpDir, { recursive: true });
+  const perPage = 500;
+  let page = 1;
+  let totalPages = 1;
+  let written = 0;
+  try {
+    while (page <= totalPages) {
+      const j = await fetchJson(`${apiBase}/listings?kind=APARTMENT&per_page=${perPage}&page=${page}&sort=id_asc`);
+      totalPages = Math.max(1, Number(j.meta?.total_pages) || 1);
+      for (const l of j.data || []) {
+        const id = Number(l?.id);
+        if (!Number.isInteger(id) || id <= 0 || l.kind !== 'APARTMENT' || !l.apartment) continue;
+        const ap = l.apartment;
+        const image = /^https?:\/\//.test(ap.planUrl || '') ? ap.planUrl : null;
+        const seo = mod.apartmentSeo({
+          id,
+          rooms: mod.roomsFromName(ap.roomType?.name),
+          area: Number(ap.areaTotal) || null,
+          floor: ap.floor ?? null,
+          floorsTotal: ap.floorsTotal ?? null,
+          price: Number(l.price) || null,
+          complexName: l.block?.name || ap.blockName || null,
+          complexSlug: l.block?.slug || null,
+          city: l.region?.name || null,
+          image,
+          siteUrl,
+          brand: siteBrand,
+        });
+        const html = patchOgImage(
+          patchHtmlHead(injectHead(shellBase, jsonLdTag(seo.jsonLd, 'lg-entity-seo-jsonld')), {
+            title: `${seo.title} | ${siteBrand}`,
+            description: seo.description,
+            canonical: seo.canonical,
+          }),
+          image,
+        );
+        const dir = path.join(tmpDir, String(id));
+        fs.mkdirSync(dir);
+        fs.writeFileSync(path.join(dir, 'index.html'), html, 'utf8');
+        written += 1;
+      }
+      page += 1;
+    }
+    if (written === 0) throw new Error('API вернул 0 квартир');
+    const live = path.join(distDir, 'apartment');
+    const old = path.join(distDir, `apartment.old-${process.pid}`);
+    if (fs.existsSync(live)) fs.renameSync(live, old);
+    fs.renameSync(tmpDir, live);
+    fs.rmSync(old, { recursive: true, force: true });
+    return written;
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 async function main() {
   if (process.env.SKIP_PRERENDER === '1') {
     console.log('[prerender-seo] SKIP_PRERENDER=1 — пропуск.');
@@ -392,7 +480,8 @@ async function main() {
   const templatePath = path.join(distDir, 'spa-template.html');
   if (!fs.existsSync(templatePath)) fs.copyFileSync(indexPath, templatePath);
   const baseHtml = fs.readFileSync(templatePath, 'utf8');
-  const ssr = await loadSsr(apiBase);
+  const ssrMod = await loadSsr(apiBase);
+  const ssr = ssrMod?.render ?? null;
 
   // Копия src/shared/lib/service-area.ts — менять вместе
   const SERVICE_AREA_GENITIVE = 'Анапы, Новороссийска, Краснодара и Майкопа';
@@ -406,6 +495,30 @@ async function main() {
     canonical: `${siteUrl}/`,
   });
   const siteHost = new URL(siteUrl).host;
+  let settings = {};
+  try {
+    const raw = await fetchJson(`${apiBase}/content/settings`);
+    for (const x of Object.values(raw || {}).flat()) if (x?.key) settings[x.key] = x.value;
+  } catch { /* без настроек — без телефона и адреса */ }
+  if (ssrMod?.homeJsonLd) {
+    homeHtml = injectHead(
+      homeHtml,
+      jsonLdTag(
+        ssrMod.homeJsonLd({
+          siteUrl,
+          brand: siteBrand,
+          legalName: 'Южный Акцент',
+          logo: `${siteUrl}/og-default.jpg`,
+          phone: settings.phone_main || null,
+          address: settings.address || null,
+          city: 'Анапа',
+          areaServed: ['Анапа', 'Новороссийск', 'Краснодар', 'Майкоп'],
+        }),
+        'lg-seo-jsonld',
+        '/',
+      ),
+    );
+  }
   let homeKeep = null;
   try {
     const hero = await homeHeroImage(apiBase);
@@ -494,21 +607,60 @@ async function main() {
   }
 
   for (const c of complexes) {
-    const desc = plainFromMaybeHtml(c.description, 200) || `ЖК ${c.name}: квартиры, планировки, инфраструктура.`;
+    const cText = ssrMod?.complexSeoText
+      ? ssrMod.complexSeoText({ name: c.name, city: c.city, priceFrom: c.priceFrom, offerCount: c.count, description: c.description, brand: siteBrand })
+      : { title: `${c.name} — ЖК`, description: plainFromMaybeHtml(c.description, 200) || `ЖК ${c.name}: квартиры, планировки, инфраструктура.` };
     const coverTag = c.cover ? preloadImageTag(c.cover, '(min-width: 1024px) 66vw, 100vw', siteHost) : '';
     writeRaw(
       `complex/${c.slug}`,
       await withShell(
         ssr,
-        patchHtmlHead(injectHead(baseHtml, coverTag), {
-          title: `${c.name} — ЖК | ${siteBrand}`,
-          description: desc,
-          canonical: `${siteUrl}/complex/${encodeURIComponent(c.slug)}`,
-        }),
+        patchOgImage(
+          patchHtmlHead(
+            injectHead(
+              injectHead(baseHtml, coverTag),
+              ssrMod?.complexJsonLd
+                ? jsonLdTag(
+                    ssrMod.complexJsonLd({
+                      slug: c.slug,
+                      name: c.name,
+                      description: plainFromMaybeHtml(c.description, 300) || null,
+                      address: c.address,
+                      city: c.city,
+                      image: c.cover,
+                      priceFrom: c.priceFrom,
+                      priceTo: c.priceTo,
+                      offerCount: c.count,
+                      lat: c.lat,
+                      lng: c.lng,
+                      siteUrl,
+                      brand: siteBrand,
+                    }),
+                    'lg-entity-seo-jsonld',
+                  )
+                : '',
+            ),
+            {
+              title: `${cText.title} | ${siteBrand}`,
+              description: cText.description,
+              canonical: `${siteUrl}/complex/${encodeURIComponent(c.slug)}`,
+            },
+          ),
+          c.cover,
+        ),
         `/complex/${encodeURIComponent(c.slug)}`,
         preloadHref(coverTag),
       ),
     );
+  }
+
+  if (ssrMod?.apartmentSeo && process.env.SKIP_APARTMENTS !== '1') {
+    try {
+      const n = await writeApartmentPages(apiBase, baseHtml, ssrMod, siteUrl, siteBrand);
+      console.log(`[prerender-seo] квартиры: ${n} страниц.`);
+    } catch (e) {
+      console.warn(`[prerender-seo] квартиры пропущены (${e.message}) — остаются прежние страницы.`);
+    }
   }
 
   let newsSlugs = [];

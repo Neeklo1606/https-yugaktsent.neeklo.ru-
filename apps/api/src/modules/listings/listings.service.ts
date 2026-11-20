@@ -1121,6 +1121,9 @@ export class ListingsService implements OnModuleInit {
         return { apartment: { floor: 'desc' } };
       case 'created_desc':
         return { createdAt: 'desc' };
+      case 'id_asc':
+        // Стабильный порядок для постраничной выгрузки (пререндер страниц квартир)
+        return { id: 'asc' };
       default:
         return { createdAt: 'desc' };
     }

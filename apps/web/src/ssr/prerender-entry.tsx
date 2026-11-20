@@ -81,3 +81,6 @@ export async function render(url: string, passes = 4): Promise<PrerenderResult> 
   const state = dehydrate(qc, { shouldDehydrateQuery: (q) => q.state.status === 'success' });
   return { html, state, fetched, failed };
 }
+
+// Тексты и JSON-LD для HTML квартир/ЖК/главной — тот же код, что у приложения
+export { apartmentSeo, complexSeoText, complexJsonLd, homeJsonLd, roomsFromName, jsonLdScriptBody } from '@/shared/seo/structured-seo';

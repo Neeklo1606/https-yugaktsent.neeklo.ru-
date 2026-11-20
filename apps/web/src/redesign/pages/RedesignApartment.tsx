@@ -37,6 +37,9 @@ import { useInViewOnce } from '@/shared/hooks/useInViewOnce';
 import { buildCatalogFilterUrl } from '@/redesign/lib/catalog-filter-links';
 import { useDefaultRegionId } from '@/redesign/hooks/useDefaultRegionId';
 import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
+import { apartmentSeo } from '@/shared/seo/structured-seo';
+
+const SEO_SITE_URL = (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined)?.replace(/\/+$/, '') || 'https://yugaktsent.neeklo.ru';
 import RelatedListingsCarousel from '@/discovery/components/RelatedListingsCarousel';
 import SessionDiscoverySection from '@/redesign/components/SessionDiscoverySection';
 import CompareSessionChip from '@/shared/components/CompareSessionChip';
@@ -137,32 +140,30 @@ const RedesignApartment = () => {
 
   const entitySeo = useMemo(() => {
     if (!apt) return null;
-    const roomsLabel =
-      apt.rooms == null ? 'Квартира' : apt.rooms === 0 ? 'Студия' : `${apt.rooms}-комн.`;
-    const priceLabel = formatDisplayPrice(apt.price);
-    const title = [apt.area ? `${roomsLabel}, ${formatArea(apt.area)}` : roomsLabel, complex?.name]
-      .filter(Boolean)
-      .join(' · ');
-    const description = [priceLabel, complex?.name, apt.area ? `${formatArea(apt.area)}` : '']
-      .filter(Boolean)
-      .join(' · ')
-      .slice(0, 160);
+    const detail = listingQuery.data as (ApiListingDetail & { region?: { name?: string | null } | null; block?: { name?: string | null; slug?: string | null } | null }) | undefined;
     const path = listingId != null ? `/apartment/${listingId}` : location.pathname;
+    const seo = apartmentSeo({
+      id: listingId ?? apt.id,
+      rooms: Number.isFinite(apt.rooms) ? apt.rooms : null,
+      area: apt.area || null,
+      floor: apt.floor || null,
+      floorsTotal: apt.totalFloors || null,
+      price: apt.price || null,
+      complexName: complex?.name ?? detail?.block?.name ?? null,
+      complexSlug: detail?.block?.slug ?? complex?.slug ?? null,
+      city: detail?.region?.name ?? null,
+      image: mediaImages[0] ?? (isValidImageSrc(apt.planImage) ? apt.planImage : null),
+      siteUrl: SEO_SITE_URL,
+      brand: shortName,
+    });
     return {
-      title: title || 'Квартира',
-      description: description || `Карточка квартиры на ${shortName}`,
+      title: seo.title,
+      description: seo.description,
       pathname: path,
       imageUrl: mediaImages[0] ?? null,
-      jsonLd: {
-        '@context': 'https://schema.org',
-        '@type': 'Apartment',
-        name: title,
-        url: `${window.location.origin}${path}`,
-        ...(priceLabel ? { offers: { '@type': 'Offer', price: apt.price, priceCurrency: 'RUB' } } : {}),
-        ...(apt.area ? { floorSize: { '@type': 'QuantitativeValue', value: apt.area, unitCode: 'MTK' } } : {}),
-      },
+      jsonLd: seo.jsonLd,
     };
-  }, [apt, complex, listingId, location.pathname, mediaImages, shortName]);
+  }, [apt, complex, listingId, listingQuery.data, location.pathname, mediaImages, shortName]);
   useEntitySeoMeta(entitySeo);
 
   const similarApts = useMemo(() => {
