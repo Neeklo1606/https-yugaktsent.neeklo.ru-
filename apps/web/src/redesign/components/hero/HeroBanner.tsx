@@ -131,7 +131,8 @@ const HeroBanner = ({ search }: { search?: ReactNode }) => {
    * Телефон и планшет: прежняя раскладка, поиск под баннером (variant="below").
    */
   const centerSearch = search ? (
-    <div className="pointer-events-none absolute inset-0 z-30 hidden lg:flex lg:flex-col lg:items-center lg:justify-center lg:px-8">
+    // key: тот же узел и в «загрузке», и в готовом баннере — React не пересоздаёт поиск и не теряет ввод
+    <div key="hero-search" className="pointer-events-none absolute inset-0 z-30 hidden lg:flex lg:flex-col lg:items-center lg:justify-center lg:px-8">
       <div className="pointer-events-auto flex w-full flex-col items-center gap-5 text-center">
         <div>
           <p className="text-display text-white">Квартиры в новостройках юга</p>

@@ -194,7 +194,13 @@ const QuickSearch = ({ variant = 'below' }: { variant?: Variant }) => {
   const go = (path: '/catalog' | '/map') => {
     setSheetOpen(false);
     setSearchSheetOpen(false);
-    const q = params();
+    let q = params();
+    // Кнопка обещает «Показать N квартир» — открываем список квартир, а не ЖК (иначе «284 квартиры» → «3 ЖК»)
+    if (path === '/catalog' && isFlats && !filters.search.trim()) {
+      const sp = new URLSearchParams(q);
+      sp.set('group', 'flats');
+      q = sp.toString();
+    }
     navigate(q ? `${path}?${q}` : path);
   };
 
