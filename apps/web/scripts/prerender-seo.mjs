@@ -426,6 +426,7 @@ async function writeApartmentPages(apiBase, baseHtml, mod, siteUrl, siteBrand) {
           price: Number(l.price) || null,
           complexName: l.block?.name || ap.blockName || null,
           complexSlug: l.block?.slug || null,
+          building: ap.buildingName || l.building?.name || null,
           city: l.region?.name || null,
           image,
           siteUrl,

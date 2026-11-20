@@ -16,6 +16,8 @@ export type ApartmentSeoInput = {
   price: number | null;
   complexName?: string | null;
   complexSlug?: string | null;
+  /** Корпус/литер: «Литер 9.1» */
+  building?: string | null;
   city?: string | null;
   image?: string | null;
   siteUrl: string;
@@ -51,7 +53,7 @@ function groupDigits(n: number): string {
 }
 
 function areaText(area: number): string {
-  const r = Math.round(area * 10) / 10;
+  const r = Math.round(area * 100) / 100;
   return `${String(r).replace('.', ',')}${NBSP}м²`;
 }
 
@@ -89,13 +91,16 @@ export function apartmentSeo(a: ApartmentSeoInput): SeoResult {
   const area = num(a.area);
   const price = num(a.price);
   const floor = num(a.floor);
-  const floorsTotal = num(a.floorsTotal);
+  const floorsTotalRaw = num(a.floorsTotal);
+  // Заглушка «1» из маппера при отсутствии данных: этажность меньше этажа квартиры не показываем
+  const floorsTotal = floorsTotalRaw && floor && floorsTotalRaw >= floor ? floorsTotalRaw : null;
   const complex = a.complexName?.trim() || null;
   const city = a.city?.trim() || null;
+  const building = a.building?.trim() || null;
 
   const where = [complex ? `в ЖК «${complex}»` : null, city].filter(Boolean).join(', ');
   const title = [
-    `${roomsShort(a.rooms)}${area ? ` ${areaText(area)}` : ''}${where ? ` ${where}` : ''}`,
+    `${roomsShort(a.rooms)}${area ? ` ${areaText(area)}` : ''}${num(a.floor) ? `, ${num(a.floor)} этаж` : ''}${building ? `, ${building}` : ''}${where ? ` ${where}` : ''}`,
     price ? `${groupDigits(price)}${NBSP}₽` : null,
   ]
     .filter(Boolean)
@@ -293,6 +298,14 @@ export function cityIn(city: string | null | undefined): string | null {
   return `в ${CITY_PREPOSITIONAL[c] ?? c}`;
 }
 
+function flatsWord(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return 'квартира';
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'квартиры';
+  return 'квартир';
+}
+
 function millions(n: number): string {
   if (n < 1_000_000) return `${groupDigits(n)}${NBSP}₽`;
   const m = Math.round((n / 1_000_000) * 100) / 100;
@@ -320,7 +333,7 @@ export function complexSeoText(c: {
   const own = plain(c.description, 200);
   const description =
     own ||
-    `ЖК «${c.name}»${where ? ` ${where}` : ''}: ${count ? `${groupDigits(count)} квартир в продаже` : 'квартиры в продаже'}` +
+    `ЖК «${c.name}»${where ? ` ${where}` : ''}: ${count ? `${groupDigits(count)} ${flatsWord(count)} в продаже` : 'квартиры в продаже'}` +
       `${from ? ` от ${millions(from)}` : ''}. Планировки, шахматка и цены застройщика, бесплатная консультация ${c.brand}.`;
   return { title, description };
 }

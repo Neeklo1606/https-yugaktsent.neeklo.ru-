@@ -24,7 +24,7 @@ describe('structured-seo', () => {
       city: 'Анапа',
       image: 'https://bx.sskuban.ru/p.png',
     });
-    expect(sp(r.title)).toBe('1-комн. квартира 39 м² в ЖК «На высоком берегу», Анапа — 10 906 000 ₽');
+    expect(sp(r.title)).toBe('1-комн. квартира 38,95 м², 5 этаж в ЖК «На высоком берегу», Анапа — 10 906 000 ₽');
     expect(sp(r.description)).toContain('на 5 этаже в ЖК «На высоком берегу» (Анапа)');
     expect(sp(r.description)).toContain('280 000 ₽/м²');
     expect(r.canonical).toBe('https://yugaktsent.neeklo.ru/apartment/6525');
@@ -36,8 +36,12 @@ describe('structured-seo', () => {
   });
 
   it('studio without price', () => {
+    const bad = apartmentSeo({ ...base, id: 2, rooms: 1, area: 30, floor: 5, floorsTotal: 1, price: 1 });
+    expect(bad.description).toContain('на 5 этаже');
+    const ok = apartmentSeo({ ...base, id: 3, rooms: 1, area: 30, floor: 5, floorsTotal: 9, price: 1 });
+    expect(ok.description).toContain('на 5 из 9 этаже');
     const r = apartmentSeo({ ...base, id: 1, rooms: 0, area: 28.28, price: null, complexName: 'Борский', city: 'Краснодар' });
-    expect(sp(r.title)).toBe('Студия 28,3 м² в ЖК «Борский», Краснодар');
+    expect(sp(r.title)).toBe('Студия 28,28 м² в ЖК «Борский», Краснодар');
     expect(r.description).toContain('Цена по запросу');
     expect((r.jsonLd['@graph'] as unknown[]).length).toBe(2);
   });
@@ -45,7 +49,7 @@ describe('structured-seo', () => {
   it('complex text and JSON-LD', () => {
     const t = complexSeoText({ name: 'Борский', city: 'Краснодар', priceFrom: 6_280_000, offerCount: 52, brand: 'ЮгАкцент' });
     expect(t.title).toBe('ЖК «Борский» в Краснодаре — цены и планировки');
-    expect(sp(t.description)).toContain('52 квартир в продаже от 6,28 млн ₽');
+    expect(sp(t.description)).toContain('52 квартиры в продаже от 6,28 млн ₽');
     const j = complexJsonLd({ ...base, slug: 'борский', name: 'Борский', city: 'Краснодар', priceFrom: 6_280_000, priceTo: 9_000_000, offerCount: 52, lat: 0, lng: 0 });
     const graph = j['@graph'] as Record<string, unknown>[];
     expect(graph[0].geo).toBeUndefined();

@@ -140,7 +140,7 @@ const RedesignApartment = () => {
 
   const entitySeo = useMemo(() => {
     if (!apt) return null;
-    const detail = listingQuery.data as (ApiListingDetail & { region?: { name?: string | null } | null; block?: { name?: string | null; slug?: string | null } | null }) | undefined;
+    const detail = listingQuery.data as (ApiListingDetail & { region?: { name?: string | null } | null; block?: { name?: string | null; slug?: string | null } | null; building?: { name?: string | null } | null; apartment?: { buildingName?: string | null } | null }) | undefined;
     const path = listingId != null ? `/apartment/${listingId}` : location.pathname;
     const seo = apartmentSeo({
       id: listingId ?? apt.id,
@@ -151,6 +151,8 @@ const RedesignApartment = () => {
       price: apt.price || null,
       complexName: complex?.name ?? detail?.block?.name ?? null,
       complexSlug: detail?.block?.slug ?? complex?.slug ?? null,
+      // Порядок как в scripts/prerender-seo.mjs — title в HTML и после загрузки совпадает
+      building: detail?.apartment?.buildingName || detail?.building?.name || apt.buildingName || null,
       city: detail?.region?.name ?? null,
       image: mediaImages[0] ?? (isValidImageSrc(apt.planImage) ? apt.planImage : null),
       siteUrl: SEO_SITE_URL,
