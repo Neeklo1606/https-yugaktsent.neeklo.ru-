@@ -1,0 +1,10 @@
+[Unit]
+Description=ЮгАкцент — сторож API (зависание → перезапуск, уведомление в Telegram из /etc/yugaktsent/monitor.env)
+After=yugaktsent-api.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /var/www/yugaktsent-lg/deploy/yugaktsent/scripts/api-watchdog.sh
+TimeoutStartSec=120
+StandardOutput=append:/var/log/yugaktsent-lg/watchdog.log
+StandardError=append:/var/log/yugaktsent-lg/watchdog.log
