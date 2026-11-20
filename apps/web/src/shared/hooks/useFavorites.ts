@@ -7,7 +7,7 @@ import { useAuth } from './useAuth';
 import { apiDelete, apiGet, apiPost, ApiError } from '@/lib/api';
 
 const GUEST_KEY = 'lg_favorites_guest_v2';
-const MAX_ITEMS = 20;
+const MAX_ITEMS = 100;
 
 export type FavoriteRow = {
   id: number;
@@ -47,8 +47,17 @@ function readGuest(): { blockIds: number[]; listingIds: number[] } {
   }
 }
 
+const GUEST_EVENT = 'lg-favorites-guest-changed';
+
 function writeGuest(v: { blockIds: number[]; listingIds: number[] }) {
-  localStorage.setItem(GUEST_KEY, JSON.stringify(v));
+  try {
+    localStorage.setItem(GUEST_KEY, JSON.stringify(v));
+  } catch {
+    /* приватный режим — избранное живёт до перезагрузки */
+  }
+  // Каждая карточка держит свою копию useFavorites — сообщаем остальным (шапка, нижнее меню, «Избранное»).
+  // В отложенной задаче: writeGuest вызывается из апдейтера setState, где нельзя обновлять другие компоненты.
+  if (typeof window !== 'undefined') setTimeout(() => window.dispatchEvent(new Event(GUEST_EVENT)), 0);
 }
 
 function isApiErrorStatus(e: unknown, status: number): boolean {
@@ -78,6 +87,19 @@ export function useFavorites() {
       setGuest(readGuest());
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    const sync = () => setGuest(readGuest());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === GUEST_KEY) sync();
+    };
+    window.addEventListener(GUEST_EVENT, sync);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener(GUEST_EVENT, sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
@@ -227,6 +249,9 @@ export function useFavorites() {
 
   return {
     favorites: listQuery.data,
+    /** Избранное гостя (localStorage) — без входа в аккаунт сервер о нём не знает */
+    guestBlockIds: guest.blockIds,
+    guestListingIds: guest.listingIds,
     isLoading: isAuthenticated && listQuery.isLoading,
     count,
     isBlockFavorite,

@@ -6,7 +6,23 @@ export function normalizeSearchQuery(raw: string): string {
     .replace(/ё/gi, 'е')
     .replace(/^м\.?\s*/i, '')
     .replace(/[«»"'`]/g, '')
+    .replace(GENERIC_WORDS, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
     .slice(0, 120);
+}
+
+/**
+ * «ЖК Борский», «жилой комплекс Сердце», «новостройки» — служебные слова, в названиях ЖК их нет.
+ * Без них поиск «жк» ничего не находил. Только целые слова (граница — пробел/край строки).
+ */
+const GENERIC_WORDS =
+  /(^|\s)(жк|ж\/к|ж\.к\.?|жилой комплекс|жилом комплексе|жилые комплексы|комплекс|новостройк[аиу]?)(?=\s|$)/gi;
+
+/** Запрос состоит только из служебных слов («жк», «новостройки») — показать все ЖК. */
+export function isGenericComplexQuery(raw: string): boolean {
+  const t = raw.trim();
+  return t.length > 0 && normalizeSearchQuery(t) === '';
 }
 
 /** Extra contains variants for typo-tolerant ILIKE (metro names, hyphenated). */

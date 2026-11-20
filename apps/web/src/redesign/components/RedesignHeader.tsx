@@ -9,6 +9,8 @@ import MobileTabBar from '@/redesign/components/MobileTabBar';
 import ConsultationFlow from '@/redesign/components/ConsultationFlow';
 import HeaderCitySwitch from '@/redesign/components/HeaderCitySwitch';
 import { btnClass } from '@/redesign/lib/button-styles';
+import FavoritesBadgeIcon from '@/redesign/components/FavoritesBadgeIcon';
+import { useFavorites } from '@/shared/hooks/useFavorites';
 
 /** Пять пунктов меню по согласованным макетам. */
 const NAV_ITEMS: { label: string; short?: string; href: string; match: (path: string, search: string) => boolean }[] = [
@@ -170,6 +172,8 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
               </>
             ) : null}
 
+            <FavoritesHeaderLink />
+
             {/* Соцсети помещаются рядом с меню, городом, телефоном и кнопкой только с 1536 px; ниже они в подвале и мобильном меню */}
             <div className="hidden items-center gap-1 2xl:flex">{socials}</div>
 
@@ -178,7 +182,9 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
               onClick={() => setLeadOpen(true)}
               className={cn(btnClass('primary'), 'hidden h-10 px-5 lg:inline-flex')}
             >
-              Оставить заявку
+              {/* до 1700 px короткая подпись — место заняло избранное */}
+              <span className="min-[1700px]:hidden">Заявка</span>
+              <span className="hidden min-[1700px]:inline">Оставить заявку</span>
             </button>
 
             <button
@@ -282,3 +288,17 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
 };
 
 export default RedesignHeader;
+
+function FavoritesHeaderLink() {
+  const { count } = useFavorites();
+  return (
+    <Link
+      to="/favorites"
+      aria-label={count > 0 ? `Избранное: ${count}` : 'Избранное'}
+      title="Избранное"
+      className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted hover:text-primary"
+    >
+      <FavoritesBadgeIcon />
+    </Link>
+  );
+}

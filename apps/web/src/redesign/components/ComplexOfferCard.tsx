@@ -142,7 +142,7 @@ export default function ComplexOfferCard({
 
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-card border border-border bg-card shadow-card transition-shadow hover:shadow-raised">
-      <Link to={href} {...prefetchHandlers('/complex/')} className="relative block aspect-[16/9] overflow-hidden bg-surface-soft" aria-label={`ЖК ${complex.name}`} tabIndex={-1}>
+      <Link to={href} {...prefetchHandlers('/complex/')} className="relative z-[1] block aspect-[16/9] overflow-hidden bg-surface-soft" aria-label={`ЖК ${complex.name}`} tabIndex={-1}>
         {images.length > 0 ? <CoverCarousel images={images} name={complex.name} priority={priority} onError={onCoverError ?? (() => {})} /> : null}
       </Link>
       <button
@@ -150,7 +150,7 @@ export default function ComplexOfferCard({
         onClick={onLike}
         aria-pressed={liked}
         aria-label={liked ? 'Убрать из избранного' : 'В избранное'}
-        className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-card/95 text-foreground shadow-card transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="absolute right-3 top-3 z-[2] grid h-9 w-9 place-items-center rounded-full bg-card/95 text-foreground shadow-card transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Heart className={cn('h-[18px] w-[18px]', liked && 'fill-primary text-primary')} aria-hidden />
       </button>

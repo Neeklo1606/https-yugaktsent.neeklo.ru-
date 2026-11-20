@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { BlocksService } from '../blocks/blocks.service';
 import { QueryBlocksDto } from '../blocks/dto/query-blocks.dto';
 import { CatalogMeilisearchService } from '../meilisearch/catalog-meilisearch.service';
-import { normalizeSearchQuery, searchQueryVariants } from '../../common/search-query.util';
+import { isGenericComplexQuery, normalizeSearchQuery, searchQueryVariants } from '../../common/search-query.util';
 
 export type CatalogHintsResult = {
   complexes: Array<{
@@ -34,10 +34,13 @@ export class SearchService {
 
   async catalogHints(regionId: number, rawQ: string, limit = 15): Promise<CatalogHintsResult> {
     const q = normalizeSearchQuery(rawQ);
+    const take = Math.min(Math.max(limit, 1), 30);
+    if (isGenericComplexQuery(rawQ)) {
+      return { complexes: await this.listRegionComplexes(regionId, take), metro: [], districts: [], streets: [] };
+    }
     if (q.length < 2) {
       return { complexes: [], metro: [], districts: [], streets: [] };
     }
-    const take = Math.min(Math.max(limit, 1), 30);
 
     const queryDto: QueryBlocksDto = {
       region_id: regionId,
@@ -163,5 +166,37 @@ export class SearchService {
       districts: districtRows,
       streets,
     };
+  }
+
+  /** Все ЖК региона с продающимися лотами — ответ на «жк», «новостройки». */
+  private async listRegionComplexes(regionId: number, take: number): Promise<CatalogHintsResult['complexes']> {
+    const { where, noMatch } = await this.blocks.buildCatalogBlockWhere({
+      region_id: regionId,
+      page: 1,
+      per_page: take,
+      require_active_listings: true,
+    });
+    if (noMatch) return [];
+    const rows = await this.prisma.block.findMany({
+      where,
+      take,
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        district: { select: { name: true } },
+        images: { orderBy: { sortOrder: 'asc' as const }, take: 1, select: { url: true } },
+        subways: { orderBy: { distanceTime: 'asc' as const }, take: 1, select: { subway: { select: { name: true } } } },
+      },
+    });
+    return rows.map((b) => ({
+      id: b.id,
+      slug: b.slug,
+      name: b.name,
+      districtName: b.district?.name ?? null,
+      metroName: b.subways[0]?.subway.name ?? null,
+      imageUrl: b.images[0]?.url ?? null,
+    }));
   }
 }

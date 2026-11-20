@@ -105,14 +105,51 @@ const FavoriteBlockCard = ({ blockId, slug, name }: { blockId: number; slug?: st
   return <ComplexCard complex={complex} />;
 };
 
+/** Квартира из избранного гостя: в localStorage только id, данные берём из API. */
+const FavoriteListingCard = ({ listingId }: { listingId: number }) => {
+  const q = useQuery({
+    queryKey: ['favorite-listing', listingId],
+    queryFn: () => apiGetOrNull<ApiListingCardRow>(`/listings/${listingId}`),
+  });
+  if (q.isLoading) return <div className="rounded-2xl border border-border bg-card h-[360px]" />;
+  if (!q.data) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">
+        Квартира снята с продажи
+      </div>
+    );
+  }
+  return <ListingCard listing={q.data} />;
+};
+
 const Favorites = () => {
-  const { favorites, isLoading, removeByFavoriteId } = useFavorites();
+  const { favorites, isLoading, removeByFavoriteId, guestBlockIds, guestListingIds, toggleBlock, toggleListing } =
+    useFavorites();
   const { isAuthenticated } = useAuth();
   const qc = useQueryClient();
   const { ids: compareIds, toggle: toggleCompare, count: compareCount } = useCompare();
   const [savingCollection, setSavingCollection] = useState(false);
   const [addingItemId, setAddingItemId] = useState<number | null>(null);
-  const rows = favorites ?? [];
+  // Гость: строки собираем из id в localStorage (отрицательные id — чтобы не пересечься с серверными)
+  const guestRows: FavoriteRow[] = isAuthenticated
+    ? []
+    : [
+        ...guestBlockIds.map((id) => ({ id: -id, blockId: id, listingId: null, createdAt: '', block: null, listing: null })),
+        ...guestListingIds.map((id) => ({
+          id: -1_000_000_000 - id,
+          blockId: null,
+          listingId: id,
+          createdAt: '',
+          block: null,
+          listing: null,
+        })),
+      ];
+  const rows = isAuthenticated ? favorites ?? [] : guestRows;
+  const removeRow = (row: FavoriteRow) => {
+    if (isAuthenticated) return removeByFavoriteId(row.id);
+    if (row.blockId != null) return toggleBlock(row.blockId);
+    if (row.listingId != null) return toggleListing(row.listingId);
+  };
 
   const listingCompareKeys = rows
     .map(favoriteCompareKey)
@@ -328,6 +365,8 @@ const Favorites = () => {
                       <div className={cn((row.listing?.status === 'SOLD' || row.listing?.isPublished === false) && 'opacity-75')}>
                         <ListingCard listing={listing} />
                       </div>
+                    ) : row.listingId != null ? (
+                      <FavoriteListingCard listingId={row.listingId} />
                     ) : (
                       <div className="rounded-xl border border-border bg-card p-4">Неизвестный объект</div>
                     )}
@@ -348,21 +387,22 @@ const Favorites = () => {
                           {inCompare ? 'В сравнении' : 'Сравнить'}
                         </Button>
                       ) : null}
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="h-8 px-2 text-xs"
-                        disabled={!isAuthenticated || addingItemId === row.id}
-                        title={!isAuthenticated ? 'Войдите в аккаунт' : undefined}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          void saveSingleFavoriteToCollection(row);
-                        }}
-                      >
-                        {addingItemId === row.id ? '…' : 'В подборку'}
-                      </Button>
+                      {isAuthenticated ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 px-2 text-xs"
+                          disabled={addingItemId === row.id}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void saveSingleFavoriteToCollection(row);
+                          }}
+                        >
+                          {addingItemId === row.id ? '…' : 'В подборку'}
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="destructive"
@@ -371,7 +411,7 @@ const Favorites = () => {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          void removeByFavoriteId(row.id);
+                          void removeRow(row);
                         }}
                       >
                         Удалить

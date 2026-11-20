@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, LayoutGrid, MapPin, Phone } from 'lucide-react';
+import FavoritesBadgeIcon from '@/redesign/components/FavoritesBadgeIcon';
 import { cn } from '@/lib/utils';
 
 const TAB_CLASS =
   'flex h-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors';
 
-/** Четыре раздела по ТЗ v3 (4.1). Избранное — в карточках и меню, поиск — на главной и в каталоге */
+/** Разделы нижнего меню; «Избранное» со счётчиком — между картой и контактами (20.11, как у Аякса) */
 const TABS = [
   { to: '/', label: 'Главная', icon: Home },
   { to: '/catalog', label: 'Каталог', icon: LayoutGrid },
   { to: '/map', label: 'Карта', icon: MapPin },
+  { to: '/favorites', label: 'Избранное', icon: null },
   { to: '/contacts', label: 'Контакты', icon: Phone },
 ] as const;
 
@@ -50,12 +52,16 @@ const MobileTabBar = () => {
         hidden && 'translate-y-[calc(100%+env(safe-area-inset-bottom,0px))]',
       )}
     >
-      <div className="grid h-[var(--mobile-nav-h)] grid-cols-4">
+      <div className="grid h-[var(--mobile-nav-h)] grid-cols-5">
         {TABS.map(({ to, label, icon: Icon }) => {
           const active = isActive(to);
           return (
             <Link key={to} to={to} aria-current={active ? 'page' : undefined} className={cn(TAB_CLASS, active ? 'text-primary' : 'text-muted-foreground hover:text-foreground')}>
-              <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
+              {Icon ? (
+                <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
+              ) : (
+                <FavoritesBadgeIcon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
+              )}
               <span>{label}</span>
             </Link>
           );
