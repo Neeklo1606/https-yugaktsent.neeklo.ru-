@@ -12,7 +12,7 @@ import { prefetchHandlers } from '@/shared/lib/route-prefetch';
 /*
  * Карточка ЖК по референсу LiveGrid — одна для главной («Популярные ЖК»), каталога,
  * избранного и похожих ЖК: фото-карусель с точками и «сердечком», название, статус,
- * адрес, срок сдачи, цены «от» по комнатности с отточием, «Квартир N», тег «Новостройки».
+ * адрес, срок сдачи, цены «от» по комнатности с отточием, «N квартир в продаже».
  * Метро по ТЗ не используем. Все цифры из каталога: нет данных — строки нет.
  */
 
@@ -104,6 +104,14 @@ function CoverCarousel({
   );
 }
 
+function flatsInSale(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return 'квартира';
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'квартиры';
+  return 'квартир';
+}
+
 export default function ComplexOfferCard({
   complex,
   cityFallback,
@@ -139,7 +147,7 @@ export default function ComplexOfferCard({
   };
 
   return (
-    <article className="group relative flex h-full flex-col overflow-hidden rounded-card border border-border bg-card shadow-card transition-shadow hover:shadow-raised">
+    <article className="group relative flex h-full w-full flex-col overflow-hidden rounded-card border border-border bg-card shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-raised motion-reduce:hover:translate-y-0">
       <Link to={href} {...prefetchHandlers('/complex/')} className="relative z-[1] block aspect-[16/9] overflow-hidden bg-surface-soft" aria-label={`ЖК ${complex.name}`} tabIndex={-1}>
         {images.length > 0 ? <CoverCarousel images={images} name={complex.name} priority={priority} onError={onCoverError ?? (() => {})} /> : null}
       </Link>
@@ -193,14 +201,11 @@ export default function ComplexOfferCard({
           <p className="mt-3 text-[15px] text-foreground">Цена по запросу</p>
         ) : null}
 
-        {units ? <p className="mt-2.5 text-[13px] text-muted-foreground">Квартир {units.toLocaleString('ru-RU')}</p> : null}
-
-        {/* Тег «Новостройки» по референсу — на телефоне лишние 70 px: все ЖК в каталоге новостройки */}
-        <div className="mt-auto pt-4 max-sm:hidden">
-          <div className="border-t border-border/70 pt-4">
-            <span className="inline-flex h-9 items-center rounded-lg border border-primary/70 px-3.5 text-[14px] font-semibold text-primary">Новостройки</span>
-          </div>
-        </div>
+        {units ? (
+          <p className="mt-auto pt-3 text-[13px] text-muted-foreground">
+            {units.toLocaleString('ru-RU')} {flatsInSale(units)} в продаже
+          </p>
+        ) : null}
       </div>
     </article>
   );

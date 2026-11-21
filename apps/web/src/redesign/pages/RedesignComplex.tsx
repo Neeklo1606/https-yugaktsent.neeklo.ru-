@@ -1,16 +1,15 @@
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { MapPin, Heart, Share2, FileText, Building2 } from 'lucide-react';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { MapPin, Heart, Share2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ComplexCard from '@/redesign/components/ComplexCard';
 import SnapRail from '@/redesign/components/home/SnapRail';
 import RedesignHeader from '@/redesign/components/RedesignHeader';
 import FooterSection from '@/components/FooterSection';
 import ComplexPremiumGallery from '@/redesign/components/ComplexPremiumGallery';
-import ComplexPageHeader from '@/redesign/components/ComplexPageHeader';
-import ComplexQuickMeta from '@/redesign/components/ComplexQuickMeta';
-import ComplexStickySidebar from '@/redesign/components/ComplexStickySidebar';
+import ComplexSummaryCard, { flatsWord } from '@/redesign/components/ComplexSummaryCard';
+import Reveal from '@/shared/components/Reveal';
 import ComplexInlineFilters from '@/redesign/components/ComplexInlineFilters';
 import ComplexQueueTable from '@/redesign/components/ComplexQueueTable';
 import ComplexAnchorNav, { type ComplexSection } from '@/redesign/components/ComplexAnchorNav';
@@ -22,7 +21,6 @@ import ConsultationFlow from '@/redesign/components/ConsultationFlow';
 import { CONVERSION_CTA, type ConsultationContext } from '@/redesign/lib/conversion-cta';
 import LayoutGrid from '@/redesign/components/LayoutGrid';
 import LeadForm from '@/shared/components/LeadForm';
-import RelatedListingsCarousel from '@/discovery/components/RelatedListingsCarousel';
 import { apiGet, apiGetOrNull } from '@/lib/api';
 import {
   formatPriceFrom,
@@ -96,14 +94,22 @@ const RedesignComplex = () => {
     staleTime: 600_000,
   });
 
-  const listingsQuery = useQuery({
-    queryKey: ['listings', 'block', apiBlockQuery.data?.id],
-    queryFn: () =>
-      apiGet<{ data: ApiListingRow[] }>(
-        `/listings?block_id=${apiBlockQuery.data!.id}&statuses=ACTIVE,RESERVED,SOLD&is_published=true&per_page=48`,
+  // Квартиры порциями по 48 с кнопкой «Показать ещё»: раньше показывались только первые 48 из сотен
+  const listingsQuery = useInfiniteQuery({
+    queryKey: ['listings', 'block-pages', apiBlockQuery.data?.id],
+    queryFn: ({ pageParam }) =>
+      apiGet<{ data: ApiListingRow[]; meta?: { total?: number; total_pages?: number; page?: number } }>(
+        `/listings?block_id=${apiBlockQuery.data!.id}&statuses=ACTIVE,RESERVED,SOLD&is_published=true&per_page=48&page=${pageParam}&sort=price_asc`,
       ),
+    initialPageParam: 1,
+    getNextPageParam: (last, all) => {
+      const pages = Number(last.meta?.total_pages) || 1;
+      return all.length < pages ? all.length + 1 : undefined;
+    },
     enabled: Boolean(apiBlockQuery.data?.id),
   });
+  const listingRows = useMemo(() => listingsQuery.data?.pages.flatMap((p) => p.data) ?? [], [listingsQuery.data]);
+  const listingsTotal = listingsQuery.data?.pages[0]?.meta?.total ?? listingRows.length;
 
   const chessboardQuery = useQuery({
     queryKey: ['block', 'chessboard', resolvedSlug],
@@ -132,10 +138,9 @@ const RedesignComplex = () => {
 
   const apiComplex = useMemo(() => {
     if (!apiBlockQuery.data) return null;
-    const rows = listingsQuery.data?.data ?? [];
-    const mapped = mapApiBlockDetailToResidentialComplex(apiBlockQuery.data, rows);
+    const mapped = mapApiBlockDetailToResidentialComplex(apiBlockQuery.data, listingRows);
     return priceRangesQuery.data?.length ? { ...mapped, priceRanges: priceRangesQuery.data } : mapped;
-  }, [apiBlockQuery.data, listingsQuery.data, priceRangesQuery.data]);
+  }, [apiBlockQuery.data, listingRows, priceRangesQuery.data]);
 
   const complex = apiComplex ?? null;
   const fromApi = Boolean(apiComplex);
@@ -353,12 +358,11 @@ const RedesignComplex = () => {
     if (hasBuildings || hasApartments || hasLayouts) s.push({ id: 'layouts', label: 'Квартиры' });
     if (hasChess) s.push({ id: 'chessboard', label: 'Шахматка' });
     if (hasLayouts) s.push({ id: 'plans', label: 'Планировки' });
-    if (hasMap) s.push({ id: 'map', label: 'Карта' });
-    if (hasDescription || hasInfra) s.push({ id: 'description', label: 'Об объекте' });
-    if (hasDeveloper) s.push({ id: 'developer', label: 'Застройщик' });
+    // Блок «О комплексе» есть почти всегда: в фактах хотя бы цена и срок сдачи
+    if (complex) s.push({ id: 'description', label: 'О комплексе' });
     if (similarComplexes.length > 0) s.push({ id: 'similar', label: 'Похожие' });
     return s;
-  }, [hasApartments, hasChess, hasDescription, hasInfra, hasMap, hasDeveloper, hasBuildings, hasLayouts, similarComplexes.length]);
+  }, [complex, hasApartments, hasChess, hasBuildings, hasLayouts, similarComplexes.length]);
 
   const initMap = useCallback(() => {
     if (!ymapsReady || !complex || mapInstanceRef.current || !mapRef.current || !window.ymaps) return;
@@ -519,84 +523,112 @@ const RedesignComplex = () => {
     );
   }
 
+  const city = apiBlockQuery.data?.region?.name ?? null;
+  const pickRooms = (rooms: number) => {
+    setRoomFilter(roomCategoryFromRooms(rooms));
+    scrollToSection('layouts');
+  };
+  const pageActions = [
+    {
+      key: 'fav',
+      icon: <Heart className={cn('w-4 h-4', blockLiked && 'fill-destructive text-destructive')} />,
+      label: blockLiked ? 'В избранном' : 'В избранное',
+      disabled: blockNum == null,
+      active: blockLiked,
+      // Гостю избранное в localStorage — без входа (ТЗ v3, 4.1)
+      onClick: () => {
+        if (blockNum == null) return;
+        void toggleBlock(blockNum);
+      },
+    },
+    {
+      key: 'pdf',
+      icon: <FileText className="w-4 h-4" />,
+      label: 'Презентация PDF',
+      href: `/presentation/${complex.slug}`,
+    },
+    {
+      key: 'share',
+      icon: <Share2 className="w-4 h-4" />,
+      label: 'Поделиться',
+      onClick: () => void shareCurrentPage({ title: complex.name }),
+    },
+  ];
+  const priceFromText = formatPriceFrom(complex.priceFrom);
+
   return (
-    <div className="min-h-screen bg-background pb-32 lg:pb-8">
+    <div className="min-h-screen bg-background pb-28 lg:pb-0">
       <RedesignHeader mobileTabBar={false} />
 
-      <main id="main" className="max-w-[1400px] 2xl:max-w-[1680px] mx-auto px-4 py-4 sm:py-6">
-        <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3 min-w-0 flex-wrap">
-            <Link to="/" className="inline-flex min-h-8 shrink-0 items-center hover:text-foreground">Главная</Link>
-            <span>/</span>
-            {regionId ? (
-              <>
-                <Link to={buildCatalogFilterUrl(regionId)} className="inline-flex min-h-8 shrink-0 items-center hover:text-foreground">Каталог</Link>
-                {districtCatalogUrl ? (
-                  <>
-                    <span>/</span>
-                    <Link to={districtCatalogUrl} className="inline-flex min-h-8 items-center truncate max-w-[120px] hover:text-foreground sm:max-w-none">{complex.district}</Link>
-                  </>
-                ) : null}
-              </>
-            ) : (
-              <Link to="/catalog" className="inline-flex min-h-8 shrink-0 items-center hover:text-foreground">Каталог</Link>
-            )}
-            <span>/</span>
-            <span className="text-foreground font-medium truncate">{complex.name}</span>
-          </nav>
+      <main id="main" className="max-w-[1400px] 2xl:max-w-[1560px] mx-auto px-4 pb-10 pt-3 sm:pt-4">
+        <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3 min-w-0 flex-wrap" aria-label="Хлебные крошки">
+          <Link to="/" className="inline-flex min-h-8 shrink-0 items-center hover:text-foreground">Главная</Link>
+          <span aria-hidden>/</span>
+          <Link
+            to={regionId ? buildCatalogFilterUrl(regionId) : '/catalog'}
+            className="inline-flex min-h-8 shrink-0 items-center hover:text-foreground"
+          >
+            Новостройки{city ? ` ${city === 'Анапа' ? 'Анапы' : city === 'Майкоп' ? 'Майкопа' : city === 'Краснодар' ? 'Краснодара' : city === 'Новороссийск' ? 'Новороссийска' : city}` : ''}
+          </Link>
+          {districtCatalogUrl ? (
+            <>
+              <span aria-hidden>/</span>
+              <Link to={districtCatalogUrl} className="inline-flex min-h-8 items-center truncate max-w-[140px] hover:text-foreground sm:max-w-none">{complex.district}</Link>
+            </>
+          ) : null}
+          <span aria-hidden>/</span>
+          <span className="text-foreground font-medium truncate">{complex.name}</span>
+        </nav>
 
-        <ComplexPageHeader
-          complex={complex}
-          actions={[
-            {
-              key: 'fav',
-              icon: <Heart className={cn('w-4 h-4', blockLiked && 'fill-destructive text-destructive')} />,
-              label: blockLiked ? 'В избранном' : 'В избранное',
-              disabled: blockNum == null,
-              active: blockLiked,
-              // Гостю избранное в localStorage — без входа (ТЗ v3, 4.1)
-              onClick: () => {
-                if (blockNum == null) return;
-                void toggleBlock(blockNum);
-              },
-            },
-            {
-              key: 'pdf',
-              icon: <FileText className="w-4 h-4" />,
-              label: 'Презентация PDF',
-              href: `/presentation/${complex.slug}`,
-            },
-            {
-              key: 'share',
-              icon: <Share2 className="w-4 h-4" />,
-              label: 'Поделиться',
-              onClick: () => void shareCurrentPage({ title: complex.name }),
-            },
-          ]}
-        />
-
-        <ComplexAnchorNav
-          sections={navSections}
-          activeId={activeSection || navSections[0]?.id || ''}
-          onNavigate={scrollToSection}
-        />
-
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_272px] lg:gap-6 xl:gap-7 lg:items-start">
+        {/* Первый экран: галерея + карточка с главным. Раньше — шапка, галерея на всю ширину и колонка 272 px до конца страницы */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
           <div className="min-w-0">
             <ComplexPremiumGallery images={complex.images} title={complex.name} />
-            <ComplexQuickMeta complex={complex} districtCatalogUrl={districtCatalogUrl} subwayCatalogUrl={subwayCatalogUrl} />
-            <div className="lg:hidden mt-4">
-              <ComplexStickySidebar
-                complex={complex}
-                availableCount={availableCount}
-                onConsultation={() => openComplexConsult(`complex:${complex.slug}:mobile-sidebar`)}
-              />
-            </div>
+          </div>
+          <ComplexSummaryCard
+            complex={complex}
+            availableCount={availableCount}
+            city={city}
+            actions={pageActions}
+            onConsultation={() => openComplexConsult(`complex:${complex.slug}:summary`)}
+            onRoomPick={hasApartments ? pickRooms : undefined}
+          />
+        </div>
 
-        <div className="space-y-8 sm:space-y-10 mt-6">
+        <div className="mt-6">
+          <ComplexAnchorNav
+            sections={navSections}
+            activeId={activeSection || navSections[0]?.id || ''}
+            onNavigate={scrollToSection}
+            aside={
+              <>
+                <span className="text-[15px] font-bold tabular-nums">{priceFromText}</span>
+                <Button variant="primary" size="sm" type="button" onClick={() => openComplexConsult(`complex:${complex.slug}:nav`)}>
+                  {CONVERSION_CTA.viewing}
+                </Button>
+              </>
+            }
+          />
+        </div>
+
+        <div className="space-y-12 sm:space-y-14">
           {hasBuildings || hasApartments || hasLayouts ? (
-            <section id="layouts" className="scroll-mt-28">
-              {sectionHeading('Квартиры', hasApartments ? `${scopedApartments.length} предложений` : undefined)}
-              {hasApartments ? (
+            <Reveal as="section" id="layouts" className="scroll-mt-36">
+              {sectionHeading('Квартиры', listingsTotal > 0 ? `${listingsTotal.toLocaleString('ru-RU')} в продаже` : undefined)}
+              {listingsQuery.isError && listingRows.length === 0 ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card p-4 text-sm text-muted-foreground">
+                  Не удалось загрузить квартиры.
+                  <Button variant="secondary" size="sm" type="button" onClick={() => void listingsQuery.refetch()}>
+                    Повторить
+                  </Button>
+                </div>
+              ) : listingsQuery.isPending ? (
+                <div className="space-y-2" aria-label="Загрузка квартир">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="h-14 rounded-xl bg-muted/50 animate-pulse" />
+                  ))}
+                </div>
+              ) : hasApartments ? (
                 <div className="space-y-4">
                   <ComplexInlineFilters
                     search={aptSearch}
@@ -610,41 +642,55 @@ const RedesignComplex = () => {
                     onBuildingChange={setActiveBuildingId}
                   />
                   <ComplexQueueTable
-                      buildings={
-                        buildings.length > 0
-                          ? buildings
-                          : [
-                              {
-                                id: 'main',
-                                complexId: complex.id,
-                                name: complex.name,
-                                floors: 1,
-                                sections: 1,
-                                deadline: complex.deadline,
-                                apartments: scopedApartments,
-                              },
-                            ]
-                      }
-                      sort={sort}
-                      onSort={handleSort}
-                      filterApartments={filterApartments}
-                      activeBuildingId={buildings.length > 1 ? activeBuildingId : null}
-                    />
+                    buildings={
+                      buildings.length > 0
+                        ? buildings
+                        : [
+                            {
+                              id: 'main',
+                              complexId: complex.id,
+                              name: complex.name,
+                              floors: 1,
+                              sections: 1,
+                              deadline: complex.deadline,
+                              apartments: scopedApartments,
+                            },
+                          ]
+                    }
+                    sort={sort}
+                    onSort={handleSort}
+                    filterApartments={filterApartments}
+                    activeBuildingId={buildings.length > 1 ? activeBuildingId : null}
+                  />
+                  {listingsQuery.hasNextPage ? (
+                    <div className="flex justify-center pt-1">
+                      <Button
+                        variant="secondary"
+                        type="button"
+                        disabled={listingsQuery.isFetchingNextPage}
+                        onClick={() => void listingsQuery.fetchNextPage()}
+                      >
+                        {listingsQuery.isFetchingNextPage
+                          ? 'Загружаем…'
+                          : `Показать ещё · загружено ${listingRows.length.toLocaleString('ru-RU')} из ${listingsTotal.toLocaleString('ru-RU')}`}
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="rounded-xl border border-border/70 bg-card p-5 text-sm text-muted-foreground">
                   Свободных квартир пока нет
                 </div>
               )}
-            </section>
+            </Reveal>
           ) : null}
 
           {hasChess && fromApi ? (
-            <section ref={chessboardSectionRef} id="chessboard" className="scroll-mt-32">
-              {sectionHeading('Шахматка', activeBuilding?.name || 'Расположение квартир по этажам')}
+            <section ref={chessboardSectionRef} id="chessboard" className="scroll-mt-36">
+              {sectionHeading('Шахматка', activeBuilding?.name || 'Квартиры по этажам')}
               {!chessboardEnabled ? (
                 <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-                  Прокрутите к разделу или выберите «Шахматка» в меню, и данные подгрузятся автоматически
+                  Загрузим шахматку, когда вы до неё доберётесь
                 </div>
               ) : chessboardQuery.isError ? (
                 <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center text-sm text-muted-foreground">
@@ -665,94 +711,82 @@ const RedesignComplex = () => {
                   isLoading={chessboardQuery.isFetching}
                 />
               ) : chessboardQuery.isLoading ? (
-                <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground animate-pulse">
-                  Загрузка шахматки…
-                </div>
+                <div className="h-64 rounded-xl border border-border bg-muted/30 animate-pulse" aria-label="Загрузка шахматки" />
               ) : null}
             </section>
           ) : null}
 
           {hasLayouts ? (
-            <section id="plans" className="scroll-mt-28">
+            <Reveal as="section" id="plans" className="scroll-mt-36">
               {sectionHeading('Планировки', `${layouts.length} типов`)}
               <LayoutGrid layouts={layouts} complexSlug={complex.slug} />
-            </section>
+            </Reveal>
           ) : null}
 
-          {(hasDescription || hasInfra) ? (
-            <section id="description" className="scroll-mt-28">
-              {sectionHeading('Об объекте')}
-              <div className="bg-card rounded-xl border border-border/70 p-4 sm:p-5 space-y-4 max-w-3xl">
-                {complex.description.includes('<') ? (
-                  <div
-                    className="text-sm text-muted-foreground leading-relaxed prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(complex.description, { USE_PROFILES: { html: true } }) }}
-                  />
-                ) : hasDescription ? (
-                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line max-w-prose">{complex.description}</p>
-                ) : null}
-                {hasInfra ? (
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground">
-                    {complex.infrastructure.map((item, i) => (
-                      <li key={i} className="flex items-center gap-2 rounded-lg bg-muted/25 px-3 py-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                {/* Только заполненные факты: никаких «—» и метро в публичном интерфейсе (ТЗ v3, 4.5) */}
-                {complexFacts.length > 0 ? (
-                  <dl className="grid grid-cols-2 gap-3 pt-1 text-sm sm:grid-cols-3">
-                    {complexFacts.map(([label, value]) => (
-                      <div key={label} className="space-y-0.5">
-                        <dt className="text-[13px] text-muted-foreground">{label}</dt>
-                        <dd className="text-[15px] font-medium">{value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : null}
-              </div>
-            </section>
-          ) : null}
-
-          {hasMap ? (
-            <section id="map" className="scroll-mt-28">
-              {sectionHeading('На карте')}
-              <div className="rounded-xl border border-border/70 overflow-hidden bg-card shadow-sm">
-                <div className="px-3 py-2 border-b border-border/60 flex items-center gap-2 text-xs text-muted-foreground">
-                  <MapPin className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{complex.address}</span>
-                </div>
-                <div ref={mapRef} className="h-[min(320px,42vh)] min-h-[200px] bg-muted" />
-              </div>
-            </section>
-          ) : null}
-
-          {hasDeveloper ? (
-            <section id="developer" className="scroll-mt-32">
-              {sectionHeading('Застройщик')}
-              <div className="rounded-xl border border-border bg-card p-5 sm:p-6 flex gap-4 items-start">
-                <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                  <Building2 className="w-6 h-6 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="font-semibold text-base">{complex.builder}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Застройщик проекта</p>
-                  {!isPriceHidden(complex.priceFrom) ? (
-                    <p className="text-sm mt-2" aria-label={priceAriaLabel(formatPriceFrom(complex.priceFrom))}>
-                      Квартиры от {formatPriceFrom(complex.priceFrom)}
-                    </p>
+          {hasDescription || hasInfra || hasMap || hasDeveloper || complexFacts.length > 0 ? (
+            <Reveal as="section" id="description" className="scroll-mt-36">
+              {sectionHeading('О комплексе')}
+              <div className={cn('grid gap-4', hasMap && 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]')}>
+                <div className="space-y-5 rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
+                  {complexFacts.length > 0 || hasDeveloper ? (
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
+                      {hasDeveloper ? (
+                        <div className="space-y-0.5">
+                          <dt className="text-[13px] text-muted-foreground">Застройщик</dt>
+                          <dd className="text-[15px] font-medium">{complex.builder}</dd>
+                        </div>
+                      ) : null}
+                      {complexFacts.map(([label, value]) => (
+                        <div key={label} className="space-y-0.5">
+                          <dt className="text-[13px] text-muted-foreground">{label}</dt>
+                          <dd className="text-[15px] font-medium">{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+                  {hasDescription ? (
+                    complex.description.includes('<') ? (
+                      <div
+                        className="text-[15px] text-muted-foreground leading-relaxed prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(complex.description, { USE_PROFILES: { html: true } }) }}
+                      />
+                    ) : (
+                      <p className="text-[15px] text-muted-foreground leading-relaxed whitespace-pre-line">{complex.description}</p>
+                    )
+                  ) : null}
+                  {hasInfra ? (
+                    <ul className="flex flex-wrap gap-2 text-sm">
+                      {complex.infrastructure.map((item, i) => (
+                        <li key={i} className="rounded-full bg-muted/60 px-3 py-1.5 text-foreground/80">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
                   ) : null}
                 </div>
+                {hasMap ? (
+                  <div id="map" className="overflow-hidden rounded-2xl border border-border/70 bg-card">
+                    <div className="flex items-center gap-2 border-b border-border/60 px-4 py-2.5 text-[13px] text-muted-foreground">
+                      <MapPin className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{complex.address}</span>
+                    </div>
+                    <div ref={mapRef} className="h-[300px] bg-muted lg:h-[calc(100%-41px)] lg:min-h-[300px]" />
+                  </div>
+                ) : null}
               </div>
-            </section>
+            </Reveal>
           ) : null}
 
-          <section id="lead" className="scroll-mt-32">
-            {sectionHeading('Получить консультацию', 'Оставьте заявку — менеджер перезвонит и расскажет о свободных квартирах')}
-            <div className="max-w-2xl">
-              <div className="rounded-card border border-border bg-card p-5 sm:p-6">
+          {/* Заявка — одной полосой, а не блоком на 800 px */}
+          <Reveal as="section" id="lead" className="scroll-mt-36">
+            <div className="grid gap-6 overflow-hidden rounded-2xl bg-primary/[0.06] p-5 ring-1 ring-primary/15 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)] lg:items-center lg:gap-10">
+              <div>
+                <h2 className="text-[22px] font-bold leading-tight tracking-tight sm:text-[26px]">Подберём квартиру в «{complex.name}»</h2>
+                <p className="mt-2 max-w-md text-[15px] text-muted-foreground">
+                  Расскажем о свободных квартирах и условиях покупки, запишем на просмотр. Консультация бесплатная.
+                </p>
+              </div>
+              <div className="rounded-xl bg-card p-4 shadow-card sm:p-5">
                 <LeadForm
                   title=""
                   embedded
@@ -762,54 +796,39 @@ const RedesignComplex = () => {
                 />
               </div>
             </div>
-          </section>
-
-          {fromApi && apiBlockQuery.data?.id ? (
-            <RelatedListingsCarousel
-              title="Объекты в этом ЖК и рядом"
-              fetchUrl={`/discovery/blocks/${apiBlockQuery.data.id}/related?limit=12`}
-              queryKey={['discovery', 'related', 'block', apiBlockQuery.data.id]}
-              className="scroll-mt-32"
-            />
-          ) : null}
+          </Reveal>
 
           {similarComplexes.length > 0 ? (
-            <section id="similar" className="scroll-mt-32">
+            <Reveal as="section" id="similar" className="scroll-mt-36">
               {sectionHeading('Похожие жилые комплексы')}
-              {/* Телефон: лента со свайпом — одной колонкой блок был 2 300 px */}
-              <SnapRail label="Похожие жилые комплексы" desktopCols={2} wideCols={3} className="sm:-mx-4">
+              {/* Телефон: лента со свайпом; десктоп: ровная сетка */}
+              <SnapRail label="Похожие жилые комплексы" desktopCols={3} wideCols={4} className="sm:-mx-4 lg:mx-0">
                 {similarComplexes.map((c) => (
                   <div key={c.id} className="flex h-full min-h-0">
                     <ComplexCard complex={c} />
                   </div>
                 ))}
               </SnapRail>
-            </section>
+            </Reveal>
           ) : null}
-        </div>
-          </div>
-          <aside className="hidden lg:block sticky top-20 self-start">
-            <ComplexStickySidebar
-              complex={complex}
-              availableCount={availableCount}
-              onConsultation={() => openComplexConsult(`complex:${complex.slug}:sidebar`)}
-            />
-          </aside>
         </div>
       </main>
 
-      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-sm p-3 lg:hidden safe-area-pb">
-        <div className="flex gap-2 max-w-[1400px] mx-auto">
+      <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-sm px-3 py-2.5 lg:hidden safe-area-pb">
+        <div className="flex items-center gap-3 max-w-[1400px] mx-auto">
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="truncate text-[15px] font-bold tabular-nums">{priceFromText}</p>
+            {availableCount > 0 ? (
+              <p className="truncate text-[12px] text-muted-foreground">{availableCount.toLocaleString('ru-RU')} {flatsWord(availableCount)}</p>
+            ) : null}
+          </div>
           <Button
             variant="primary"
-            className="flex-1"
+            className="shrink-0 px-5"
             type="button"
             onClick={() => openComplexConsult(`complex:${complex.slug}:sticky`)}
           >
-            {CONVERSION_CTA.consultation}
-          </Button>
-          <Button variant="secondary" className="px-4" asChild>
-            <Link to={`/presentation/${complex.slug}`}>PDF</Link>
+            {CONVERSION_CTA.viewing}
           </Button>
         </div>
       </div>

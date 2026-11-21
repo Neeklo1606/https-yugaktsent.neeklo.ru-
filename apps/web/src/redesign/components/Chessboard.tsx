@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import type { Apartment } from '@/redesign/data/types';
 import ChessboardMatrixGrid from '@/redesign/components/ChessboardMatrixGrid';
+import ChessboardFloorList from '@/redesign/components/ChessboardFloorList';
 import ChessboardPreview, { ChessboardPreviewInline } from '@/redesign/components/ChessboardPreview';
 import {
   Sheet,
@@ -115,6 +116,18 @@ const Chessboard = ({
   useEffect(() => () => clearHoverCloseTimer(), [clearHoverCloseTimer]);
 
   const counts = matrix.statusCounts;
+
+  // Сетка заполнена слабо (в фиде только свободные лоты) — по умолчанию вид «по этажам»
+  const fillRatio = useMemo(() => {
+    const total = Math.max(1, matrix.shaftCount * matrix.floors.length);
+    let n = 0;
+    for (const row of matrix.grid) for (const c of row) if (c.apartment) n += 1;
+    return n / total;
+  }, [matrix]);
+  const [view, setView] = useState<'floors' | 'grid'>(() => (fillRatio < 0.45 ? 'floors' : 'grid'));
+  useEffect(() => {
+    setView(fillRatio < 0.45 ? 'floors' : 'grid');
+  }, [fillRatio]);
 
   const [activeStatuses, setActiveStatuses] = useState<Set<ChessStatusKey>>(
     () => new Set<ChessStatusKey>(['available', 'reserved', 'sold']),
@@ -356,12 +369,29 @@ const Chessboard = ({
             {counts.available} свободных · {counts.reserved} в брони · {counts.sold} продано
             {matrix.shaftCount > 0 ? (
               <span className="ml-2 text-muted-foreground">
-                · {matrix.shaftCount} стояков · {matrix.floors.length} этажей
+                · {matrix.floors.length} этажей
               </span>
             ) : null}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs" role="group" aria-label="Фильтр статусов">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+        <div className="inline-flex rounded-full border border-border bg-muted/40 p-0.5" role="group" aria-label="Вид шахматки">
+          {(['floors', 'grid'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              aria-pressed={view === v}
+              className={cn(
+                'rounded-full px-3 py-1 font-medium transition-colors',
+                view === v ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {v === 'floors' ? 'По этажам' : 'Сетка'}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Фильтр статусов">
           {CHESS_STATUS_ORDER.map((s) => {
             const isActive = activeStatuses.has(s);
             return (
@@ -384,6 +414,7 @@ const Chessboard = ({
             );
           })}
         </div>
+        </div>
       </div>
 
       <div
@@ -400,12 +431,16 @@ const Chessboard = ({
           isLoading && 'opacity-60 pointer-events-none',
         )}
       >
-        <ChessboardMatrixGrid
-          matrix={matrix}
-          selectedId={selectedId}
-          isHidden={isHidden}
-          roomLabel={roomLabel}
-        />
+        {view === 'floors' ? (
+          <ChessboardFloorList matrix={matrix} isHidden={isHidden} roomLabel={roomLabel} />
+        ) : (
+          <ChessboardMatrixGrid
+            matrix={matrix}
+            selectedId={selectedId}
+            isHidden={isHidden}
+            roomLabel={roomLabel}
+          />
+        )}
       </div>
 
       {!isMobile && hoverPreview && previewPosition
@@ -461,7 +496,9 @@ const Chessboard = ({
       <p className="text-[11px] text-muted-foreground">
         {isMobile
           ? 'Нажмите на квартиру для просмотра. Белые свободны, жёлтые забронированы, тёмные проданы.'
-          : 'Наведите для превью: карточка остаётся при наведении на неё, «Открыть» кликабелен. Двойной клик по ячейке открывает страницу квартиры, Esc закрывает.'}
+          : view === 'floors'
+            ? 'Показаны квартиры, которые есть у застройщика в продаже. Нажмите на квартиру, чтобы открыть её страницу.'
+            : 'Наведите на квартиру — появится превью, двойной клик открывает её страницу.'}
       </p>
     </div>
   );

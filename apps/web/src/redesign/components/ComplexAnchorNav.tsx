@@ -6,17 +6,20 @@ type Props = {
   sections: ComplexSection[];
   activeId: string;
   onNavigate: (id: string) => void;
+  /** Справа на десктопе: цена и кнопка — вместо длинной боковой колонки */
+  aside?: React.ReactNode;
 };
 
-const ComplexAnchorNav = ({ sections, activeId, onNavigate }: Props) => {
+const ComplexAnchorNav = ({ sections, activeId, onNavigate, aside }: Props) => {
   if (sections.length === 0) return null;
 
   return (
     <nav
-      className="sticky top-14 z-30 -mx-4 px-4 mb-5 border-b border-border/60 bg-background/95 backdrop-blur-md"
+      // Шапка: 64 px на телефоне, 72 px + граница на десктопе — меню не должно уходить под неё
+      className="sticky top-16 z-30 -mx-4 mb-5 flex items-center gap-4 border-b border-border/60 bg-background/95 px-4 backdrop-blur-md lg:top-[73px]"
       aria-label="Разделы комплекса"
     >
-      <div className="flex gap-0 overflow-x-auto scrollbar-hide">
+      <div className="flex min-w-0 flex-1 gap-0 overflow-x-auto scrollbar-hide">
         {sections.map(({ id, label }) => {
           const active = activeId === id;
           return (
@@ -28,7 +31,7 @@ const ComplexAnchorNav = ({ sections, activeId, onNavigate }: Props) => {
                 onNavigate(id);
               }}
               className={cn(
-                'relative shrink-0 px-3.5 py-3 text-xs font-medium transition-colors whitespace-nowrap select-none',
+                'relative shrink-0 px-3.5 py-3.5 text-[14px] font-medium transition-colors whitespace-nowrap select-none',
                 active
                   ? 'text-foreground'
                   : 'text-muted-foreground hover:text-foreground/80',
@@ -46,6 +49,7 @@ const ComplexAnchorNav = ({ sections, activeId, onNavigate }: Props) => {
           );
         })}
       </div>
+      {aside ? <div className="hidden shrink-0 items-center gap-3 py-1.5 lg:flex">{aside}</div> : null}
     </nav>
   );
 };

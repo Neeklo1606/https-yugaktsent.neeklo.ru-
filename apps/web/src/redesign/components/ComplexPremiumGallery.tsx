@@ -123,7 +123,7 @@ export default function ComplexPremiumGallery({ images, title }: Props) {
         {hasImages ? (
           <div
             className={cn(
-              'hidden lg:grid lg:gap-2',
+              'relative hidden lg:grid lg:gap-2',
               // одно фото — коллаж не собрать, показываем его на всю ширину
               images.length > 1 ? 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]' : 'lg:grid-cols-1',
             )}
@@ -131,7 +131,7 @@ export default function ComplexPremiumGallery({ images, title }: Props) {
             <button
               type="button"
               onClick={() => setLightbox(true)}
-              className="relative block h-[420px] w-full overflow-hidden rounded-2xl bg-muted"
+              className="group/hero relative block h-[460px] w-full overflow-hidden rounded-2xl bg-muted"
               aria-label="Открыть фото на весь экран"
             >
               <StableMediaFrame
@@ -144,12 +144,12 @@ export default function ComplexPremiumGallery({ images, title }: Props) {
                 loading="eager"
                 fetchPriority="high"
                 className="absolute inset-0 h-full w-full"
-                imgClassName="h-full w-full object-cover transition-transform duration-200 hover:scale-[1.01]"
+                imgClassName="h-full w-full object-cover transition-transform duration-700 ease-out group-hover/hero:scale-[1.03]"
               />
             </button>
 
             {images.length > 1 ? (
-            <div className="grid h-[420px] grid-rows-2 gap-2">
+            <div className="grid h-[460px] grid-rows-2 gap-2">
               {[1, 2].map((row) => {
                 const src = images[row];
                 const isLastTile = row === 2;
@@ -185,11 +185,12 @@ export default function ComplexPremiumGallery({ images, title }: Props) {
             </div>
             ) : null}
 
-            <div className={cn('mt-2 flex justify-end', images.length > 1 && 'col-span-2')}>
+            {/* Кнопка поверх фото — отдельная строка под коллажем занимала 50 px */}
+            <div className="pointer-events-none absolute bottom-3 left-3">
               <button
                 type="button"
                 onClick={() => setLightbox(true)}
-                className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted/50"
+                className="pointer-events-auto inline-flex h-9 items-center gap-1.5 rounded-full bg-background/90 px-3.5 text-[13px] font-medium shadow-card backdrop-blur transition-colors hover:bg-background"
               >
                 <Maximize2 className="h-4 w-4" />
                 Смотреть все фото{images.length > 1 ? ` (${images.length})` : ''}
