@@ -803,7 +803,8 @@ const RedesignComplex = () => {
               {sectionHeading('Похожие жилые комплексы')}
               {/* Телефон: лента со свайпом; десктоп: ровная сетка */}
               <SnapRail label="Похожие жилые комплексы" desktopCols={3} wideCols={4} className="sm:-mx-4 lg:mx-0">
-                {similarComplexes.map((c) => (
+                {/* Ровно один ряд из 4 на десктопе — пятая карточка висела одна */}
+                {similarComplexes.slice(0, 4).map((c) => (
                   <div key={c.id} className="flex h-full min-h-0">
                     <ComplexCard complex={c} />
                   </div>

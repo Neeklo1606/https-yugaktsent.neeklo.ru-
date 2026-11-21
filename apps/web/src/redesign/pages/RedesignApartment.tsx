@@ -37,11 +37,11 @@ import { useInViewOnce } from '@/shared/hooks/useInViewOnce';
 import { buildCatalogFilterUrl } from '@/redesign/lib/catalog-filter-links';
 import { useDefaultRegionId } from '@/redesign/hooks/useDefaultRegionId';
 import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
+import Reveal from '@/shared/components/Reveal';
 import { apartmentSeo } from '@/shared/seo/structured-seo';
 
 const SEO_SITE_URL = (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined)?.replace(/\/+$/, '') || 'https://yugaktsent.neeklo.ru';
 import RelatedListingsCarousel from '@/discovery/components/RelatedListingsCarousel';
-import SessionDiscoverySection from '@/redesign/components/SessionDiscoverySection';
 import CompareSessionChip from '@/shared/components/CompareSessionChip';
 import { recordBrowseHistory } from '@/shared/lib/record-browse-history';
 import { listingHref } from '@/shared/lib/browse-history-local';
@@ -365,6 +365,15 @@ const RedesignApartment = () => {
     setConsultOpen(true);
   };
 
+  // Только реальные факты корпуса: в фидах ССК нет этажности и секций, раньше выводилось «Сдача: — · 1 этажей · 1 секций»
+  const buildingFacts = [
+    building.deadline && building.deadline !== '—' ? `Сдача: ${building.deadline}` : '',
+    building.floors > 1 ? `${building.floors} этажей` : '',
+    building.sections > 1 ? `${building.sections} секций` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <div className="min-h-screen bg-background pb-24 lg:pb-8">
       <RedesignHeader mobileTabBar={false} />
@@ -494,10 +503,7 @@ const RedesignApartment = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <p className="font-semibold">{building.name}</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Сдача: {building.deadline || '—'} · {building.floors} этажей
-                  {building.sections > 0 ? ` · ${building.sections} секций` : ''}
-                </p>
+                {buildingFacts ? <p className="text-sm text-muted-foreground mt-1">{buildingFacts}</p> : null}
               </div>
               <Button variant="outline" asChild>
                 <Link to={`/complex/${complex.slug}`}>
@@ -508,12 +514,12 @@ const RedesignApartment = () => {
             </div>
           </section>
 
-          <section id="description" className="scroll-mt-28">
+          <Reveal as="section" id="description" className="scroll-mt-36">
             {sectionHeading('О квартире')}
             <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {roomLabel} площадью {formatArea(apt.area)}
-                {apt.floor > 0 ? ` на ${apt.floor} этаже ${apt.totalFloors}-этажного дома` : ''} в ЖК «{complex.name}».
+                {apt.floor > 0 ? ` на ${apt.floor} этаже${apt.totalFloors > apt.floor ? ` ${apt.totalFloors}-этажного дома` : ''}` : ''} в ЖК «{complex.name}».
                 {apt.finishing !== 'без отделки' ? ` Отделка: ${apt.finishing}.` : ' Без отделки.'}
                 {apt.kitchenArea > 0 ? ` Кухня ${formatArea(apt.kitchenArea)}.` : ''}
               </p>
@@ -524,7 +530,7 @@ const RedesignApartment = () => {
                 </p>
               ) : null}
             </div>
-          </section>
+          </Reveal>
 
           {/* Нет ни адреса, ни координат — секции нет: пустой контейнер карты не рисуем (ТЗ v3, 4.6) */}
           {hasAddress || hasCoords ? (
@@ -553,7 +559,7 @@ const RedesignApartment = () => {
           ) : null}
 
           {similarApts.length > 0 ? (
-            <section id="similar" className="scroll-mt-28">
+            <Reveal as="section" id="similar" className="scroll-mt-36">
               {sectionHeading(`Похожие квартиры в ${complex.name}`)}
               {/* Телефон: лента со свайпом (две карточки в кадре) — одной колонкой блок был ~1 500 px */}
               <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4 [&>*]:w-[64%] [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-auto">
@@ -583,20 +589,23 @@ const RedesignApartment = () => {
                   </Link>
                 ))}
               </div>
-            </section>
+            </Reveal>
           ) : null}
 
-          {listingId != null ? (
-            <SessionDiscoverySection
-              regionId={regionId}
-              excludeListingId={listingId}
-              className="scroll-mt-28"
-            />
-          ) : null}
 
-          <section id="lead" className="scroll-mt-28">
-            {sectionHeading('Связаться с нами', isSold ? 'Объект продан, оставьте заявку на консультацию по похожим' : 'Оставьте заявку на консультацию или просмотр')}
-            <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
+          <Reveal as="section" id="lead" className="scroll-mt-36">
+            <div className="grid gap-5 rounded-2xl bg-primary/[0.06] p-5 ring-1 ring-primary/15 sm:p-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,440px)] xl:items-center xl:gap-8">
+              <div>
+                <h2 className="text-[22px] font-bold leading-tight tracking-tight">
+                  {isSold ? 'Подберём похожую квартиру' : 'Запишем на просмотр'}
+                </h2>
+                <p className="mt-2 text-[15px] text-muted-foreground">
+                  {isSold
+                    ? 'Эта квартира продана — расскажем о похожих в этом и соседних ЖК.'
+                    : `${roomLabel}, ${formatArea(apt.area)} в «${complex.name}»: уточним цену, условия покупки и покажем квартиру.`}
+                </p>
+              </div>
+            <div className="rounded-xl bg-card p-4 shadow-card sm:p-5">
               <LeadForm
                 title=""
                 embedded
@@ -611,7 +620,8 @@ const RedesignApartment = () => {
                 }
               />
             </div>
-          </section>
+            </div>
+          </Reveal>
         </div>
           </div>
 
