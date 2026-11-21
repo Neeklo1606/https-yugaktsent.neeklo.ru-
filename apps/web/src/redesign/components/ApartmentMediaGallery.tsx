@@ -102,7 +102,8 @@ const ApartmentMediaGallery = ({ planSrc, finishingSrc, gallerySrcs = [], title 
 
   return (
     <>
-      <section id="gallery" className="scroll-mt-28 rounded-2xl border border-border bg-card overflow-hidden">
+      {/* С ПК тянется на высоту карточки справа — первый экран без «ступеньки» */}
+      <section id="gallery" className="scroll-mt-28 rounded-2xl border border-border bg-card overflow-hidden lg:flex lg:h-full lg:flex-col">
         {tabs.length > 1 ? (
           <div className="flex gap-1 border-b border-border bg-muted/30 p-1.5">
             {tabs.map((tab) => (
@@ -126,7 +127,13 @@ const ApartmentMediaGallery = ({ planSrc, finishingSrc, gallerySrcs = [], title 
           </div>
         ) : null}
 
-        <div className="relative aspect-[4/3] sm:aspect-[16/10] max-h-[min(520px,70vh)] bg-muted">
+        <div
+          className={cn(
+            'relative aspect-[4/3] max-h-[min(520px,70vh)] sm:aspect-[16/10] lg:aspect-auto lg:max-h-none lg:min-h-[420px] lg:flex-1',
+            // Планировки — на белом фоне: серые поля вокруг белой картинки выглядели как рамка
+            activeTab === 'plan' ? 'bg-white dark:bg-muted' : 'bg-muted',
+          )}
+        >
           {current ? (
             <>
               <StableMediaFrame

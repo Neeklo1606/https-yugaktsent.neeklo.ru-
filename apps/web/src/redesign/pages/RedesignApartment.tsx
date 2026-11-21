@@ -193,7 +193,7 @@ const RedesignApartment = () => {
     const s: ComplexSection[] = [
       { id: 'gallery', label: 'Планировка' },
       { id: 'characteristics', label: 'Характеристики' },
-      { id: 'description', label: 'Описание и карта' },
+      { id: 'description', label: 'Описание' },
     ];
     if (similarApts.length > 0) s.push({ id: 'similar', label: 'Похожие' });
     s.push({ id: 'lead', label: 'Заявка' });
@@ -405,7 +405,7 @@ const RedesignApartment = () => {
 
         {/* Первый экран как у ЖК: планировка слева, всё для решения — в карточке справа */}
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-          <div className="min-w-0">
+          <div className="min-w-0 lg:h-full">
             <ApartmentMediaGallery
               planSrc={apt.planImage}
               finishingSrc={apt.finishingImage}
@@ -482,8 +482,8 @@ const RedesignApartment = () => {
 
           {/* Описание и карта рядом — как «О комплексе» на странице ЖК */}
           <Reveal as="section" id="description" className="scroll-mt-36">
-            {sectionHeading('О квартире и расположение')}
-            <div className={cn('grid gap-4', (hasAddress || hasCoords) && 'lg:grid-cols-2')}>
+            {sectionHeading(hasCoords ? 'О квартире и расположение' : 'О квартире')}
+            <div className={cn('grid gap-4', hasCoords && 'lg:grid-cols-2')}>
               <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
                 <p className="text-[15px] leading-relaxed text-muted-foreground">
                   {roomLabel} площадью {formatArea(apt.area)}
@@ -497,6 +497,12 @@ const RedesignApartment = () => {
                     {complex.description.length > 800 ? '…' : ''}
                   </p>
                 ) : null}
+                {hasAddress && !hasCoords ? (
+                  <p id="map" className="mt-4 flex items-center gap-2 border-t border-border pt-4 text-sm">
+                    <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="font-medium">{complex.address}</span>
+                  </p>
+                ) : null}
                 <Link
                   to={`/complex/${complex.slug}`}
                   className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
@@ -504,8 +510,8 @@ const RedesignApartment = () => {
                   Все квартиры в ЖК «{complex.name}» →
                 </Link>
               </div>
-              {/* Нет ни адреса, ни координат — карты нет: пустой контейнер не рисуем (ТЗ v3, 4.6) */}
-              {hasAddress || hasCoords ? (
+              {/* Без координат карту рисовать нечем — адрес остаётся строкой в описании (ТЗ v3, 4.6) */}
+              {hasCoords ? (
                 <div id="map" className="scroll-mt-36 flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card">
                   {hasAddress ? (
                     <div className="flex flex-wrap items-center gap-2 border-b border-border p-4 text-sm">
@@ -513,7 +519,7 @@ const RedesignApartment = () => {
                       <span className="font-medium">{complex.address}</span>
                     </div>
                   ) : null}
-                  {hasCoords ? <div ref={mapRef} className="min-h-[260px] flex-1 bg-muted" /> : null}
+                  <div ref={mapRef} className="min-h-[260px] flex-1 bg-muted" />
                 </div>
               ) : null}
             </div>
@@ -557,7 +563,7 @@ const RedesignApartment = () => {
 
           {listingId != null ? (
             <RelatedListingsCarousel
-              title="Похожие по цене в других ЖК"
+              title="Похожие по цене"
               fetchUrl={`/discovery/listings/${listingId}/price-neighbors?limit=8`}
               queryKey={['discovery', 'price-neighbors', listingId]}
               excludeId={listingId}
