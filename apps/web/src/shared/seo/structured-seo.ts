@@ -106,7 +106,7 @@ export function apartmentSeo(a: ApartmentSeoInput): SeoResult {
     .filter(Boolean)
     .join(' — ');
 
-  const floorText = floor ? ` на ${floor}${floorsTotal ? ` из ${floorsTotal}` : ''} этаже` : '';
+  const floorText = floor ? ` на ${floor}${floorsTotal && floorsTotal >= floor ? ` из ${floorsTotal}` : ''} этаже` : '';
   const placeText = complex ? ` в ЖК «${complex}»${city ? ` (${city})` : ''}` : city ? ` в городе ${city}` : '';
   const priceText = price
     ? ` Цена ${groupDigits(price)}${NBSP}₽${area ? `, ${groupDigits(price / area)}${NBSP}₽/м²` : ''}.`

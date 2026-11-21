@@ -194,7 +194,7 @@ const ListingCard = ({ listing, variant = 'grid', trustBadges }: Props) => {
   const completionLine = formatQuarterFromDate(listing.apartment?.buildingDeadline ?? null);
   const floor = listing.apartment?.floor;
   const floorsTotal = listing.apartment?.floorsTotal;
-  const floorLine = floor ? `${floor}${floorsTotal ? ` из ${floorsTotal}` : ''} этаж` : null;
+  const floorLine = floor ? `${floor}${floorsTotal && floorsTotal >= floor ? ` из ${floorsTotal}` : ''} этаж` : null;
   const facts = [floorLine, completionLine ? `сдача ${completionLine}` : null].filter(Boolean).join(' · ');
   const freshness = listingFreshnessBadge({
     dataSource: listing.dataSource,

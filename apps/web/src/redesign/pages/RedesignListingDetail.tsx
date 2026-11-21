@@ -247,7 +247,7 @@ function buildAttributes(l: ApiListingDetailUniversal): { label: string; value: 
       const a = l.apartment;
       if (a?.areaTotal != null && num(a.areaTotal) > 0) out.push({ label: 'Общая площадь', value: `${num(a.areaTotal)} м²` });
       if (a?.areaKitchen != null && num(a.areaKitchen) > 0) out.push({ label: 'Кухня', value: `${num(a.areaKitchen)} м²` });
-      if (a?.floor != null) out.push({ label: 'Этаж', value: a.floorsTotal ? `${a.floor} из ${a.floorsTotal}` : String(a.floor) });
+      if (a?.floor != null) out.push({ label: 'Этаж', value: a.floorsTotal && a.floorsTotal >= a.floor ? `${a.floor} из ${a.floorsTotal}` : String(a.floor) });
       if (a?.finishing?.name) out.push({ label: 'Отделка', value: a.finishing.name });
       break;
     }
@@ -758,7 +758,7 @@ const RedesignListingDetail = () => {
                       Этаж
                     </span>
                     <span className="font-medium">
-                      {data.apartment.floor}{data.apartment.floorsTotal ? ` из ${data.apartment.floorsTotal}` : ''}
+                      {data.apartment.floor}{data.apartment.floorsTotal && data.apartment.floorsTotal >= (data.apartment.floor ?? 0) ? ` из ${data.apartment.floorsTotal}` : ''}
                     </span>
                   </div>
                 ) : null}

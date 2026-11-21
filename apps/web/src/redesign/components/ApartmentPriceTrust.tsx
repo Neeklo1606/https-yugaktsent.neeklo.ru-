@@ -157,7 +157,8 @@ const ApartmentPriceTrust = ({
         </p>
       ) : null}
 
-      {cta ? <div className="mt-auto pt-5">{cta}</div> : null}
+      {/* На телефоне те же кнопки уже в нижней липкой панели — в карточке не дублируем */}
+      {cta ? <div className="mt-auto hidden pt-5 lg:block">{cta}</div> : null}
     </section>
   );
 };

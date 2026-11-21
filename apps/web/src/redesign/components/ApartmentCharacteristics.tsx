@@ -30,7 +30,7 @@ const ApartmentCharacteristics = ({ apartment, building, complex, roomLabel }: P
     { icon: Ruler, label: 'Общая площадь', value: formatArea(apartment.area) },
     apartment.kitchenArea > 0 ? { icon: ChefHat, label: 'Кухня', value: formatArea(apartment.kitchenArea) } : null,
     apartment.floor > 0
-      ? { icon: Building2, label: 'Этаж', value: `${apartment.floor} из ${apartment.totalFloors}` }
+      ? { icon: Building2, label: 'Этаж', value: apartment.totalFloors > apartment.floor ? `${apartment.floor} из ${apartment.totalFloors}` : String(apartment.floor) }
       : null,
     { icon: Paintbrush, label: 'Отделка', value: apartment.finishing },
   ].filter((x): x is SpecItem => x != null);
