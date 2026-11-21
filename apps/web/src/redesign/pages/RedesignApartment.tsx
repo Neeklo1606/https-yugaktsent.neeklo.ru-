@@ -105,7 +105,8 @@ const RedesignApartment = () => {
     queryKey: ['listings', 'similar-apartments', blockId, listingId, apiPage?.apartment.rooms],
     queryFn: () =>
       apiGet<{ data: ApiListingRow[] }>(
-        `/listings?block_id=${blockId}&kind=APARTMENT&status=ACTIVE&per_page=40`,
+        // Фильтр по комнатности на сервере: раньше брали первые 40 квартир ЖК и среди них часто не было той же комнатности
+        `/listings?block_id=${blockId}&kind=APARTMENT&status=ACTIVE&per_page=12&sort=price_asc&rooms=${apiPage?.apartment.rooms ?? ''}`,
       ),
     enabled: Boolean(apiPage && blockId != null && listingId != null),
     select: (res) => {
