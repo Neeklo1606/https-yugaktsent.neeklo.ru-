@@ -335,7 +335,7 @@ const ExpertPage = () => {
 
           <footer className="mt-12 flex flex-col gap-2 border-t border-border pt-6 text-[13px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <span>© {new Date().getFullYear()} {shortName}</span>
-            <Link to="/" className="font-medium text-primary hover:underline underline-offset-4">
+            <Link to="/" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline underline-offset-4">
               Каталог новостроек Анапы
             </Link>
           </footer>

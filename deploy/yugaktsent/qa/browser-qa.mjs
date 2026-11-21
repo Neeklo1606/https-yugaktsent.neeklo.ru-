@@ -159,6 +159,10 @@ async function checkPage(browser, route, vp) {
             if (r.width <= 1 || r.height <= 1 || s.visibility === "hidden") return false; // sr-only, «к содержимому»
             if (el.matches("input[type=checkbox], input[type=radio]") && el.closest("label")) return false; // кликается подпись
             if (el.tagName === "A" && s.display === "inline" && el.parentElement?.closest("p, li, label, small")) return false; // ссылка в тексте
+            if (el.getAttribute("aria-hidden") === "true" || el.closest("[aria-hidden=true]")) return false; // скрытый input Radix
+            if (el.closest('[class*="ymaps"]')) return false; // ссылки самой Яндекс.Карты («Условия»)
+            // Зона нажатия расширена псевдоэлементом (after:-inset-3 / растянутая ссылка карточки)
+            if (["::after", "::before"].some((p) => getComputedStyle(el, p).position === "absolute" && getComputedStyle(el, p).content !== "none")) return false;
             return r.height < 24 || r.width < 24;
           })
           .map((el) => `${(el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 30) || el.outerHTML.slice(0, 60)} ${Math.round(el.getBoundingClientRect().width)}×${Math.round(el.getBoundingClientRect().height)}`)

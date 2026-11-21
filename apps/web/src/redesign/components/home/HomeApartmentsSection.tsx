@@ -58,7 +58,7 @@ const HomeApartmentsSection = () => {
           </h2>
           <p className="text-lead mt-1.5 max-w-[560px]">Свободные квартиры с планировками — цены из актуальной выгрузки застройщиков.</p>
         </div>
-        <Link to={allHref} className="inline-flex shrink-0 items-center gap-1 text-[15px] font-medium text-primary underline-offset-4 hover:underline">
+        <Link to={allHref} className="inline-flex min-h-11 shrink-0 items-center gap-1 text-[15px] font-medium text-primary underline-offset-4 hover:underline">
           Все квартиры
           <ArrowRight className="h-4 w-4" aria-hidden />
         </Link>

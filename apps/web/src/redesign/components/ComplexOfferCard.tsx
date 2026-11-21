@@ -156,7 +156,7 @@ export default function ComplexOfferCard({
         onClick={onLike}
         aria-pressed={liked}
         aria-label={liked ? 'Убрать из избранного' : 'В избранное'}
-        className="absolute right-3 top-3 z-[2] grid h-9 w-9 place-items-center rounded-full bg-card/95 text-foreground shadow-card transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="absolute right-2.5 top-2.5 z-[2] grid h-10 w-10 place-items-center rounded-full bg-card/95 text-foreground shadow-card transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Heart className={cn('h-[18px] w-[18px]', liked && 'fill-primary text-primary')} aria-hidden />
       </button>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { RotateCcw, X, MapPin, LayoutGrid } from 'lucide-react';
 import {
   readSessionSnapshot,
@@ -14,6 +14,7 @@ type Props = {
 
 export default function SessionResumeBanner({ className }: Props) {
   const [dismissed, setDismissed] = useState(isSessionResumeDismissed);
+  const { pathname } = useLocation();
 
   const snapshot = useMemo(() => readSessionSnapshot(), []);
 
@@ -34,24 +35,27 @@ export default function SessionResumeBanner({ className }: Props) {
     actions.push({ href: snapshot.mapHref, label: 'Карта', icon: MapPin });
   }
 
-  if (!actions.length) return null;
+  // Ссылку на страницу, где человек уже находится («Каталог» в каталоге), не показываем
+  const visible = actions.filter((a) => a.href.split('?')[0] !== pathname);
+  // Без последнего объекта подсказка бесполезна: каталог и карта и так в меню
+  if (!snapshot.lastListingHref || !visible.length) return null;
 
   return (
     <div
       className={cn(
-        'rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 sm:px-4 sm:py-3 flex flex-wrap items-center gap-2',
+        'flex flex-wrap items-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-1.5 sm:px-4',
         className,
       )}
     >
-      <p className="text-xs sm:text-sm font-medium mr-auto">Продолжить сессию</p>
+      <p className="mr-auto text-[13px] text-muted-foreground sm:text-sm">Вы недавно смотрели</p>
       <div className="flex flex-wrap gap-1.5">
-        {actions.slice(0, 3).map((a) => {
+        {visible.slice(0, 3).map((a) => {
           const Icon = a.icon;
           return (
           <Link
             key={a.href}
             to={a.href}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-background px-3 text-xs transition-colors hover:border-primary/40 max-w-[200px]"
+            className="inline-flex h-10 max-w-[260px] items-center gap-1.5 rounded-lg border border-border/70 bg-background px-3 text-[13px] font-medium transition-colors hover:border-primary/40 hover:text-primary"
           >
             <Icon className="w-3.5 h-3.5 shrink-0 text-primary" />
             <span className="truncate">{a.label}</span>

@@ -99,7 +99,7 @@ const ApartmentCharacteristics = ({ apartment, building, complex, roomLabel }: P
             >
               <span className="text-muted-foreground shrink-0">{row.label}</span>
               {'href' in row && row.href ? (
-                <Link to={row.href} className="font-medium text-primary hover:underline text-right">
+                <Link to={row.href} className="relative font-medium text-primary hover:underline text-right after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-['']">
                   {row.value}
                 </Link>
               ) : (
