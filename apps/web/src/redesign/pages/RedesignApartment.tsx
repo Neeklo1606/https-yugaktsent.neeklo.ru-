@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   MapPin,
-  Building2,
   Heart,
   Share2,
   FileText,
@@ -19,7 +18,6 @@ import ConversionDebugOverlay from '@/redesign/components/ConversionDebugOverlay
 import { CONVERSION_CTA, type ConsultationContext } from '@/redesign/lib/conversion-cta';
 import { prefersReducedMotion } from '@/redesign/lib/map-sidebar-scroll-utils';
 import ApartmentMediaGallery from '@/redesign/components/ApartmentMediaGallery';
-import ObjectPageActionBar from '@/redesign/components/ObjectPageActionBar';
 import ApartmentPriceTrust from '@/redesign/components/ApartmentPriceTrust';
 import ApartmentCharacteristics from '@/redesign/components/ApartmentCharacteristics';
 import ComplexAnchorNav, { type ComplexSection } from '@/redesign/components/ComplexAnchorNav';
@@ -193,12 +191,10 @@ const RedesignApartment = () => {
   const navSections = useMemo((): ComplexSection[] => {
     if (!apt) return [];
     const s: ComplexSection[] = [
-      { id: 'gallery', label: 'Медиа' },
-      { id: 'price', label: 'Цена' },
+      { id: 'gallery', label: 'Планировка' },
       { id: 'characteristics', label: 'Характеристики' },
-      { id: 'description', label: 'Описание' },
+      { id: 'description', label: 'Описание и карта' },
     ];
-    s.push({ id: 'map', label: 'Карта' });
     if (similarApts.length > 0) s.push({ id: 'similar', label: 'Похожие' });
     s.push({ id: 'lead', label: 'Заявка' });
     return s;
@@ -365,77 +361,34 @@ const RedesignApartment = () => {
     setConsultOpen(true);
   };
 
-  // Только реальные факты корпуса: в фидах ССК нет этажности и секций, раньше выводилось «Сдача: — · 1 этажей · 1 секций»
-  const buildingFacts = [
-    building.deadline && building.deadline !== '—' ? `Сдача: ${building.deadline}` : '',
-    building.floors > 1 ? `${building.floors} этажей` : '',
-    building.sections > 1 ? `${building.sections} секций` : '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
 
   return (
     <div className="min-h-screen bg-background pb-24 lg:pb-8">
       <RedesignHeader mobileTabBar={false} />
 
       <main id="main" className="max-w-[1400px] mx-auto px-4 py-4 sm:py-6">
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <nav aria-label="Хлебные крошки" className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] text-muted-foreground sm:text-sm">
-            <Link to="/" className="inline-flex min-h-8 items-center hover:text-foreground">Главная</Link>
-            <span>/</span>
-            <Link to={catalogUrl} className="inline-flex min-h-8 items-center hover:text-foreground">Каталог</Link>
-            {districtCatalogUrl ? (
-              <>
-                <span className="hidden sm:inline">/</span>
-                <Link to={districtCatalogUrl} className="hidden min-h-8 items-center truncate hover:text-foreground sm:inline-flex">
-                  {complex.district}
-                </Link>
-              </>
-            ) : null}
-            <span>/</span>
-            <Link to={`/complex/${complex.slug}`} className="inline-flex min-h-8 items-center truncate max-w-[140px] hover:text-foreground sm:max-w-none">
-              {complex.name}
-            </Link>
-            {/* Текущая страница — в заголовке ниже; на телефоне крошки в одну строку */}
-            <span className="hidden sm:inline">/</span>
-            <span className="hidden truncate font-medium text-foreground sm:inline">
-              {roomLabel}, {formatArea(apt.area)}
-            </span>
-          </nav>
-          <ObjectPageActionBar
-            actions={[
-              {
-                key: 'fav',
-                icon: <Heart className={cn('w-4 h-4', listingLiked && 'fill-destructive text-destructive')} />,
-                label: listingLiked ? 'В избранном' : 'В избранное',
-                disabled: listingId == null,
-                active: listingLiked,
-                onClick: handleListingFavorite as unknown as () => void,
-              },
-              {
-                key: 'pdf',
-                icon: <FileText className="w-4 h-4" />,
-                label: 'Презентация',
-                href: listingId != null ? `/presentation/listing/${listingId}` : `/presentation/${complex.slug}`,
-              },
-              {
-                key: 'share',
-                icon: <Share2 className="w-4 h-4" />,
-                label: 'Поделиться',
-                onClick: handleShare as unknown as () => void,
-              },
-            ]}
-          />
-        </div>
-
-        <div className="mb-3">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight leading-tight">
-            {roomLabel}, {formatArea(apt.area)}
-          </h1>
-          <Link to={`/complex/${complex.slug}`} className="text-xs text-muted-foreground hover:text-primary mt-1 inline-block">
+        <nav aria-label="Хлебные крошки" className="mb-4 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] text-muted-foreground sm:text-sm">
+          <Link to="/" className="inline-flex min-h-8 items-center hover:text-foreground">Главная</Link>
+          <span>/</span>
+          <Link to={catalogUrl} className="inline-flex min-h-8 items-center hover:text-foreground">Каталог</Link>
+          {districtCatalogUrl ? (
+            <>
+              <span className="hidden sm:inline">/</span>
+              <Link to={districtCatalogUrl} className="hidden min-h-8 items-center truncate hover:text-foreground sm:inline-flex">
+                {complex.district}
+              </Link>
+            </>
+          ) : null}
+          <span>/</span>
+          <Link to={`/complex/${complex.slug}`} className="inline-flex min-h-8 items-center truncate max-w-[140px] hover:text-foreground sm:max-w-none">
             {complex.name}
           </Link>
-        </div>
+          {/* Текущая страница — в заголовке карточки; на телефоне крошки в одну строку */}
+          <span className="hidden sm:inline">/</span>
+          <span className="hidden truncate font-medium text-foreground sm:inline">
+            {roomLabel}, {formatArea(apt.area)}
+          </span>
+        </nav>
 
         {isSold || isReserved ? (
           <div
@@ -450,7 +403,8 @@ const RedesignApartment = () => {
           </div>
         ) : null}
 
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_min(40%,340px)] lg:gap-8 xl:gap-10 lg:items-start">
+        {/* Первый экран как у ЖК: планировка слева, всё для решения — в карточке справа */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
           <div className="min-w-0">
             <ApartmentMediaGallery
               planSrc={apt.planImage}
@@ -458,116 +412,123 @@ const RedesignApartment = () => {
               gallerySrcs={mediaImages}
               title={`${roomLabel}, ${formatArea(apt.area)}`}
             />
-
-            <ComplexAnchorNav
-              sections={navSections}
-              activeId={activeSection || navSections[0]?.id || ''}
-              onNavigate={scrollToSection}
-            />
-
-            <div className="lg:hidden mt-4 space-y-4">
-              <ApartmentPriceTrust
-                apartment={apt}
-                complexName={complex.name}
-                complexSlug={complex.slug}
-                buildingName={building.name}
-                address={complex.address}
-                roomLabel={roomLabel}
-              />
+          </div>
+          <ApartmentPriceTrust
+            apartment={apt}
+            complexName={complex.name}
+            complexSlug={complex.slug}
+            buildingName={building.name}
+            address={complex.address}
+            roomLabel={roomLabel}
+            deadline={building.deadline}
+            actions={[
+              {
+                key: 'fav',
+                icon: <Heart className={cn('w-4 h-4', listingLiked && 'fill-destructive text-destructive')} />,
+                label: listingLiked ? 'В избранном' : 'В избранное',
+                disabled: listingId == null,
+                active: listingLiked,
+                onClick: handleListingFavorite as unknown as () => void,
+              },
+              {
+                key: 'pdf',
+                icon: <FileText className="w-4 h-4" />,
+                label: 'Презентация PDF',
+                href: listingId != null ? `/presentation/listing/${listingId}` : `/presentation/${complex.slug}`,
+              },
+              {
+                key: 'share',
+                icon: <Share2 className="w-4 h-4" />,
+                label: 'Поделиться',
+                onClick: handleShare as unknown as () => void,
+              },
+            ]}
+            cta={
               <ConversionCTABar
                 layout="stack"
                 context={baseConsultContext}
                 onConsultation={openConsultation}
                 consultationLabel={isSold ? CONVERSION_CTA.consultation : CONVERSION_CTA.viewing}
               />
-              {listingId != null ? (
-                <Button variant="outline" className="w-full" asChild>
-                  <Link to={`/presentation/listing/${listingId}`}>
-                    <FileText className="w-4 h-4 mr-2" />
-                    Презентация PDF
-                  </Link>
-                </Button>
-              ) : null}
-            </div>
-
-        <div className="space-y-8 sm:space-y-10 mt-6 lg:mt-6">
-          <ApartmentCharacteristics
-            apartment={apt}
-            building={building}
-            complex={complex}
-            roomLabel={roomLabel}
+            }
           />
+        </div>
 
-          <section id="building-context" className="scroll-mt-28 rounded-xl border border-border bg-card p-5 sm:p-6">
-            {sectionHeading('Корпус и ЖК')}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <p className="font-semibold">{building.name}</p>
-                {buildingFacts ? <p className="text-sm text-muted-foreground mt-1">{buildingFacts}</p> : null}
-              </div>
-              <Button variant="outline" asChild>
-                <Link to={`/complex/${complex.slug}`}>
-                  <Building2 className="w-4 h-4 mr-2" />
-                  Страница ЖК
-                </Link>
-              </Button>
-            </div>
-          </section>
+        <div className="mt-6 mb-8">
+          <ComplexAnchorNav
+            sections={navSections}
+            activeId={activeSection || navSections[0]?.id || ''}
+            onNavigate={scrollToSection}
+            aside={
+              <>
+                <span className="text-[15px] font-bold tabular-nums">{formatDisplayPrice(apt.price)}</span>
+                <Button variant="primary" size="sm" type="button" onClick={() => openConsultation({ ...baseConsultContext, source: `apartment:${apt.id}:nav` })}>
+                  {isSold ? CONVERSION_CTA.consultation : CONVERSION_CTA.viewing}
+                </Button>
+              </>
+            }
+          />
+        </div>
 
+        <div className="space-y-12 sm:space-y-14">
+          <Reveal>
+            <ApartmentCharacteristics
+              apartment={apt}
+              building={building}
+              complex={complex}
+              roomLabel={roomLabel}
+            />
+          </Reveal>
+
+          {/* Описание и карта рядом — как «О комплексе» на странице ЖК */}
           <Reveal as="section" id="description" className="scroll-mt-36">
-            {sectionHeading('О квартире')}
-            <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {roomLabel} площадью {formatArea(apt.area)}
-                {apt.floor > 0 ? ` на ${apt.floor} этаже${apt.totalFloors > apt.floor ? ` ${apt.totalFloors}-этажного дома` : ''}` : ''} в ЖК «{complex.name}».
-                {apt.finishing !== 'без отделки' ? ` Отделка: ${apt.finishing}.` : ' Без отделки.'}
-                {apt.kitchenArea > 0 ? ` Кухня ${formatArea(apt.kitchenArea)}.` : ''}
-              </p>
-              {complex.description?.trim() && complex.description !== `Жилой комплекс «${complex.name}».` ? (
-                <p className="text-sm text-muted-foreground leading-relaxed mt-4 pt-4 border-t border-border">
-                  {complex.description.replace(/<[^>]+>/g, '').slice(0, 800)}
-                  {complex.description.length > 800 ? '…' : ''}
+            {sectionHeading('О квартире и расположение')}
+            <div className={cn('grid gap-4', (hasAddress || hasCoords) && 'lg:grid-cols-2')}>
+              <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
+                <p className="text-[15px] leading-relaxed text-muted-foreground">
+                  {roomLabel} площадью {formatArea(apt.area)}
+                  {apt.floor > 0 ? ` на ${apt.floor} этаже${apt.totalFloors > apt.floor ? ` ${apt.totalFloors}-этажного дома` : ''}` : ''} в ЖК «{complex.name}».
+                  {apt.finishing !== 'без отделки' ? ` Отделка: ${apt.finishing}.` : ' Без отделки.'}
+                  {apt.kitchenArea > 0 ? ` Кухня ${formatArea(apt.kitchenArea)}.` : ''}
                 </p>
+                {complex.description?.trim() && complex.description !== `Жилой комплекс «${complex.name}».` ? (
+                  <p className="mt-4 border-t border-border pt-4 text-[15px] leading-relaxed text-muted-foreground">
+                    {complex.description.replace(/<[^>]+>/g, '').slice(0, 800)}
+                    {complex.description.length > 800 ? '…' : ''}
+                  </p>
+                ) : null}
+                <Link
+                  to={`/complex/${complex.slug}`}
+                  className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+                >
+                  Все квартиры в ЖК «{complex.name}» →
+                </Link>
+              </div>
+              {/* Нет ни адреса, ни координат — карты нет: пустой контейнер не рисуем (ТЗ v3, 4.6) */}
+              {hasAddress || hasCoords ? (
+                <div id="map" className="scroll-mt-36 flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card">
+                  {hasAddress ? (
+                    <div className="flex flex-wrap items-center gap-2 border-b border-border p-4 text-sm">
+                      <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="font-medium">{complex.address}</span>
+                    </div>
+                  ) : null}
+                  {hasCoords ? <div ref={mapRef} className="min-h-[260px] flex-1 bg-muted" /> : null}
+                </div>
               ) : null}
             </div>
           </Reveal>
 
-          {/* Нет ни адреса, ни координат — секции нет: пустой контейнер карты не рисуем (ТЗ v3, 4.6) */}
-          {hasAddress || hasCoords ? (
-          <section id="map" className="scroll-mt-28">
-            {sectionHeading('Расположение')}
-            <div className="rounded-xl border border-border overflow-hidden bg-card">
-              {complex.address && complex.address !== '—' ? (
-                <div className="p-4 border-b border-border flex flex-wrap items-center gap-2 text-sm">
-                  <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <span className="font-medium">{complex.address}</span>
-                </div>
-              ) : null}
-              {hasCoords ? <div ref={mapRef} className="h-[min(360px,45vh)] min-h-[220px] bg-muted" /> : null}
-            </div>
-          </section>
-          ) : null}
-
-          {listingId != null ? (
-            <RelatedListingsCarousel
-              title="Похожие по цене"
-              fetchUrl={`/discovery/listings/${listingId}/price-neighbors?limit=8`}
-              queryKey={['discovery', 'price-neighbors', listingId]}
-              excludeId={listingId}
-              className="scroll-mt-28"
-            />
-          ) : null}
-
           {similarApts.length > 0 ? (
             <Reveal as="section" id="similar" className="scroll-mt-36">
               {sectionHeading(`Похожие квартиры в ЖК «${complex.name}»`)}
-              {/* Телефон: лента со свайпом (две карточки в кадре) — одной колонкой блок был ~1 500 px */}
+              {/* Телефон: лента со свайпом (две карточки в кадре); с планшета — ровная сетка */}
               <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4 [&>*]:w-[64%] [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-auto">
                 {similarApts.map((a) => (
                   <Link
                     key={a.id}
                     to={`/apartment/${a.id}`}
-                    className="group rounded-xl border border-border bg-card overflow-hidden hover:shadow-md hover:-translate-y-px transition-all"
+                    className="group overflow-hidden rounded-2xl border border-border/70 bg-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card"
                   >
                     <StableMediaFrame
                       src={a.planImage}
@@ -575,16 +536,18 @@ const RedesignApartment = () => {
                       aspect="4/3"
                       fallback="branded"
                       loading="lazy"
-                      imgClassName="object-contain p-4 opacity-80 group-hover:opacity-100 transition-opacity"
+                      imgClassName="object-contain p-4 opacity-90 transition-opacity group-hover:opacity-100"
                     />
-                    <div className="p-3 space-y-1 border-t border-border">
-                      <h3 className="font-semibold text-sm">
-                        {a.rooms === 0 ? 'Студия' : `${a.rooms}-комн`}, {formatArea(a.area)}
+                    <div className="space-y-1 border-t border-border p-3.5">
+                      <p className="text-[16px] font-bold tabular-nums">{formatDisplayPrice(a.price)}</p>
+                      <h3 className="text-[14px] font-medium">
+                        {a.rooms === 0 ? 'Студия' : `${a.rooms}-комн.`}, {formatArea(a.area)}
                       </h3>
-                      <p className="text-xs text-muted-foreground">
-                        Этаж {a.floor}/{a.totalFloors} · {a.finishing}
+                      <p className="text-[13px] text-muted-foreground">
+                        {a.floor > 0 ? `${a.floor} этаж` : ''}
+                        {a.floor > 0 && a.finishing ? ' · ' : ''}
+                        {a.finishing}
                       </p>
-                      <p className="font-bold text-sm text-primary">{formatDisplayPrice(a.price)}</p>
                     </div>
                   </Link>
                 ))}
@@ -592,81 +555,45 @@ const RedesignApartment = () => {
             </Reveal>
           ) : null}
 
+          {listingId != null ? (
+            <RelatedListingsCarousel
+              title="Похожие по цене в других ЖК"
+              fetchUrl={`/discovery/listings/${listingId}/price-neighbors?limit=8`}
+              queryKey={['discovery', 'price-neighbors', listingId]}
+              excludeId={listingId}
+              className="scroll-mt-28"
+            />
+          ) : null}
 
           <Reveal as="section" id="lead" className="scroll-mt-36">
-            <div className="grid gap-5 rounded-2xl bg-primary/[0.06] p-5 ring-1 ring-primary/15 sm:p-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,440px)] xl:items-center xl:gap-8">
+            <div className="grid gap-6 rounded-2xl bg-primary/[0.06] p-5 ring-1 ring-primary/15 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)] lg:items-center lg:gap-10">
               <div>
-                <h2 className="text-[22px] font-bold leading-tight tracking-tight">
+                <h2 className="text-[22px] font-bold leading-tight tracking-tight sm:text-[26px]">
                   {isSold ? 'Подберём похожую квартиру' : 'Запишем на просмотр'}
                 </h2>
-                <p className="mt-2 text-[15px] text-muted-foreground">
+                <p className="mt-2 max-w-md text-[15px] text-muted-foreground">
                   {isSold
                     ? 'Эта квартира продана — расскажем о похожих в этом и соседних ЖК.'
                     : `${roomLabel}, ${formatArea(apt.area)} в «${complex.name}»: уточним цену, условия покупки и покажем квартиру.`}
                 </p>
               </div>
-            <div className="rounded-xl bg-card p-4 shadow-card sm:p-5">
-              <LeadForm
-                title=""
-                embedded
-                source={`Квартира: ${apt.id}`}
-                blockId={blockId ?? undefined}
-                listingId={listingId ?? undefined}
-                requestType={isSold ? 'CONSULTATION' : 'CONSULTATION'}
-                contextFooter={
-                  isSold
-                    ? `Запрос по проданной квартире ${roomLabel}, ${formatArea(apt.area)} · ${complex.name}`
-                    : undefined
-                }
-              />
-            </div>
+              <div className="rounded-xl bg-card p-4 shadow-card sm:p-5">
+                <LeadForm
+                  title=""
+                  embedded
+                  source={`Квартира: ${apt.id}`}
+                  blockId={blockId ?? undefined}
+                  listingId={listingId ?? undefined}
+                  requestType="CONSULTATION"
+                  contextFooter={
+                    isSold
+                      ? `Запрос по проданной квартире ${roomLabel}, ${formatArea(apt.area)} · ${complex.name}`
+                      : undefined
+                  }
+                />
+              </div>
             </div>
           </Reveal>
-        </div>
-          </div>
-
-          <aside className="hidden lg:block sticky top-20 self-start space-y-4">
-            <ApartmentPriceTrust
-              apartment={apt}
-              complexName={complex.name}
-              complexSlug={complex.slug}
-              buildingName={building.name}
-              address={complex.address}
-              roomLabel={roomLabel}
-            />
-            <ConversionCTABar
-              layout="stack"
-              context={baseConsultContext}
-              onConsultation={openConsultation}
-              consultationLabel={isSold ? CONVERSION_CTA.consultation : CONVERSION_CTA.viewing}
-            />
-            {hasCoords ? (
-              <Button
-                variant="outline"
-                className="w-full"
-                type="button"
-                onClick={() => scrollToSection('map')}
-              >
-                <MapPin className="w-4 h-4 mr-2" />
-                Показать на карте
-              </Button>
-            ) : null}
-            {listingId != null ? (
-              <Button variant="outline" className="w-full" asChild>
-                <Link to={`/presentation/listing/${listingId}`}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  Презентация PDF
-                </Link>
-              </Button>
-            ) : (
-              <Button variant="outline" className="w-full" asChild>
-                <Link to={`/presentation/${complex.slug}`}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  Презентация PDF
-                </Link>
-              </Button>
-            )}
-          </aside>
         </div>
       </main>
 
