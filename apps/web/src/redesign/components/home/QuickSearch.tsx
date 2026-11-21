@@ -420,7 +420,7 @@ const QuickSearch = ({ variant = 'below' }: { variant?: Variant }) => {
             type="button"
             onClick={() => setSearchSheetOpen(true)}
             className={cn(control, 'flex min-w-0 flex-1 items-center gap-2 text-left max-lg:h-10')}
-            aria-label="Поиск: ЖК, улица, район или застройщик"
+            aria-label={`Поиск: ${filters.search || 'ЖК, улица или застройщик'}`}
           >
             <Search className="h-[18px] w-[18px] shrink-0 text-muted-foreground" aria-hidden />
             <span className={cn('truncate', filters.search ? 'text-foreground' : 'text-muted-foreground')}>

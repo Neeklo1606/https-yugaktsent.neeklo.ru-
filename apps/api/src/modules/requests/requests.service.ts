@@ -17,6 +17,7 @@ import { CreateRequestDto } from './dto/create-request.dto';
 import { RequestEventsService } from './request-events.service';
 import { assertStatusTransition } from './request-status';
 import { TelegramNotifyService } from './telegram-notify.service';
+import { LeadWebhookService } from './lead-webhook.service';
 import { AttentionRoutingService } from '../crm-notifications/attention-routing.service';
 import { CrmCommunicationService } from '../crm-communication/crm-communication.service';
 
@@ -63,6 +64,7 @@ export class RequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly telegramNotify: TelegramNotifyService,
+    private readonly leadWebhook: LeadWebhookService,
     private readonly events: RequestEventsService,
     private readonly attention: AttentionRoutingService,
     private readonly attribution: CrmAttributionService,
@@ -123,6 +125,9 @@ export class RequestsService {
         `Communication thread bootstrap failed for request ${row.id}: ${e instanceof Error ? e.message : String(e)}`,
       );
     });
+
+    // CRM-вебхук из «Интеграций»: не задерживает ответ посетителю
+    void this.leadWebhook.notifyNewRequest(row).catch(() => undefined);
 
     if (await this.telegramNotify.isConfigured()) {
       void (async () => {

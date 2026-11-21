@@ -560,7 +560,7 @@ const RedesignApartment = () => {
 
           {similarApts.length > 0 ? (
             <Reveal as="section" id="similar" className="scroll-mt-36">
-              {sectionHeading(`Похожие квартиры в ${complex.name}`)}
+              {sectionHeading(`Похожие квартиры в ЖК «${complex.name}»`)}
               {/* Телефон: лента со свайпом (две карточки в кадре) — одной колонкой блок был ~1 500 px */}
               <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4 [&>*]:w-[64%] [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-auto">
                 {similarApts.map((a) => (
@@ -578,9 +578,9 @@ const RedesignApartment = () => {
                       imgClassName="object-contain p-4 opacity-80 group-hover:opacity-100 transition-opacity"
                     />
                     <div className="p-3 space-y-1 border-t border-border">
-                      <h4 className="font-semibold text-sm">
+                      <h3 className="font-semibold text-sm">
                         {a.rooms === 0 ? 'Студия' : `${a.rooms}-комн`}, {formatArea(a.area)}
-                      </h4>
+                      </h3>
                       <p className="text-xs text-muted-foreground">
                         Этаж {a.floor}/{a.totalFloors} · {a.finishing}
                       </p>

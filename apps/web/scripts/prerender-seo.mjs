@@ -480,8 +480,22 @@ async function main() {
   // фидов, а index.html к тому моменту уже пропатчен
   const templatePath = path.join(distDir, 'spa-template.html');
   if (!fs.existsSync(templatePath)) fs.copyFileSync(indexPath, templatePath);
-  const baseHtml = fs.readFileSync(templatePath, 'utf8');
+  let baseHtml = fs.readFileSync(templatePath, 'utf8');
   const ssrMod = await loadSsr(apiBase);
+  let settings = {};
+  try {
+    const raw = await fetchJson(`${apiBase}/content/settings`);
+    for (const x of Object.values(raw || {}).flat()) if (x?.key) settings[x.key] = x.value;
+  } catch { /* без настроек — без телефона, адреса и кодов подтверждения */ }
+  // Подтверждение Яндекс Вебмастера и Search Console из «Интеграций» — во всех страницах
+  const verify = [
+    ['yandex-verification', settings.yandex_verification],
+    ['google-site-verification', settings.google_site_verification],
+  ]
+    .filter(([, v]) => typeof v === 'string' && /^[\w-]{6,80}$/.test(v.trim()))
+    .map(([name, v]) => `<meta name="${name}" content="${escapeAttr(v.trim())}">`)
+    .join('\n    ');
+  if (verify) baseHtml = baseHtml.replace(/<meta\s+charset[^>]+>/i, (m) => `${m}\n    ${verify}`);
   const ssr = ssrMod?.render ?? null;
 
   // Копия src/shared/lib/service-area.ts — менять вместе
@@ -496,11 +510,6 @@ async function main() {
     canonical: `${siteUrl}/`,
   });
   const siteHost = new URL(siteUrl).host;
-  let settings = {};
-  try {
-    const raw = await fetchJson(`${apiBase}/content/settings`);
-    for (const x of Object.values(raw || {}).flat()) if (x?.key) settings[x.key] = x.value;
-  } catch { /* без настроек — без телефона и адреса */ }
   if (ssrMod?.homeJsonLd) {
     homeHtml = injectHead(
       homeHtml,

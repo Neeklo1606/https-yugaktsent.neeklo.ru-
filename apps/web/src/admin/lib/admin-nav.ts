@@ -9,6 +9,7 @@ import {
   History,
   Home,
   Image,
+  KeyRound,
   LayoutDashboard,
   Newspaper,
   Palette,
@@ -74,6 +75,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     title: 'Интеграции',
     items: [
+      { to: '/admin/integrations', label: 'Ключи и подключения', icon: KeyRound, roles: ['admin'] },
       { to: '/admin/telegram-notify', label: 'Telegram-уведомления', icon: BellRing, roles: ['admin'] },
       { to: '/admin/settings/ai', label: 'Нейросети', icon: Sparkles, roles: ['admin'] },
     ],

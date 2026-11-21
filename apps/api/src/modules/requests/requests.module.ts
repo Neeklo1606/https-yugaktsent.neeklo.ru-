@@ -24,6 +24,8 @@ import { OpsCenterController } from './ops-center.controller';
 import { RequestsAdminMetaController } from './requests-admin-meta.controller';
 import { ResponseVelocityService } from './response-velocity.service';
 import { TelegramNotifyService } from './telegram-notify.service';
+import { LeadWebhookService } from './lead-webhook.service';
+import { IntegrationsAdminController } from './integrations-admin.controller';
 import { CRM_SNAPSHOT_QUEUE } from '../crm-snapshot/crm-snapshot.constants';
 import { CrmSnapshotService } from '../crm-snapshot/crm-snapshot.service';
 import { CrmTrendService } from '../crm-snapshot/crm-trend.service';
@@ -40,6 +42,7 @@ import { CrmSnapshotSchedulerService } from '../crm-snapshot/crm-snapshot-schedu
     BullModule.registerQueue({ name: CRM_SNAPSHOT_QUEUE }),
   ],
   controllers: [
+    IntegrationsAdminController,
     RequestsController,
     RequestsAdminMetaController,
     RequestsAdminController,
@@ -48,6 +51,7 @@ import { CrmSnapshotSchedulerService } from '../crm-snapshot/crm-snapshot-schedu
     TelegramNotifyAdminController,
   ],
   providers: [
+    LeadWebhookService,
     RequestsService,
     RequestEventsService,
     RequestSlaService,

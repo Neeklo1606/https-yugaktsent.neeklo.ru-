@@ -321,6 +321,14 @@ export const DEFAULT_INTEGRATION_SITE_SETTINGS: Array<{
     sortOrder: 6,
   },
   {
+    key: 'lead_webhook_url',
+    value: '',
+    groupName: INTEGRATIONS_SITE_SETTINGS_GROUP,
+    label: 'CRM: адрес вебхука для новых заявок (amoCRM, Битрикс24, Make и т. п.) — получает имя, телефон, объект',
+    fieldType: SiteSettingFieldType.SECRET,
+    sortOrder: 10,
+  },
+  {
     key: 'tg_news_mtproto_session',
     value: '',
     groupName: INTEGRATIONS_SITE_SETTINGS_GROUP,
@@ -335,6 +343,43 @@ export const DEFAULT_INTEGRATION_SITE_SETTINGS: Array<{
     label: 'Объявления: модерация перед публикацией (агенты отправляют на review)',
     fieldType: SiteSettingFieldType.TEXT,
     sortOrder: 16,
+  },
+];
+
+/** Аналитика и подтверждение сайта: значения публичные (они всё равно видны в HTML), поэтому отдельная группа. */
+export const ANALYTICS_SITE_SETTINGS_GROUP = 'analytics';
+
+export const DEFAULT_ANALYTICS_SITE_SETTINGS: Array<{
+  key: string;
+  value: string;
+  groupName: string;
+  label: string;
+  fieldType: SiteSettingFieldType;
+  sortOrder: number;
+}> = [
+  {
+    key: 'yandex_metrika_id',
+    value: '',
+    groupName: ANALYTICS_SITE_SETTINGS_GROUP,
+    label: 'Яндекс Метрика: номер счётчика (только цифры). Грузится после согласия на cookie',
+    fieldType: SiteSettingFieldType.TEXT,
+    sortOrder: 0,
+  },
+  {
+    key: 'yandex_verification',
+    value: '',
+    groupName: ANALYTICS_SITE_SETTINGS_GROUP,
+    label: 'Яндекс Вебмастер: код подтверждения (content из meta yandex-verification)',
+    fieldType: SiteSettingFieldType.TEXT,
+    sortOrder: 1,
+  },
+  {
+    key: 'google_site_verification',
+    value: '',
+    groupName: ANALYTICS_SITE_SETTINGS_GROUP,
+    label: 'Google Search Console: код подтверждения (content из meta google-site-verification)',
+    fieldType: SiteSettingFieldType.TEXT,
+    sortOrder: 2,
   },
 ];
 

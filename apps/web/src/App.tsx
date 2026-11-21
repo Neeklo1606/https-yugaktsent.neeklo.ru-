@@ -11,6 +11,7 @@ import SeoRouteMeta from "@/shared/components/SeoRouteMeta";
 import SeoJsonLd from "@/shared/components/SeoJsonLd";
 import StagingBadge from "@/shared/components/StagingBadge";
 import CookieBanner from "@/shared/components/CookieBanner";
+import AnalyticsLoader from "@/shared/components/AnalyticsLoader";
 import ThemeBootstrap from "@/shared/theme/ThemeBootstrap";
 import { SHARE_EVENT } from "@/lib/share-event";
 
@@ -53,6 +54,7 @@ const AdminUsers = lazyWithReload('AdminUsers', () => import("./admin/pages/Admi
 const AdminAgentsListPage = lazyWithReload('AdminAgentsListPage', () => import("./admin/pages/AdminAgentsListPage"));
 const AdminAgentEditPage = lazyWithReload('AdminAgentEditPage', () => import("./admin/pages/AdminAgentEditPage"));
 const AdminSettings = lazyWithReload('AdminSettings', () => import("./admin/pages/AdminSettings"));
+const AdminIntegrations = lazyWithReload('AdminIntegrations', () => import("./admin/pages/AdminIntegrations"));
 const AdminAiSettings = lazyWithReload('AdminAiSettings', () => import("./admin/pages/AdminAiSettings"));
 const AdminDocs = lazyWithReload('AdminDocs', () => import("./admin/pages/AdminDocs"));
 const AdminAudit = lazyWithReload('AdminAudit', () => import("./admin/pages/AdminAudit"));
@@ -243,6 +245,7 @@ const AppRoutes = () => (
       <Route path="agents" element={<RequireAuth roles={['admin', 'editor', 'manager']}><AdminAgentsListPage /></RequireAuth>} />
       <Route path="agents/:userId" element={<RequireAuth roles={['admin', 'editor', 'manager']}><AdminAgentEditPage /></RequireAuth>} />
       <Route path="settings" element={<RequireAuth roles={['admin', 'editor']}><AdminSettings /></RequireAuth>} />
+      <Route path="integrations" element={<RequireAuth roles={['admin']}><AdminIntegrations /></RequireAuth>} />
       <Route path="settings/ai" element={<RequireAuth roles={['admin']}><AdminAiSettings /></RequireAuth>} />
       {/* «Токены» не сохраняли даже черновик — раздел заменён темой сайта */}
       <Route path="tokens" element={<Navigate to="/admin/theme" replace />} />
@@ -321,6 +324,7 @@ const App = () => (
         <SeoJsonLd />
         <StagingBadge />
         <CookieBanner />
+        <AnalyticsLoader />
         <Suspense fallback={<Loading />}>
           <RouteErrorBoundary
             scope="auth-boot"

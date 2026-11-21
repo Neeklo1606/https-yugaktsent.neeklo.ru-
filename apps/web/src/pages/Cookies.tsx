@@ -1,6 +1,39 @@
 import { Link } from 'react-router-dom';
 import LegalLayout, { LegalSection } from '@/pages/legal/LegalLayout';
 import { COOKIE_NOTICE_STORAGE_KEY } from '@/shared/components/CookieBanner';
+import { useSiteSettings, settingOptional } from '@/redesign/hooks/useSiteSettings';
+import { ANALYTICS_CONSENT_KEY, writeAnalyticsConsent } from '@/shared/lib/analytics-consent';
+
+/** Раздел «Аналитика» зависит от «Интеграций»: счётчик подключён — описываем его и даём отказаться */
+function AnalyticsSection() {
+  const { data: settings } = useSiteSettings();
+  const metrika = settingOptional(settings, 'yandex_metrika_id');
+  if (!metrika) {
+    return (
+      <p>
+        Сейчас счётчики посещаемости (например, Яндекс Метрика) на сайте не установлены. Если они
+        появятся, эта страница будет обновлена до их подключения, а посетитель сможет отказаться от
+        аналитических cookie, не теряя доступа к сайту.
+      </p>
+    );
+  }
+  return (
+    <>
+      <p>
+        Сайт использует Яндекс Метрику (ООО «Яндекс»), чтобы считать посещения и понимать, какие страницы полезны.
+        Счётчик включается только после вашего согласия в баннере cookie («Принять») и не загружается, если вы выбрали
+        «Только нужные». Метрика получает обезличенные данные о визите: страницы, источник перехода, тип устройства.
+        Запись выбора — <code>{ANALYTICS_CONSENT_KEY}</code>.
+      </p>
+      <p>
+        <button type="button" className="text-primary underline underline-offset-2" onClick={() => writeAnalyticsConsent('no')}>
+          Отказаться от аналитики
+        </button>{' '}
+        — после перезагрузки страницы счётчик больше не загрузится.
+      </p>
+    </>
+  );
+}
 
 /**
  * Инвентаризация того, что сайт хранит в браузере и какие сторонние сервисы загружает —
@@ -73,11 +106,7 @@ const Cookies = () => (
     </LegalSection>
 
     <LegalSection title="3. Аналитика">
-      <p>
-        Сейчас счётчики посещаемости (например, Яндекс Метрика) на сайте не установлены. Если они
-        появятся, эта страница будет обновлена до их подключения, а посетитель сможет отказаться от
-        аналитических cookie, не теряя доступа к сайту.
-      </p>
+      <AnalyticsSection />
     </LegalSection>
 
     <LegalSection title="4. Как удалить или запретить">

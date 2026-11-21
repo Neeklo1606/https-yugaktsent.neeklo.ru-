@@ -14,6 +14,7 @@ import type { ExpertProfileDto } from './dto/update-experts.dto';
 import {
   DEFAULT_DEMO_NEWS,
   DEFAULT_HOMEPAGE_SITE_SETTINGS,
+  DEFAULT_ANALYTICS_SITE_SETTINGS,
   DEFAULT_INTEGRATION_SITE_SETTINGS,
   DEFAULT_SEO_SITE_SETTINGS,
   DEFAULT_SEO_LANDING_SETTINGS,
@@ -25,7 +26,8 @@ type NavItemTree = NavigationItem & { children: NavItemTree[] };
 const homepageDefaultsByKey = new Map(DEFAULT_HOMEPAGE_SITE_SETTINGS.map((r) => [r.key, r]));
 const integrationDefaultsByKey = new Map(DEFAULT_INTEGRATION_SITE_SETTINGS.map((r) => [r.key, r]));
 const integrationKeys = new Set(integrationDefaultsByKey.keys());
-const settingDefaultsByKey = new Map([...homepageDefaultsByKey, ...integrationDefaultsByKey]);
+const analyticsDefaultsByKey = new Map(DEFAULT_ANALYTICS_SITE_SETTINGS.map((r) => [r.key, r]));
+const settingDefaultsByKey = new Map([...homepageDefaultsByKey, ...integrationDefaultsByKey, ...analyticsDefaultsByKey]);
 /** Эксперты (/experts/:slug) — один JSON в site_settings; правится только через /admin/content/experts. */
 const EXPERTS_SETTING_KEY = 'experts_json';
 const EXPERTS_SETTING_GROUP = 'experts';
@@ -45,6 +47,7 @@ export class ContentService implements OnModuleInit {
     await this.ensureSeoSiteSettings();
     await this.ensureSeoLandingSettings();
     await this.ensureIntegrationSiteSettings();
+    await this.ensureAnalyticsSiteSettings();
     if (process.env.SEED_DEMO_NEWS === '1') {
       await this.ensureDemoNewsIfEmpty();
       await this.ensureDemoNewsCovers();
@@ -78,6 +81,12 @@ export class ContentService implements OnModuleInit {
   }
 
   /** Telegram и др.: строки в БД, правки только из админки (не .env). */
+  private async ensureAnalyticsSiteSettings() {
+    for (const row of DEFAULT_ANALYTICS_SITE_SETTINGS) {
+      await this.prisma.siteSetting.upsert({ where: { key: row.key }, update: {}, create: row });
+    }
+  }
+
   private async ensureIntegrationSiteSettings() {
     for (const row of DEFAULT_INTEGRATION_SITE_SETTINGS) {
       await this.prisma.siteSetting.upsert({

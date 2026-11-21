@@ -648,6 +648,39 @@ export class TelegramNotifyService implements OnModuleInit {
     return null;
   }
 
+  /**
+   * Проверка из админки («Интеграции»): токен действителен (getMe) и тестовое сообщение доходит
+   * до активных получателей. Персональных данных в тексте нет.
+   */
+  async sendTest(): Promise<{ ok: boolean; bot?: string; recipients: number; sent: number; error?: string }> {
+    this.invalidateCache();
+    const token = await this.getCachedBotToken();
+    if (!token) return { ok: false, recipients: 0, sent: 0, error: 'Токен бота не задан' };
+    let bot: string | undefined;
+    try {
+      const me = await this.telegramRequest<{ ok: boolean; result?: { username?: string }; description?: string }>(token, 'getMe', {});
+      if (!me.ok) return { ok: false, recipients: 0, sent: 0, error: me.description || 'Telegram не принял токен' };
+      bot = me.result?.username ? `@${me.result.username}` : undefined;
+    } catch (e) {
+      return { ok: false, recipients: 0, sent: 0, error: e instanceof Error ? e.message : String(e) };
+    }
+    const recipients = await this.prisma.telegramNotifyRecipient.findMany({
+      where: { isActive: true },
+      select: { telegramChatId: true },
+    });
+    let sent = 0;
+    for (const r of recipients) {
+      if (await this.sendMessage(token, r.telegramChatId, 'Проверка уведомлений сайта «Южный Акцент»: бот подключён, заявки будут приходить сюда.')) sent += 1;
+    }
+    return {
+      ok: recipients.length === 0 || sent > 0,
+      bot,
+      recipients: recipients.length,
+      sent,
+      ...(recipients.length === 0 ? { error: 'Получателей нет: менеджер пишет боту /admin и одобряется в «Telegram уведомления команды»' } : {}),
+    };
+  }
+
   private async sendMessage(
     token: string,
     chatId: bigint,
