@@ -43,19 +43,19 @@ export default function SessionResumeBanner({ className }: Props) {
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-1.5 sm:px-4',
+        'flex items-center gap-2 rounded-xl border border-border/70 bg-card py-1.5 pl-3 pr-1 sm:pl-4',
         className,
       )}
     >
-      <p className="mr-auto text-[13px] text-muted-foreground sm:text-sm">Вы недавно смотрели</p>
-      <div className="flex flex-wrap gap-1.5">
+      <p className="shrink-0 text-[13px] text-muted-foreground sm:text-sm">Вы недавно смотрели</p>
+      <div className="flex min-w-0 flex-1 gap-1.5 overflow-hidden">
         {visible.slice(0, 3).map((a) => {
           const Icon = a.icon;
           return (
           <Link
             key={a.href}
             to={a.href}
-            className="inline-flex h-10 max-w-[260px] items-center gap-1.5 rounded-lg border border-border/70 bg-background px-3 text-[13px] font-medium transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex h-10 min-w-0 max-w-[260px] items-center gap-1.5 rounded-lg border border-border/70 bg-background px-3 text-[13px] font-medium transition-colors hover:border-primary/40 hover:text-primary"
           >
             <Icon className="w-3.5 h-3.5 shrink-0 text-primary" />
             <span className="truncate">{a.label}</span>
@@ -65,7 +65,7 @@ export default function SessionResumeBanner({ className }: Props) {
       </div>
       <button
         type="button"
-        className="flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:text-foreground ml-auto sm:ml-0"
+        className="flex h-10 w-10 items-center justify-center shrink-0 rounded-md text-muted-foreground hover:text-foreground"
         aria-label="Скрыть"
         onClick={() => {
           dismissSessionResume();
