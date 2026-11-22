@@ -35,6 +35,8 @@ const ScrollToTop = () => {
   const location = useLocation();
   const navType = useNavigationType();
   const prevPath = useRef<string | null>(null);
+  /** Ключ записи, которая сейчас на экране: старый обработчик прокрутки не должен записать 0 при уходе */
+  const activeKey = useRef(location.key);
 
   useEffect(() => {
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
@@ -46,7 +48,9 @@ const ScrollToTop = () => {
     let raf = 0;
     const onScroll = () => {
       cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => savePosition(key, window.scrollY));
+      raf = requestAnimationFrame(() => {
+        if (activeKey.current === key) savePosition(key, window.scrollY);
+      });
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
@@ -56,6 +60,7 @@ const ScrollToTop = () => {
   }, [location.key]);
 
   useLayoutEffect(() => {
+    activeKey.current = location.key;
     const pathChanged = prevPath.current !== location.pathname;
     prevPath.current = location.pathname;
     if (navType === 'POP') {
