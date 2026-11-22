@@ -12,7 +12,7 @@ add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src '
 ```
 
 Приёмник отчётов уже в API (`POST /api/v1/csp-report`, пишет каждое новое нарушение один раз в журнал:
-`journalctl -u yugaktsent-api | grep CSP`). Лимит перед ним:
+`grep CSP /var/log/yugaktsent-lg/api-out.log`). Лимит перед ним:
 
 ```nginx
 location = /api/v1/csp-report {
