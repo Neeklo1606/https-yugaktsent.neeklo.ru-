@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type SyntheticEvent } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties, type SyntheticEvent } from 'react';
 import { cn } from '@/lib/utils';
 import MissingPhotoPlaceholder from '@/redesign/components/MissingPhotoPlaceholder';
 import {
@@ -95,6 +95,12 @@ const StableMediaFrame = ({
     setLoaded(false);
   }, [src]);
 
+  // Фото уже в кэше браузера или загрузилось до гидратации (страница из пререндера) — onLoad не придёт,
+  // и картинка оставалась бы прозрачной. Проверяем сразу при монтировании.
+  const imgRef = useCallback((el: HTMLImageElement | null) => {
+    if (el && el.complete && el.naturalWidth > 0) setLoaded(true);
+  }, []);
+
   const containerClass = fixedHeightClass ?? aspectClass(aspect);
   const safeSrc = getSafeImageUrl(src);
   const srcSet = imageSrcSet(src);
@@ -117,11 +123,12 @@ const StableMediaFrame = ({
       {!useFallback ? (
         <>
           {!loaded ? (
-            <div className="absolute inset-0 animate-pulse bg-muted" aria-hidden="true" />
+            <div className="shimmer absolute inset-0" aria-hidden="true" />
           ) : null}
           {isContain ? (
             <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4">
               <img
+                ref={imgRef}
                 src={imgSrc}
                 {...responsiveAttrs}
                 alt={imageAltText(altContext, decorative)}
@@ -145,6 +152,7 @@ const StableMediaFrame = ({
             </div>
           ) : (
             <img
+              ref={imgRef}
               src={imgSrc}
                 {...responsiveAttrs}
               alt={imageAltText(altContext, decorative)}

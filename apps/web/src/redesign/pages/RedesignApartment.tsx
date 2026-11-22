@@ -573,7 +573,7 @@ const RedesignApartment = () => {
           ) : null}
 
           <Reveal as="section" id="lead" className="scroll-mt-36">
-            <div className="grid gap-6 rounded-2xl bg-primary/[0.06] p-5 ring-1 ring-primary/15 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)] lg:items-center lg:gap-10">
+            <div className="grid gap-6 rounded-2xl bg-brand-soft p-5 ring-1 ring-primary/15 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)] lg:items-center lg:gap-10">
               <div>
                 <h2 className="text-[22px] font-bold leading-tight tracking-tight sm:text-[26px]">
                   {isSold ? 'Подберём похожую квартиру' : 'Запишем на просмотр'}

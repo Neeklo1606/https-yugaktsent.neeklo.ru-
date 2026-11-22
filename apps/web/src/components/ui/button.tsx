@@ -11,11 +11,11 @@ import { cn } from "@/lib/utils";
  * Цвет только из токенов (--primary, --primary-hover, --border), без HEX.
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap select-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap select-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:scale-[0.97] active:duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary: "bg-primary text-primary-foreground font-semibold hover:bg-primary-hover",
+        primary: "bg-primary bg-primary-gradient text-primary-foreground font-semibold hover:bg-primary-hover",
         secondary:
           "bg-card text-foreground border border-border font-medium hover:border-primary/40 hover:bg-surface-soft",
         inverse: "bg-white text-foreground font-semibold hover:bg-white/90",
@@ -23,7 +23,7 @@ const buttonVariants = cva(
           "bg-white/10 text-white border border-white/40 font-medium backdrop-blur-sm hover:bg-white/20",
         ghost:
           "bg-transparent text-primary font-medium border-0 shadow-none hover:underline underline-offset-4",
-        default: "bg-primary text-primary-foreground font-semibold hover:bg-primary-hover",
+        default: "bg-primary bg-primary-gradient text-primary-foreground font-semibold hover:bg-primary-hover",
         destructive: "bg-destructive text-destructive-foreground font-semibold hover:opacity-90",
         outline:
           "bg-card text-foreground border border-border font-medium hover:border-primary/40 hover:bg-surface-soft",

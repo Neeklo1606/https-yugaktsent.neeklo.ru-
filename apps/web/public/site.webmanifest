@@ -2,11 +2,25 @@
   "name": "Южный Акцент — агентство недвижимости",
   "short_name": "Южный Акцент",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/favicon-yugaktsent.png", "sizes": "180x180", "type": "image/png" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ],
-  "theme_color": "#165447",
-  "background_color": "#ffffff",
-  "display": "browser",
-  "start_url": "/"
+  "theme_color": "#ffffff",
+  "background_color": "#F8FAF9",
+  "display": "standalone",
+  "start_url": "/?source=pwa",
+  "description": "Новостройки и квартиры Анапы, Новороссийска, Краснодара и Майкопа",
+  "scope": "/",
+  "lang": "ru",
+  "orientation": "portrait"
 }

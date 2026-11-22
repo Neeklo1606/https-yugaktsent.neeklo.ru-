@@ -143,7 +143,7 @@ const BuyObjectSection = () => {
             ))}
 
         <li className="col-span-2 sm:col-span-1">
-          <div className="flex h-full flex-col justify-between rounded-card bg-primary p-4 text-primary-foreground lg:p-5">
+          <div className="bg-brand-gradient flex h-full flex-col justify-between rounded-card bg-primary p-4 text-primary-foreground shadow-raised lg:p-5">
             <div>
               <p className="text-[17px] font-semibold leading-snug">Не знаете, что выбрать?</p>
               <p className="mt-1.5 text-[14px] leading-snug text-primary-foreground/80">Подберём квартиру под бюджет и цель — бесплатно.</p>

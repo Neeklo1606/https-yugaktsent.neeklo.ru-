@@ -112,6 +112,9 @@
   html {
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    /* Как в приложении: без задержки 300 мс на двойной тап и без серой вспышки WebKit при касании */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground antialiased;
@@ -167,6 +170,120 @@
     opacity: 1;
     transform: none;
   }
+}
+
+/* ---------- Ощущение приложения на телефоне ---------- */
+
+/* Отклик на касание ≤ 50 мс: нажатие 80 мс, отпускание 160 мс; только transform — без перерисовки */
+.press,
+.press-card {
+  transition: transform 160ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  -webkit-user-select: none;
+  user-select: none;
+}
+@media (hover: none) and (pointer: coarse) {
+  /* Все кнопки, чипы и карточки сайта получают «нажатие» без правки каждого компонента */
+  button:not(:disabled):active,
+  [role='button']:not([aria-disabled='true']):active,
+  [role='tab']:active {
+    transform: scale(0.97);
+  }
+  a.rounded-card:active,
+  article.rounded-card:active,
+  li > a.rounded-card:active {
+    transform: scale(0.985);
+  }
+  .press:active {
+    transform: scale(0.97);
+    transition-duration: 80ms;
+  }
+  .press-card:active {
+    transform: scale(0.985);
+    transition-duration: 80ms;
+  }
+}
+
+/* Плавный вход новой страницы (PageEnter): только прозрачность — transform сломал бы fixed-панели */
+@keyframes page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+/* Анимируется только содержимое (main): шапка и нижняя панель остаются на месте, без мигания */
+.page-enter main {
+  animation: page-enter 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Полоса перехода сверху (NavProgress) — появляется, только если переход дольше 150 мс */
+.nav-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 2px;
+  z-index: 100;
+  pointer-events: none;
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(172 60% 42%), hsl(42 85% 60%));
+  box-shadow: 0 0 8px hsl(172 60% 42% / 0.5);
+  transition: transform 1.2s cubic-bezier(0.1, 0.6, 0.2, 1), opacity 200ms ease;
+}
+
+/* Заглушка фото, пока оно грузится: мягкий перелив вместо мигания */
+@keyframes shimmer {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+.shimmer {
+  background-color: hsl(var(--muted));
+  background-image: linear-gradient(100deg, transparent 20%, hsl(0 0% 100% / 0.55) 50%, transparent 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.dark .shimmer {
+  background-image: linear-gradient(100deg, transparent 20%, hsl(0 0% 100% / 0.06) 50%, transparent 80%);
+}
+
+/* ---------- Градиенты бренда ---------- */
+
+/* Насыщенный: блоки-призывы («Не знаете, что выбрать?») */
+.bg-brand-gradient {
+  background:
+    radial-gradient(120% 90% at 100% 0%, hsl(172 60% 40% / 0.55) 0%, transparent 55%),
+    radial-gradient(90% 80% at 0% 100%, hsl(42 85% 60% / 0.22) 0%, transparent 60%),
+    linear-gradient(135deg, hsl(167 58% 24%) 0%, hsl(170 60% 16%) 100%);
+}
+/* Мягкий: полосы заявок на страницах ЖК и квартиры */
+.bg-brand-soft {
+  background:
+    radial-gradient(70% 120% at 100% 0%, hsl(172 55% 45% / 0.14) 0%, transparent 60%),
+    radial-gradient(60% 100% at 0% 100%, hsl(42 85% 62% / 0.16) 0%, transparent 65%),
+    linear-gradient(135deg, hsl(160 35% 96%) 0%, hsl(165 30% 93%) 100%);
+}
+.dark .bg-brand-soft {
+  background:
+    radial-gradient(70% 120% at 100% 0%, hsl(172 55% 40% / 0.18) 0%, transparent 60%),
+    linear-gradient(135deg, hsl(168 25% 14%) 0%, hsl(170 25% 11%) 100%);
+}
+/* Подвал: глубокий зелёно-графитовый с бликом бренда в углу */
+.bg-footer-gradient {
+  background-image:
+    radial-gradient(60% 80% at 100% 0%, hsl(167 58% 24% / 0.45) 0%, transparent 60%),
+    radial-gradient(40% 60% at 0% 100%, hsl(42 85% 55% / 0.08) 0%, transparent 60%);
+}
+/* Главная кнопка: лёгкий объём сверху вниз и блик по верхней кромке */
+.bg-primary-gradient {
+  background-image: linear-gradient(180deg, hsl(167 50% 27%) 0%, hsl(var(--primary)) 100%);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.14), 0 1px 2px hsl(167 58% 12% / 0.18);
+}
+@media (hover: hover) and (pointer: fine) {
+  .bg-primary-gradient:hover {
+    background-image: linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary-hover)) 100%);
+  }
+}
+/* Текст-акцент с градиентом (крупные заголовки) */
+.text-brand-gradient {
+  background: linear-gradient(100deg, hsl(var(--primary)) 0%, hsl(172 60% 36%) 60%, hsl(38 80% 48%) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 @layer utilities {

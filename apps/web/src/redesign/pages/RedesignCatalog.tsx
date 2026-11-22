@@ -880,7 +880,7 @@ const RedesignCatalog = () => {
               </div>
             )}
             {view === 'map' && showBlocks && (
-              <div className="h-[calc(100vh-220px)] min-h-[400px]">
+              <div className="h-[calc(100dvh-220px)] min-h-[400px]">
                 <MapSearch
                   complexes={filtered}
                   regionId={regionId}
@@ -914,7 +914,7 @@ const RedesignCatalog = () => {
                 .filter((l): l is ListingMapItem => l != null);
               if (mapItems.length === 0) {
                 return (
-                  <div className="h-[calc(100vh-220px)] min-h-[400px] flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground border border-dashed border-border rounded-card p-6 text-center">
+                  <div className="h-[calc(100dvh-220px)] min-h-[400px] flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground border border-dashed border-border rounded-card p-6 text-center">
                     <MapPin className="h-6 w-6 text-muted-foreground" aria-hidden />
                     <p className="font-medium text-foreground">Нет объектов с координатами для отображения на карте</p>
                     <button onClick={() => handleViewChange('grid')} className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
@@ -924,7 +924,7 @@ const RedesignCatalog = () => {
                 );
               }
               return (
-                <div className="h-[calc(100vh-220px)] min-h-[400px]">
+                <div className="h-[calc(100dvh-220px)] min-h-[400px]">
                   <ListingsMapSearch
                     listings={mapItems}
                     regionId={regionId}

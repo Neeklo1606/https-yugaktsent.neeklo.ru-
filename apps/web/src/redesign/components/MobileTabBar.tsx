@@ -56,12 +56,20 @@ const MobileTabBar = () => {
         {TABS.map(({ to, label, icon: Icon }) => {
           const active = isActive(to);
           return (
-            <Link key={to} to={to} aria-current={active ? 'page' : undefined} className={cn(TAB_CLASS, active ? 'text-primary' : 'text-muted-foreground hover:text-foreground')}>
-              {Icon ? (
-                <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
-              ) : (
-                <FavoritesBadgeIcon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
-              )}
+            <Link key={to} to={to} aria-current={active ? 'page' : undefined} className={cn(TAB_CLASS, 'press', active ? 'text-primary' : 'text-muted-foreground hover:text-foreground')}>
+              {/* Активная вкладка — «пилюля» за иконкой, как в нативных приложениях */}
+              <span
+                className={cn(
+                  'flex h-7 w-12 items-center justify-center rounded-full transition-[background-color,transform] duration-200',
+                  active ? 'scale-100 bg-gradient-to-br from-primary/15 to-primary/5' : 'scale-90 bg-transparent',
+                )}
+              >
+                {Icon ? (
+                  <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
+                ) : (
+                  <FavoritesBadgeIcon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
+                )}
+              </span>
               <span>{label}</span>
             </Link>
           );

@@ -209,7 +209,7 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
             onClick={() => setMenuOpen(false)}
           />
           <nav
-            className="absolute inset-x-0 top-0 max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-border bg-background px-4 pb-6 pt-3 shadow-lg"
+            className="absolute inset-x-0 top-0 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-border bg-background px-4 pb-6 pt-3 shadow-lg"
             aria-label="Мобильное меню"
           >
             <HeaderCitySwitch variant="mobile" />

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider, hydrate } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ScrollToTop from "./components/ScrollToTop";
+import { NavProgress, PageEnter, useIntentPrefetch } from "@/shared/app-feel/AppFeel";
 import { Suspense, lazy, useEffect, useLayoutEffect, useState } from "react";
 import { lazyWithReload } from "@/shared/lib/lazy-route";
 import RouteErrorBoundary from "@/shared/components/RouteErrorBoundary";
@@ -260,9 +261,12 @@ const AppRoutes = () => (
 
 const AppWithAuth = () => {
   const authState = useAuthState();
+  useIntentPrefetch();
   return (
     <AuthProvider value={authState}>
-      <AppRoutes />
+      <PageEnter>
+        <AppRoutes />
+      </PageEnter>
       <RemoveSsrShell />
     </AuthProvider>
   );
@@ -320,6 +324,7 @@ const App = () => (
       {/* startTransition: при переходе остаётся текущий экран, пока грузится следующий — без спиннера на весь экран */}
       <BrowserRouter future={{ v7_startTransition: true }}>
         <ScrollToTop />
+        <NavProgress />
         <SeoRouteMeta />
         <SeoJsonLd />
         <StagingBadge />

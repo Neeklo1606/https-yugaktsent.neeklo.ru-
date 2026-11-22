@@ -82,7 +82,7 @@ const FooterSection = React.forwardRef<HTMLElement>((_, ref) => {
     'inline-flex min-h-[38px] items-center gap-2.5 text-sm text-primary-foreground/80 transition-colors hover:text-primary-foreground';
 
   return (
-    <footer ref={ref} className="bg-foreground text-primary-foreground">
+    <footer ref={ref} className="bg-foreground bg-footer-gradient text-primary-foreground">
       <div className="container-page py-8 sm:py-12 lg:py-16">
         <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-10 lg:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,0.9fr))] lg:gap-8">
           {/* Бренд и контакты */}
