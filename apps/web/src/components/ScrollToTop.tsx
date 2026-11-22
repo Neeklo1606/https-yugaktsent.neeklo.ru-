@@ -45,16 +45,17 @@ const ScrollToTop = () => {
   // Запоминаем позицию текущей записи истории при прокрутке
   useEffect(() => {
     const key = location.key;
-    let raf = 0;
+    let t = 0;
     const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
+      window.clearTimeout(t);
+      // Таймер, а не rAF: rAF не срабатывает во вкладке в фоне, и позиция терялась
+      t = window.setTimeout(() => {
         if (activeKey.current === key) savePosition(key, window.scrollY);
-      });
+      }, 80);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      cancelAnimationFrame(raf);
+      window.clearTimeout(t);
       window.removeEventListener('scroll', onScroll);
     };
   }, [location.key]);
@@ -72,15 +73,15 @@ const ScrollToTop = () => {
         const maxY = document.documentElement.scrollHeight - window.innerHeight;
         window.scrollTo(0, Math.min(target, maxY));
         if (maxY >= target - 2 || performance.now() - started > 2000) return;
-        raf = requestAnimationFrame(tryRestore);
+        raf = window.setTimeout(tryRestore, 50);
       };
       tryRestore();
       // Пользователь сам начал листать — не мешаем
-      const stop = () => cancelAnimationFrame(raf);
+      const stop = () => window.clearTimeout(raf);
       window.addEventListener('wheel', stop, { once: true, passive: true });
       window.addEventListener('touchstart', stop, { once: true, passive: true });
       return () => {
-        cancelAnimationFrame(raf);
+        window.clearTimeout(raf);
         window.removeEventListener('wheel', stop);
         window.removeEventListener('touchstart', stop);
       };
