@@ -79,7 +79,12 @@ export default function AdminCommandPalette() {
         <Search className="h-5 w-5" />
       </button>
 
-      <CommandDialog open={open} onOpenChange={setOpen}>
+      <CommandDialog
+        open={open}
+        onOpenChange={setOpen}
+        // Точное вхождение слова, а не буквы вразброс: «серд» не должно находить «Эксперты»
+        filter={(value, search) => (value.toLowerCase().includes(search.trim().toLowerCase()) ? 1 : 0)}
+      >
         <CommandInput value={q} onValueChange={setQ} placeholder="Раздел, название ЖК или номер квартиры…" />
         <CommandList>
           <CommandEmpty>Ничего не нашлось</CommandEmpty>
