@@ -101,6 +101,10 @@ const StableMediaFrame = ({
     if (el && el.complete && el.naturalWidth > 0) setLoaded(true);
   }, []);
 
+  // Картинки первого экрана (eager) не прячем до onLoad: в готовом HTML пререндера они были прозрачными
+  // до загрузки JS — LCP главной ждал скрипт почти 3 с. Плавное появление — только у ленивых картинок.
+  const visible = loaded || loading === 'eager';
+
   const containerClass = fixedHeightClass ?? aspectClass(aspect);
   const safeSrc = getSafeImageUrl(src);
   const srcSet = imageSrcSet(src);
@@ -145,7 +149,7 @@ const StableMediaFrame = ({
                 style={imgStyle}
                 className={cn(
                   'max-h-full max-w-full object-contain transition-opacity duration-200',
-                  loaded ? 'opacity-100' : 'opacity-0',
+                  visible ? 'opacity-100' : 'opacity-0',
                   imgClassName,
                 )}
               />
@@ -170,7 +174,7 @@ const StableMediaFrame = ({
               style={imgStyle}
               className={cn(
                 'absolute inset-0 h-full w-full object-cover transition-opacity duration-200',
-                loaded ? 'opacity-100' : 'opacity-0',
+                visible ? 'opacity-100' : 'opacity-0',
                 imgClassName,
               )}
             />

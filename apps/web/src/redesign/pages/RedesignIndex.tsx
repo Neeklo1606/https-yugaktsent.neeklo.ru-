@@ -10,6 +10,7 @@ import HomeAboutSection from '@/redesign/components/home/HomeAboutSection';
 import LatestNews from '@/components/LatestNews';
 import LeadHighlightSection from '@/redesign/components/LeadHighlightSection';
 import FooterSection from '@/components/FooterSection';
+import DeferredSection from '@/shared/components/DeferredSection';
 import { mapApiBlockListRowToResidentialComplex } from '@/redesign/lib/blocks-from-api';
 import { useHomeBlocks } from '@/redesign/hooks/useHomeBlocks';
 import { useDefaultRegionId } from '@/redesign/hooks/useDefaultRegionId';
@@ -75,13 +76,26 @@ const RedesignIndex = () => {
         <PopularComplexesSection complexes={featured} onCoverError={markBroken} />
       )}
 
-      <HomeApartmentsSection />
-      <BuyObjectSection />
-      <HomeAboutSection />
-      <LatestNews />
-      <LeadHighlightSection />
+      {/* Ниже первых экранов — собираются по мере прокрутки (быстрее первая загрузка на телефоне) */}
+      <DeferredSection minHeight={760}>
+        <HomeApartmentsSection />
+      </DeferredSection>
+      <DeferredSection minHeight={640}>
+        <BuyObjectSection />
+      </DeferredSection>
+      <DeferredSection minHeight={620}>
+        <HomeAboutSection />
+      </DeferredSection>
+      <DeferredSection minHeight={520}>
+        <LatestNews />
+      </DeferredSection>
+      <DeferredSection minHeight={420}>
+        <LeadHighlightSection />
+      </DeferredSection>
       </main>
-      <FooterSection />
+      <DeferredSection minHeight={480}>
+        <FooterSection />
+      </DeferredSection>
     </div>
   );
 };
