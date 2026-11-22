@@ -1,7 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useCMSStore } from '../store/cms-store';
-import { useContentStore } from '../store/content-store';
-import { FileText, Image, Users, Building2, Home, Layers, ClipboardList, HardHat } from 'lucide-react';
+import { Building2, Home, ClipboardList, Inbox } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { apiGet } from '@/lib/api';
 import { crmApiGet } from '@/admin/lib/crm-api';
@@ -27,8 +25,6 @@ type DashboardStats = {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const canEditContent = user?.role === 'admin' || user?.role === 'editor';
-  const { pages: cmsPages, media } = useCMSStore();
-  const { pages: contentPages } = useContentStore();
   const pollInterval = useSmartPollInterval('workload');
   const { online } = useCrmPollMeta();
 
@@ -71,11 +67,18 @@ export default function AdminDashboard() {
     ...crmQueryOptions({ ...CRM_CACHE_DASHBOARD }),
   });
 
+  const ds = dashboardStats as DashboardStats | undefined;
   const stats = [
     { label: 'ЖК в базе', value: counters?.blocks ?? '—', icon: Building2, color: 'bg-primary/10 text-primary' },
     { label: 'Квартиры', value: counters?.apartments ?? '—', icon: Home, color: 'bg-blue-500/10 text-blue-600' },
-    { label: 'Застройщики', value: counters?.builders ?? '—', icon: HardHat, color: 'bg-green-500/10 text-green-600' },
-    { label: 'Медиа', value: media.length, icon: Image, color: 'bg-amber-500/10 text-amber-600' },
+    // «Застройщики» и «Медиа» показывали 0: в фидах застройщика нет, медиатека жила в браузере
+    {
+      label: `Заявок за ${ds?.periodDays ?? 14} дн.`,
+      value: ds ? ds.trend.reduce((n, d) => n + d.created, 0) : '—',
+      icon: ClipboardList,
+      color: 'bg-green-500/10 text-green-600',
+    },
+    { label: 'Новые, без ответа', value: ds?.statusTotals.NEW ?? '—', icon: Inbox, color: 'bg-amber-500/10 text-amber-600' },
   ];
 
   const statusLabels: Record<string, string> = {
@@ -134,7 +137,7 @@ export default function AdminDashboard() {
             <p className="text-2xl font-bold text-red-600">{crmWorkload.totals.overdue}</p>
           </Link>
           <Link to="/admin/requests?sla=stale" className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 hover:border-amber-500/50 transition-colors">
-            <p className="text-xs text-muted-foreground">Застой</p>
+            <p className="text-xs text-muted-foreground">Без движения</p>
             <p className="text-2xl font-bold text-amber-700">{crmWorkload.totals.stale}</p>
           </Link>
         </div>
@@ -154,7 +157,13 @@ export default function AdminDashboard() {
             >
               <LineChart data={dashboardStats.trend}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="date" tickFormatter={(v) => String(v).slice(5)} />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(v) => {
+                    const d = new Date(String(v));
+                    return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+                  }}
+                />
                 <YAxis allowDecimals={false} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Line type="monotone" dataKey="created" stroke="var(--color-created)" strokeWidth={2} dot={false} />
@@ -218,66 +227,6 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Content pages */}
-      {canEditContent ? (
-        <div className="bg-background border rounded-2xl p-5 mb-6">
-          <h2 className="font-semibold mb-4 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-primary" /> Контентные страницы
-          </h2>
-          <div className="space-y-2">
-            {contentPages.map(p => (
-              <Link
-                key={p.slug}
-                to={`/admin/page-editor/${encodeURIComponent(p.slug)}`}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <FileText className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">{p.title}</span>
-                  <span className="text-xs text-muted-foreground">{p.slug}</span>
-                  <span className="text-xs text-muted-foreground">• {p.sections.length} секций</span>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-lg ${
-                  p.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                }`}>
-                  {p.status === 'published' ? 'Опубликовано' : 'Черновик'}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {/* CMS pages */}
-      {canEditContent && cmsPages.length > 0 && (
-        <div className="bg-background border rounded-2xl p-5">
-          <h2 className="font-semibold mb-4 flex items-center gap-2">
-            <Users className="w-4 h-4 text-muted-foreground" /> Конструктор страниц
-          </h2>
-          <div className="space-y-2">
-            {cmsPages.slice(0, 5).map(p => (
-              <Link
-                key={p.id}
-                to={`/admin/editor/${p.id}`}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <FileText className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{p.title}</span>
-                  <span className="text-xs text-muted-foreground">{p.slug}</span>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-lg ${
-                  p.status === 'published' ? 'bg-green-100 text-green-700' :
-                  p.status === 'draft' ? 'bg-amber-100 text-amber-700' :
-                  'bg-muted text-muted-foreground'
-                }`}>
-                  {p.status === 'published' ? 'Опубликовано' : p.status === 'draft' ? 'Черновик' : 'Архив'}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -48,7 +48,8 @@ export default function AdminSettings() {
     map: 'Карта',
     homepage: 'Главная страница',
     legal: 'Юридическая информация',
-    integrations: 'Интеграции (Telegram, Yandex Maps)',
+    integrations: 'Интеграции (ключи — удобнее в «Ключи и подключения»)',
+    analytics: 'Аналитика и подтверждение сайта',
   };
 
   if (isLoading) {

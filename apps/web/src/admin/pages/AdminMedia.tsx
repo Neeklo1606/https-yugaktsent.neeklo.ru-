@@ -263,16 +263,16 @@ export default function AdminMedia() {
 
       {mediaHealth?.integrity?.storage ? (
         <div className="rounded-xl border bg-muted/30 px-4 py-3 mb-4 text-xs flex flex-wrap items-center gap-2">
-          <span className="font-medium">Storage</span>
+          <span className="font-medium">Хранилище файлов</span>
           <AdminStatusBadge tone={mediaHealth.ok ? 'ok' : 'warn'}>
-            {mediaHealth.ok ? 'healthy' : 'degraded'}
+            {mediaHealth.ok ? 'в порядке' : 'есть проблемы'}
           </AdminStatusBadge>
           <span className="text-muted-foreground font-mono truncate max-w-full">
             {mediaHealth.integrity.storage.mediaRoot}
           </span>
           <span className="text-muted-foreground">
-            on disk {mediaHealth.integrity.storage.onDiskMediaFiles} · DB{' '}
-            {mediaHealth.integrity.storage.dbMediaFiles} · missing sample{' '}
+            на диске {mediaHealth.integrity.storage.onDiskMediaFiles} · в базе{' '}
+            {mediaHealth.integrity.storage.dbMediaFiles} · не найдено{' '}
             {mediaHealth.integrity.missingOnDisk}
             {(mediaHealth.listingMissingFiles ?? 0) > 0
               ? ` · битые объявления ${mediaHealth.listingMissingFiles}`
@@ -286,7 +286,7 @@ export default function AdminMedia() {
             </span>
           ) : null}
           <Link to="/admin/system" className="text-primary hover:underline ml-auto">
-            System diagnostics →
+            Диагностика сервера →
           </Link>
         </div>
       ) : null}

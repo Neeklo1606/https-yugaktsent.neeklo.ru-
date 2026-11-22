@@ -12,7 +12,6 @@ import {
   KeyRound,
   LayoutDashboard,
   Newspaper,
-  Palette,
   Settings,
   Sparkles,
   UserCircle,
@@ -68,10 +67,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: '/admin/banners', label: 'Баннеры главной', icon: GalleryHorizontal, roles: ['admin', 'editor'] },
     ],
   },
-  {
-    title: 'Внешний вид',
-    items: [{ to: '/admin/theme', label: 'Тема сайта', icon: Palette, roles: ['admin', 'editor'] }],
-  },
+  // «Тема сайта» — демо без сохранения на сервер: из меню убрана до подключения, маршрут остался
   {
     title: 'Интеграции',
     items: [

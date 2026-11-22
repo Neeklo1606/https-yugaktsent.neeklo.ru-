@@ -7,6 +7,27 @@ import { Input } from '@/components/ui/input';
 
 type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE';
 
+const ACTION_LABEL: Record<string, string> = { CREATE: 'Создание', UPDATE: 'Изменение', DELETE: 'Удаление' };
+
+/** Подписи сущностей журнала по-русски; незнакомые показываются как есть */
+const ENTITY_LABEL: Record<string, string> = {
+  listing: 'Квартира / объект',
+  block: 'ЖК',
+  building: 'Корпус',
+  builder: 'Застройщик',
+  request: 'Заявка',
+  news: 'Новость',
+  user: 'Пользователь',
+  feed_link: 'Фид',
+  feed_sync: 'Обновление фида',
+  site_setting: 'Настройка сайта',
+  setting: 'Настройка сайта',
+  banner: 'Баннер',
+  expert: 'Эксперт',
+  region: 'Регион',
+  media: 'Файл',
+};
+
 type AuditItem = {
   id: string;
   userId: string | null;
@@ -75,17 +96,26 @@ export default function AdminAudit() {
       </div>
 
       <div className="rounded-xl border p-3 grid grid-cols-1 md:grid-cols-4 gap-2">
-        <Input
-          placeholder="entity_type"
+        <select
+          aria-label="Что изменено"
           value={entityType}
           onChange={(e) => {
             setEntityType(e.target.value);
             setPage(1);
           }}
-          className="h-9"
-        />
+          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+        >
+          <option value="">Все разделы</option>
+          {Object.entries(ENTITY_LABEL)
+            .filter(([k], i, arr) => arr.findIndex(([, v]) => v === ENTITY_LABEL[k]) === i)
+            .map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+        </select>
         <Input
-          placeholder="user_id"
+          placeholder="ID пользователя"
           value={userId}
           onChange={(e) => {
             setUserId(e.target.value);
@@ -102,9 +132,9 @@ export default function AdminAudit() {
           className="h-9 rounded-md border bg-background px-3 text-sm"
         >
           <option value="">Все действия</option>
-          <option value="CREATE">CREATE</option>
-          <option value="UPDATE">UPDATE</option>
-          <option value="DELETE">DELETE</option>
+          <option value="CREATE">Создание</option>
+          <option value="UPDATE">Изменение</option>
+          <option value="DELETE">Удаление</option>
         </select>
         <Button
           type="button"
@@ -143,7 +173,7 @@ export default function AdminAudit() {
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">Дата</th>
                   <th className="px-3 py-2 text-left font-medium">Пользователь</th>
-                  <th className="px-3 py-2 text-left font-medium">Сущность</th>
+                  <th className="px-3 py-2 text-left font-medium">Что изменено</th>
                   <th className="px-3 py-2 text-left font-medium">Действие</th>
                   <th className="px-3 py-2 text-left font-medium">IP</th>
                   <th className="px-3 py-2 text-right font-medium">Детали</th>
@@ -231,11 +261,11 @@ function FragmentRow({
           <div className="text-xs text-muted-foreground">{row.user?.email || row.userId || '—'}</div>
         </td>
         <td className="px-3 py-2">
-          {row.entityType} #{row.entityId}
+          {ENTITY_LABEL[row.entityType] ?? row.entityType} #{row.entityId}
         </td>
         <td className="px-3 py-2">
           <span className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${badge}`}>
-            {row.action}
+            {ACTION_LABEL[row.action] ?? row.action}
           </span>
         </td>
         <td className="px-3 py-2">{row.ipAddress || '—'}</td>

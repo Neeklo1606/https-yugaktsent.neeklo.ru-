@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, ExternalLink, LogOut, Menu, X } from 'lucide
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/shared/hooks/useAuth';
 import CrmNotificationBell from '@/admin/components/CrmNotificationBell';
+import AdminCommandPalette from '@/admin/components/AdminCommandPalette';
 import CrmDebugOverlay from '@/admin/components/CrmDebugOverlay';
 import CrmCommunicationMetricsProbe from '@/admin/components/CrmCommunicationMetricsProbe';
 import CrmAutomationMetricsProbe from '@/admin/components/CrmAutomationMetricsProbe';
@@ -171,6 +172,8 @@ export default function AdminLayout() {
             {mobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
           <div className="flex-1 md:hidden" />
+          <AdminCommandPalette />
+          <div className="hidden flex-1 md:block" />
           <CrmNotificationBell />
         </header>
         <NetworkStatusBanner />

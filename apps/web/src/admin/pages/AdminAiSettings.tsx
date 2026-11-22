@@ -167,7 +167,7 @@ export default function AdminAiSettings() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-primary" />
-            AI интеграции
+            Нейросети
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Рерайт новостей и генерация обложек DALL-E. API-ключи задаются здесь и шифруются на сервере.
@@ -186,7 +186,7 @@ export default function AdminAiSettings() {
             <div>
               <h2 className="font-semibold text-sm">Обложки новостей (DALL-E 3)</h2>
               <p className="text-xs text-muted-foreground mt-1">
-                Используется API-ключ провайдера <strong>OpenAI</strong> ниже. Env-переменные не нужны.
+                Используется API-ключ провайдера <strong>OpenAI</strong> ниже. Больше ничего настраивать не нужно.
               </p>
             </div>
             <label className="inline-flex items-center gap-2 text-sm cursor-pointer shrink-0">
