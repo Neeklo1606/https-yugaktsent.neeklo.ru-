@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, ExternalLink, Link2, Loader2, Plus, Radar, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, History, Link2, Loader2, Pencil, Plus, Radar, RefreshCw, Save, Search, Trash2 } from 'lucide-react';
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/shared/hooks/useAuth';
 import AdminLoadingState from '@/admin/components/AdminLoadingState';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 
 type FeedRegion = {
   id: number;
@@ -177,6 +179,109 @@ function FeedSyncStatus({ row, probe }: { row: FeedLinkRow; probe?: ProbeResult 
   );
 }
 
+type FeedOverview = {
+  feedLinkId: number;
+  block: { id: number; slug: string; name: string; status: string; builder: string | null; photos: number } | null;
+  listings: { active: number; reserved: number; sold: number; total: number };
+};
+
+type FeedHistoryRow = {
+  id: string;
+  at: string;
+  status: 'ok' | 'empty' | 'error' | null;
+  total: number | null;
+  created: number | null;
+  updated: number | null;
+  errors: number | null;
+  error: string | null;
+};
+
+function IconAction({
+  label,
+  icon,
+  onClick,
+  disabled,
+  active,
+  danger,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  active?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'grid h-9 w-9 place-items-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground disabled:pointer-events-none disabled:opacity-40',
+        active && 'border-border bg-background text-foreground',
+        danger && 'hover:text-destructive',
+      )}
+    >
+      {icon}
+    </button>
+  );
+}
+
+const HISTORY_LABEL: Record<string, { text: string; cls: string }> = {
+  ok: { text: 'Успешно', cls: 'bg-primary/10 text-primary' },
+  empty: { text: 'Пустой фид', cls: 'bg-amber-100 text-amber-900' },
+  error: { text: 'Ошибка', cls: 'bg-destructive/10 text-destructive' },
+};
+
+/** История прогонов синхронизации одного фида (ведётся с 23.11.2026) */
+function FeedHistory({ id }: { id: number }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin', 'feed-links', id, 'history'],
+    queryFn: () => apiGet<FeedHistoryRow[]>(`/admin/feed-links/${id}/history`),
+    staleTime: 15_000,
+  });
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <p className="mb-2 text-sm font-semibold">История обновлений</p>
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground">Загрузка…</p>
+      ) : error ? (
+        <p className="text-xs text-destructive">Не удалось загрузить историю</p>
+      ) : !data?.length ? (
+        <p className="text-xs text-muted-foreground">Записей пока нет — история ведётся с 23 ноября, появится после ближайшего обновления.</p>
+      ) : (
+        <ul className="divide-y text-xs">
+          {data.map((h) => {
+            const st = HISTORY_LABEL[h.status ?? ''] ?? { text: 'Отмечено', cls: 'bg-muted text-muted-foreground' };
+            return (
+              <li key={h.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                <span className="w-32 shrink-0 tabular-nums text-muted-foreground">
+                  {new Date(h.at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span className={cn('rounded-full px-2 py-0.5 font-medium', st.cls)}>{st.text}</span>
+                <span>
+                  {[
+                    h.total != null ? `${h.total} в фиде` : '',
+                    h.created ? `+${h.created} новых` : '',
+                    h.updated ? `${h.updated} обновлено` : '',
+                    h.errors ? `${h.errors} ошибок` : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+                {h.error ? <span className="basis-full text-destructive">{h.error}</span> : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export default function AdminFeedLinks() {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -186,6 +291,10 @@ export default function AdminFeedLinks() {
   const [draft, setDraft] = useState<DraftMap>({});
   const [probingId, setProbingId] = useState<number | null>(null);
   const [probeResults, setProbeResults] = useState<Record<number, ProbeResult>>({});
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'error' | 'noblock' | 'off'>('all');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [historyId, setHistoryId] = useState<number | null>(null);
 
   const [newName, setNewName] = useState('');
   const [newFeedUrl, setNewFeedUrl] = useState('');
@@ -211,6 +320,22 @@ export default function AdminFeedLinks() {
     staleTime: 10_000,
     // Пока фид в очереди — обновляем статус сами, без перезагрузки страницы
     refetchInterval: (q) => ((q.state.data ?? []).some(isSyncPending) ? 20_000 : false),
+  });
+
+  const { data: overview = [] } = useQuery({
+    queryKey: ['admin', 'feed-links', 'overview'],
+    queryFn: () => apiGet<FeedOverview[]>('/admin/feed-links/overview'),
+    staleTime: 30_000,
+  });
+
+  // Переключатель «Обновлять» сохраняется сразу, без кнопки «Сохранить»
+  const toggleMutation = useMutation({
+    mutationFn: (v: { id: number; isEnabled: boolean }) => apiPatch<FeedLinkRow>(`/admin/feed-links/${v.id}`, { isEnabled: v.isEnabled }),
+    onSuccess: async (_r, v) => {
+      toast.success(v.isEnabled ? 'Фид снова обновляется' : 'Обновление фида остановлено — ЖК остаётся на сайте');
+      await qc.invalidateQueries({ queryKey: ['admin', 'feed-links'] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Не удалось изменить'),
   });
 
   const createMutation = useMutation({
@@ -252,6 +377,7 @@ export default function AdminFeedLinks() {
     },
     onSuccess: async () => {
       setDraft({});
+      setEditingId(null);
       toast.success('Изменения сохранены');
       await qc.invalidateQueries({ queryKey: ['admin', 'feed-links'] });
     },
@@ -323,8 +449,29 @@ export default function AdminFeedLinks() {
 
   if (isLoading || regionsLoading) return <AdminLoadingState label="Загрузка фидов…" />;
 
+  const overviewById = new Map(overview.map((o) => [o.feedLinkId, o]));
+  const needle = search.trim().toLowerCase();
+  const visibleFeeds = feeds.filter((row) => {
+    const o = overviewById.get(row.id);
+    if (statusFilter === 'error' && row.lastSyncStatus !== 'error') return false;
+    if (statusFilter === 'off' && row.isEnabled) return false;
+    if (statusFilter === 'noblock' && o?.block) return false;
+    if (!needle) return true;
+    return [row.name, row.blockName, o?.block?.name, o?.block?.builder, row.region?.name]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(needle));
+  });
+  const totals = {
+    feeds: feeds.length,
+    enabled: feeds.filter((f) => f.isEnabled).length,
+    errors: feeds.filter((f) => f.lastSyncStatus === 'error').length,
+    flats: overview.reduce((s, o) => s + o.listings.active, 0),
+    noBlock: overview.filter((o) => !o.block).length,
+  };
+  const lastRun = feeds.reduce<string | null>((m, f) => (f.lastSyncedAt && (!m || f.lastSyncedAt > m) ? f.lastSyncedAt : m), null);
+
   return (
-    <div className="p-6 max-w-6xl space-y-6">
+    <div className="p-4 sm:p-6 max-w-[1400px] space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold inline-flex items-center gap-2">
@@ -332,10 +479,8 @@ export default function AdminFeedLinks() {
             Фиды и источники
           </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Выгрузки застройщиков: Profitbase XML, JCAT, ЦИАН и ДомКлик — формат определяется сам. Каждые 6 часов
-            служба синхронизации обновляет цены, статусы и планировки и снимает с сайта проданные лоты. Новый или
-            изменённый фид синхронизируется в течение нескольких минут; ЖК создаётся автоматически по названию.
-            Ссылки с токенами видны только здесь и на сайт не попадают.
+            Каждая строка — выгрузка застройщика и ЖК, который из неё получился на сайте. Служба обновляет цены,
+            статусы и планировки каждые 6 часов и снимает проданные квартиры. Ссылки с токенами видны только здесь.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -345,19 +490,38 @@ export default function AdminFeedLinks() {
               Импорт фидов
             </Link>
           </Button>
-          <Button
-            type="button"
-            onClick={() => saveMutation.mutate()}
-            disabled={!hasDraft || saveMutation.isPending}
-          >
-            {saveMutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4 mr-1.5" />
-            )}
-            Сохранить
+          <Button asChild size="sm">
+            <a href="#add-feed">
+              <Plus className="w-4 h-4 mr-1.5" />
+              Добавить фид
+            </a>
           </Button>
         </div>
+      </div>
+
+      {/* Сводка: всё главное одним взглядом */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {[
+          { label: 'Фидов', value: `${totals.feeds}`, hint: `${totals.enabled} обновляются` },
+          { label: 'Квартир в продаже', value: totals.flats.toLocaleString('ru-RU'), hint: 'из всех фидов' },
+          { label: 'С ошибкой', value: `${totals.errors}`, hint: totals.errors ? 'нужно проверить' : 'всё в порядке', tone: totals.errors ? 'bad' : 'good' },
+          { label: 'Без ЖК на сайте', value: `${totals.noBlock}`, hint: totals.noBlock ? 'ещё не синхронизированы' : 'все связаны', tone: totals.noBlock ? 'warn' : 'good' },
+          { label: 'Последнее обновление', value: lastRun ? new Date(lastRun).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—', hint: 'по всем фидам' },
+        ].map((c) => (
+          <div key={c.label} className="rounded-xl border bg-card p-3.5">
+            <p className="text-xs text-muted-foreground">{c.label}</p>
+            <p
+              className={cn(
+                'mt-1 text-xl font-bold tabular-nums',
+                c.tone === 'bad' && 'text-destructive',
+                c.tone === 'warn' && 'text-amber-700',
+              )}
+            >
+              {c.value}
+            </p>
+            <p className="text-xs text-muted-foreground">{c.hint}</p>
+          </div>
+        ))}
       </div>
 
       {error ? (
@@ -366,171 +530,276 @@ export default function AdminFeedLinks() {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-3 items-end">
-        <label className="text-sm space-y-1">
-          <span className="text-muted-foreground">Регион</span>
-          <select
-            className="block h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[180px]"
-            value={regionIdFilter}
-            onChange={(e) => setRegionIdFilter(e.target.value ? Number(e.target.value) : '')}
-          >
-            <option value="">Все регионы</option>
-            {regions.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name} ({r.code})
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[240px] flex-1 sm:max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="ЖК, фид или застройщик"
+            className="h-10 pl-9"
+            aria-label="Поиск по фидам"
+          />
+        </div>
+        <select
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          value={regionIdFilter}
+          onChange={(e) => setRegionIdFilter(e.target.value ? Number(e.target.value) : '')}
+          aria-label="Регион"
+        >
+          <option value="">Все города</option>
+          {regions.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+        <div className="flex gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Фильтр по состоянию">
+          {(
+            [
+              ['all', 'Все'],
+              ['error', `С ошибкой${totals.errors ? ` · ${totals.errors}` : ''}`],
+              ['noblock', 'Без ЖК'],
+              ['off', 'Выключены'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={statusFilter === key}
+              onClick={() => setStatusFilter(key)}
+              className={cn(
+                'h-8 rounded-md px-3 text-[13px] font-medium transition-colors',
+                statusFilter === key ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="ml-auto text-xs text-muted-foreground">Показано {visibleFeeds.length} из {feeds.length}</span>
       </div>
 
-      <div className="rounded-xl border overflow-hidden">
+      <div className="rounded-xl border overflow-hidden bg-card">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left">
+            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">Название</th>
-                <th className="px-3 py-2 font-medium">Регион</th>
-                <th className="px-3 py-2 font-medium min-w-[220px]">URL фида</th>
-                <th className="px-3 py-2 font-medium">ЖК / блок</th>
-                <th className="px-3 py-2 font-medium">Планировки</th>
-                <th className="px-3 py-2 font-medium">Вкл.</th>
-                <th className="px-3 py-2 font-medium">Синхр.</th>
-                <th className="px-3 py-2 font-medium w-28" />
+                <th className="px-3 py-2.5 font-medium min-w-[220px]">ЖК на сайте</th>
+                <th className="px-3 py-2.5 font-medium">Город</th>
+                <th className="px-3 py-2.5 font-medium">Застройщик</th>
+                <th className="px-3 py-2.5 font-medium text-right">Квартир</th>
+                <th className="px-3 py-2.5 font-medium text-right">Фото ЖК</th>
+                <th className="px-3 py-2.5 font-medium min-w-[170px]">Обновление</th>
+                <th className="px-3 py-2.5 font-medium">Обновлять</th>
+                <th className="px-3 py-2.5 font-medium text-right">Действия</th>
               </tr>
             </thead>
             <tbody>
-              {feeds.length === 0 ? (
+              {visibleFeeds.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
-                    Фиды не добавлены. Создайте первый фид ниже.
+                  <td colSpan={8} className="px-3 py-10 text-center text-muted-foreground">
+                    {feeds.length === 0 ? 'Фиды не добавлены. Добавьте первый ниже.' : 'Ничего не найдено — измените поиск или фильтр.'}
                   </td>
                 </tr>
               ) : (
-                feeds.map((row) => {
+                visibleFeeds.map((row) => {
                   const d = getRow(row);
+                  const o = overviewById.get(row.id);
                   const probe = probeResults[row.id];
+                  const editing = editingId === row.id;
+                  const showHistory = historyId === row.id;
                   return (
-                    <tr key={row.id} className="border-t align-top">
-                      <td className="px-3 py-2">
-                        <Input
-                          value={d.name}
-                          onChange={(e) => patchRow(row.id, { name: e.target.value })}
-                          className="h-9 min-w-[140px]"
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          className="h-9 rounded-md border border-input bg-background px-2 text-sm min-w-[120px]"
-                          value={d.regionId}
-                          onChange={(e) => patchRow(row.id, { regionId: Number(e.target.value) })}
-                        >
-                          {regions.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Input
-                          value={d.feedUrl}
-                          onChange={(e) => patchRow(row.id, { feedUrl: e.target.value })}
-                          className="h-9 font-mono text-xs min-w-[220px]"
-                        />
-                        <a
-                          href={d.feedUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-primary mt-1 hover:underline"
-                        >
-                          Открыть <ExternalLink className="w-3 h-3" />
-                        </a>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Input
-                          value={d.blockName ?? ''}
-                          placeholder={d.name}
-                          onChange={(e) => patchRow(row.id, { blockName: e.target.value })}
-                          className="h-9 min-w-[140px]"
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          className="h-9 rounded-md border border-input bg-background px-2 text-sm min-w-[150px]"
-                          value={d.mediaMode}
-                          title="«По ссылке» не занимает место на сервере; «Копировать» — если источник часто недоступен"
-                          onChange={(e) => patchRow(row.id, { mediaMode: e.target.value as FeedLinkRow['mediaMode'] })}
-                        >
-                          {(Object.keys(MEDIA_LABEL) as FeedLinkRow['mediaMode'][]).map((m) => (
-                            <option key={m} value={m}>
-                              {MEDIA_LABEL[m]}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={d.isEnabled}
-                          onChange={(e) => patchRow(row.id, { isEnabled: e.target.checked })}
-                          className="h-4 w-4 rounded border-input"
-                          aria-label={`Фид ${d.name} включён`}
-                        />
-                      </td>
-                      <td className="px-3 py-2 text-xs whitespace-nowrap min-w-[140px]">
-                        <FeedSyncStatus row={row} probe={probe} />
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-col gap-1">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-9"
-                            title="Проверить доступность фида"
-                            aria-label="Проверить доступность фида"
-                            disabled={probingId === row.id}
-                            onClick={() => probeMutation.mutate(row.id)}
-                          >
-                            {probingId === row.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Radar className="w-3.5 h-3.5" />
-                            )}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-9"
-                            title="Синхронизировать сейчас"
-                            aria-label="Синхронизировать сейчас"
-                            disabled={!row.isEnabled || isSyncPending(row) || syncNowMutation.isPending}
-                            onClick={() => syncNowMutation.mutate(row)}
-                          >
-                            <RefreshCw className="w-3.5 h-3.5" />
-                          </Button>
-                          {canDelete ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-9 text-destructive hover:text-destructive"
-                              title="Удалить фид"
-                              aria-label={`Удалить фид ${row.name}`}
-                              onClick={() => {
-                                if (window.confirm(`Удалить фид «${row.name}»?`)) {
-                                  deleteMutation.mutate(row.id);
-                                }
-                              }}
+                    <Fragment key={row.id}>
+                      <tr className={cn('border-t align-top transition-colors hover:bg-muted/30', (editing || showHistory) && 'bg-muted/30')}>
+                        <td className="px-3 py-3">
+                          <div className="font-semibold leading-snug">{o?.block?.name ?? d.blockName ?? d.name}</div>
+                          {o?.block ? (
+                            <a
+                              href={`/complex/${o.block.slug}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-0.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
+                              Открыть на сайте <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <div className="mt-0.5 text-xs text-amber-700">ЖК появится после первой синхронизации</div>
+                          )}
+                          {d.name !== (o?.block?.name ?? d.blockName ?? d.name) ? (
+                            <div className="mt-0.5 text-xs text-muted-foreground">Фид: {d.name}</div>
                           ) : null}
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap">{row.region?.name ?? '—'}</td>
+                        <td className="px-3 py-3">{o?.block?.builder ?? <span className="text-muted-foreground">—</span>}</td>
+                        <td className="px-3 py-3 text-right tabular-nums">
+                          <div className="font-semibold">{(o?.listings.active ?? 0).toLocaleString('ru-RU')}</div>
+                          {o && (o.listings.reserved || o.listings.sold) ? (
+                            <div className="text-xs text-muted-foreground">
+                              {o.listings.reserved ? `бронь ${o.listings.reserved}` : ''}
+                              {o.listings.reserved && o.listings.sold ? ' · ' : ''}
+                              {o.listings.sold ? `продано ${o.listings.sold}` : ''}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums">
+                          {o?.block ? (
+                            o.block.photos > 0 ? (
+                              o.block.photos
+                            ) : (
+                              <span className="text-xs text-amber-700">нет фото</span>
+                            )
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-xs min-w-[170px]">
+                          <FeedSyncStatus row={row} probe={probe} />
+                        </td>
+                        <td className="px-3 py-3">
+                          <Switch
+                            checked={row.isEnabled}
+                            disabled={toggleMutation.isPending && toggleMutation.variables?.id === row.id}
+                            onCheckedChange={(v) => toggleMutation.mutate({ id: row.id, isEnabled: v })}
+                            aria-label={`Обновлять фид ${row.name}`}
+                          />
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex justify-end gap-1">
+                            <IconAction
+                              label="Проверить ссылку"
+                              onClick={() => probeMutation.mutate(row.id)}
+                              disabled={probingId === row.id}
+                              icon={probingId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radar className="h-4 w-4" />}
+                            />
+                            <IconAction
+                              label="Обновить сейчас"
+                              onClick={() => syncNowMutation.mutate(row)}
+                              disabled={!row.isEnabled || isSyncPending(row) || syncNowMutation.isPending}
+                              icon={<RefreshCw className="h-4 w-4" />}
+                            />
+                            <IconAction
+                              label="История обновлений"
+                              active={showHistory}
+                              onClick={() => setHistoryId(showHistory ? null : row.id)}
+                              icon={<History className="h-4 w-4" />}
+                            />
+                            <IconAction
+                              label="Изменить"
+                              active={editing}
+                              onClick={() => setEditingId(editing ? null : row.id)}
+                              icon={<Pencil className="h-4 w-4" />}
+                            />
+                            {canDelete ? (
+                              <IconAction
+                                label="Удалить фид"
+                                danger
+                                onClick={() => {
+                                  if (window.confirm(`Удалить фид «${row.name}»? ЖК и квартиры на сайте останутся, но перестанут обновляться.`)) {
+                                    deleteMutation.mutate(row.id);
+                                  }
+                                }}
+                                icon={<Trash2 className="h-4 w-4" />}
+                              />
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                      {editing ? (
+                        <tr className="bg-muted/30">
+                          <td colSpan={8} className="px-3 pb-4 pt-1">
+                            <div className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-2 lg:grid-cols-5">
+                              <label className="text-xs space-y-1">
+                                <span className="text-muted-foreground">Название фида</span>
+                                <Input value={d.name} onChange={(e) => patchRow(row.id, { name: e.target.value })} className="h-9" />
+                              </label>
+                              <label className="text-xs space-y-1">
+                                <span className="text-muted-foreground">ЖК на сайте (точное название)</span>
+                                <Input
+                                  value={d.blockName ?? ''}
+                                  placeholder={d.name}
+                                  onChange={(e) => patchRow(row.id, { blockName: e.target.value })}
+                                  className="h-9"
+                                />
+                              </label>
+                              <label className="text-xs space-y-1">
+                                <span className="text-muted-foreground">Город</span>
+                                <select
+                                  className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                                  value={d.regionId}
+                                  onChange={(e) => patchRow(row.id, { regionId: Number(e.target.value) })}
+                                >
+                                  {regions.map((r) => (
+                                    <option key={r.id} value={r.id}>
+                                      {r.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="text-xs space-y-1">
+                                <span className="text-muted-foreground">Планировки</span>
+                                <select
+                                  className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                                  value={d.mediaMode}
+                                  onChange={(e) => patchRow(row.id, { mediaMode: e.target.value as FeedLinkRow['mediaMode'] })}
+                                >
+                                  {(Object.keys(MEDIA_LABEL) as FeedLinkRow['mediaMode'][]).map((m) => (
+                                    <option key={m} value={m}>
+                                      {MEDIA_LABEL[m]}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="text-xs space-y-1 md:col-span-2 lg:col-span-5">
+                                <span className="text-muted-foreground">Ссылка на фид</span>
+                                <Input
+                                  value={d.feedUrl}
+                                  onChange={(e) => patchRow(row.id, { feedUrl: e.target.value })}
+                                  className="h-9 font-mono text-xs"
+                                />
+                              </label>
+                              <div className="flex flex-wrap gap-2 md:col-span-2 lg:col-span-5">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() => saveMutation.mutate()}
+                                  disabled={!hasDraft || saveMutation.isPending}
+                                >
+                                  {saveMutation.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+                                  Сохранить
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[row.id];
+                                      return next;
+                                    });
+                                    setEditingId(null);
+                                  }}
+                                >
+                                  Отмена
+                                </Button>
+                                <span className="self-center text-xs text-muted-foreground">
+                                  После сохранения фид обновится в течение нескольких минут.
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
+                      {showHistory ? (
+                        <tr className="bg-muted/30">
+                          <td colSpan={8} className="px-3 pb-4 pt-1">
+                            <FeedHistory id={row.id} />
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
                   );
                 })
               )}
@@ -539,7 +808,7 @@ export default function AdminFeedLinks() {
         </div>
       </div>
 
-      <div className="rounded-xl border p-4 space-y-3 bg-muted/20">
+      <div id="add-feed" className="scroll-mt-20 rounded-xl border p-4 space-y-3 bg-muted/20">
         <h2 className="font-semibold inline-flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Добавить фид

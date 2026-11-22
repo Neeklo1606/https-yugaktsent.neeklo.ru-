@@ -50,6 +50,20 @@ export class FeedLinksAdminController {
     });
   }
 
+  @Get('overview')
+  @Roles('admin', 'editor')
+  @ApiOperation({ summary: 'Сводка по фидам: ЖК на сайте, застройщик, квартиры, фото' })
+  overview() {
+    return this.service.overviewAdmin();
+  }
+
+  @Get(':id/history')
+  @Roles('admin', 'editor')
+  @ApiOperation({ summary: 'История прогонов синхронизации фида' })
+  history(@Param('id', ParseIntPipe) id: number) {
+    return this.service.syncHistory(id);
+  }
+
   @Get(':id/probe')
   @Roles('admin', 'editor')
   @ApiOperation({ summary: 'Проверить доступность фида и число объектов' })

@@ -27,3 +27,36 @@ describe('FeedLinksService.isPrivateHost', () => {
     expect(FeedLinksService.isPrivateHost(h)).toBe(false);
   });
 });
+
+describe('FeedLinksService.overviewAdmin', () => {
+  it('matches the block by exact name in the feed region and sums listings by status', async () => {
+    const prisma = {
+      feedLink: {
+        findMany: async () => [
+          { id: 1, regionId: 5, name: 'Фид Сердце', blockName: 'Сердце' },
+          { id: 2, regionId: 5, name: 'Новый', blockName: null },
+        ],
+      },
+      block: {
+        findMany: async () => [
+          { id: 10, slug: 'serdce', name: 'Сердце', regionId: 5, status: 'BUILDING', builder: { name: 'ССК' }, _count: { images: 7 } },
+          { id: 11, slug: 'other', name: 'Сердце', regionId: 6, status: 'BUILDING', builder: null, _count: { images: 0 } },
+        ],
+      },
+      listing: {
+        groupBy: async () => [
+          { blockId: 10, status: 'ACTIVE', _count: { _all: 163 } },
+          { blockId: 10, status: 'SOLD', _count: { _all: 4 } },
+        ],
+      },
+    };
+    const svc = new FeedLinksService(prisma as never);
+    const rows = await svc.overviewAdmin();
+    expect(rows[0]).toEqual({
+      feedLinkId: 1,
+      block: { id: 10, slug: 'serdce', name: 'Сердце', status: 'BUILDING', builder: 'ССК', photos: 7 },
+      listings: { active: 163, reserved: 0, sold: 4, total: 167 },
+    });
+    expect(rows[1].block).toBeNull();
+  });
+});

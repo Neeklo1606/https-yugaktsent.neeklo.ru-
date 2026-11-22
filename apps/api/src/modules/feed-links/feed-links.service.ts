@@ -112,8 +112,93 @@ export class FeedLinksService {
     await this.prisma.feedLink.delete({ where: { id } });
   }
 
+  /**
+   * Сводка для таблицы фидов: какой ЖК на сайте получился из фида (служба синхронизации
+   * создаёт ЖК по точному названию в регионе фида), застройщик, квартиры и фото.
+   */
+  async overviewAdmin() {
+    const links = await this.prisma.feedLink.findMany({ select: { id: true, regionId: true, name: true, blockName: true } });
+    const keys = links.map((l) => ({ regionId: l.regionId, name: (l.blockName || l.name).trim() }));
+    const blocks = keys.length
+      ? await this.prisma.block.findMany({
+          where: { OR: keys.map((k) => ({ regionId: k.regionId, name: k.name })) },
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            regionId: true,
+            status: true,
+            builder: { select: { name: true } },
+            _count: { select: { images: true } },
+          },
+        })
+      : [];
+    const blockIds = blocks.map((b) => b.id);
+    const counts = blockIds.length
+      ? await this.prisma.listing.groupBy({
+          by: ['blockId', 'status'],
+          where: { blockId: { in: blockIds } },
+          _count: { _all: true },
+        })
+      : [];
+    const byBlock = new Map<number, { active: number; reserved: number; sold: number; total: number }>();
+    for (const c of counts) {
+      if (c.blockId == null) continue;
+      const row = byBlock.get(c.blockId) ?? { active: 0, reserved: 0, sold: 0, total: 0 };
+      const n = c._count._all;
+      row.total += n;
+      if (c.status === 'ACTIVE') row.active += n;
+      else if (c.status === 'RESERVED') row.reserved += n;
+      else if (c.status === 'SOLD') row.sold += n;
+      byBlock.set(c.blockId, row);
+    }
+    return links.map((l, i) => {
+      const k = keys[i];
+      const b = blocks.find((x) => x.regionId === k.regionId && x.name === k.name);
+      const c = b ? byBlock.get(b.id) : undefined;
+      return {
+        feedLinkId: l.id,
+        block: b
+          ? { id: b.id, slug: b.slug, name: b.name, status: b.status, builder: b.builder?.name ?? null, photos: b._count.images }
+          : null,
+        listings: c ?? { active: 0, reserved: 0, sold: 0, total: 0 },
+      };
+    });
+  }
+
+  /** История прогонов синхронизации фида (последние 20) — пишется в журнал при каждой отметке */
+  async syncHistory(id: number) {
+    await this.findOne(id);
+    const rows = await this.prisma.auditEvent.findMany({
+      where: { entityType: 'feed_sync', entityId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: { id: true, createdAt: true, newData: true },
+    });
+    return rows.map((r) => ({ id: String(r.id), at: r.createdAt, ...((r.newData as Record<string, unknown> | null) ?? {}) }));
+  }
+
   async markSynced(id: number, stats?: MarkFeedSyncedDto) {
     await this.findOne(id);
+    // Журнал прогонов для «Истории» в админке; сбой записи не мешает отметке
+    await this.prisma.auditEvent
+      .create({
+        data: {
+          userId: null,
+          entityType: 'feed_sync',
+          entityId: id,
+          action: 'UPDATE',
+          newData: {
+            status: stats?.status ?? null,
+            total: stats?.total ?? null,
+            created: stats?.created ?? null,
+            updated: stats?.updated ?? null,
+            errors: stats?.errors ?? null,
+            error: stats?.errorMessage ? stats.errorMessage.slice(0, 300) : null,
+          },
+        },
+      })
+      .catch(() => undefined);
     return this.prisma.feedLink.update({
       where: { id },
       data: {
