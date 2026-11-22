@@ -53,10 +53,18 @@ const ScrollToTop = () => {
         if (activeKey.current === key) savePosition(key, window.scrollY);
       }, 80);
     };
+    // Надёжно: позицию фиксируем и в момент ухода — нажатие ссылки или кнопки «назад» в интерфейсе
+    const saveNow = () => {
+      if (activeKey.current === key) savePosition(key, window.scrollY);
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('click', saveNow, true);
+    window.addEventListener('pagehide', saveNow);
     return () => {
       window.clearTimeout(t);
       window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('click', saveNow, true);
+      window.removeEventListener('pagehide', saveNow);
     };
   }, [location.key]);
 
