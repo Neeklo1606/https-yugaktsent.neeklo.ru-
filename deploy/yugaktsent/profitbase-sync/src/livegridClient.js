@@ -8,12 +8,19 @@ const OFFER_TO_LISTING = {
   closed: { status: "INACTIVE", isPublished: false },
 };
 
+/**
+ * Токен общий на процесс: проверка фидов идёт каждые 2 минуты, и раньше каждая создавала
+ * новый вход под тем же администратором — 30 сессий в час. Теперь вход повторяется только
+ * при ответе 401 (токен истёк), примерно раз в 15 минут.
+ */
+const sharedTokens = new Map();
+
 export class LiveGridClient {
   constructor(baseUrl, email, password) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.email = email;
     this.password = password;
-    this.token = null;
+    this.token = sharedTokens.get(`${this.baseUrl}|${email}`) ?? null;
     this.regionId = null;
     this.blocksByName = new Map();
   }
@@ -30,10 +37,11 @@ export class LiveGridClient {
     }
     const data = await res.json();
     this.token = data.accessToken;
+    sharedTokens.set(`${this.baseUrl}|${this.email}`, this.token);
     return this.token;
   }
 
-  async api(path, { method = "GET", body } = {}) {
+  async api(path, { method = "GET", body } = {}, retried = false) {
     if (!this.token) await this.login();
     const res = await fetch(`${this.baseUrl}${path}`, {
       method,
@@ -45,9 +53,9 @@ export class LiveGridClient {
       },
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (res.status === 401) {
+    if (res.status === 401 && !retried) {
       await this.login();
-      return this.api(path, { method, body });
+      return this.api(path, { method, body }, true);
     }
     if (!res.ok) {
       const text = await res.text();

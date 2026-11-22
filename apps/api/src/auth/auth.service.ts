@@ -23,6 +23,9 @@ interface JwtPayload {
   role: string;
 }
 
+/** Сколько одновременных входов хранить на пользователя (устройства + служебные клиенты) */
+const MAX_SESSIONS_PER_USER = 20;
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -432,17 +435,22 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const session = await this.prisma.session.findFirst({
-      where: { userId: payload.sub },
+    // У пользователя может быть несколько сессий (телефон, компьютер, служба синхронизации фидов
+    // под тем же логином). Раньше сверялась только самая свежая — любой новый вход где-то ещё
+    // выкидывал человека из админки через 15 минут. Ищем сессию, которой принадлежит этот токен.
+    const sessions = await this.prisma.session.findMany({
+      where: { userId: payload.sub, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
+      take: MAX_SESSIONS_PER_USER,
     });
-
-    if (!session) {
-      throw new UnauthorizedException('Session not found');
+    let session: (typeof sessions)[number] | null = null;
+    for (const s of sessions) {
+      if (await bcrypt.compare(refreshToken, s.refreshTokenHash)) {
+        session = s;
+        break;
+      }
     }
-
-    const isValid = await bcrypt.compare(refreshToken, session.refreshTokenHash);
-    if (!isValid) {
+    if (!session) {
       throw new UnauthorizedException('Refresh token mismatch');
     }
 
@@ -542,6 +550,15 @@ export class AuthService {
     await this.prisma.session.create({
       data: { userId, refreshTokenHash: hash, expiresAt },
     });
+    // Уборка: просроченные сессии и всё сверх лимита (самые старые)
+    await this.prisma.session.deleteMany({ where: { userId, expiresAt: { lte: new Date() } } });
+    const extra = await this.prisma.session.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      skip: MAX_SESSIONS_PER_USER,
+      select: { id: true },
+    });
+    if (extra.length) await this.prisma.session.deleteMany({ where: { id: { in: extra.map((e) => e.id) } } });
   }
 
   private logAuthFailure(reason: string, identifier?: string | null): void {
