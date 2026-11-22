@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useSiteSettings, settingOptional } from '@/redesign/hooks/useSiteSettings';
 import { ANALYTICS_CONSENT_EVENT, readAnalyticsConsent } from '@/shared/lib/analytics-consent';
+import { collectWebVitals } from '@/shared/lib/web-vitals';
 
 type Ym = ((id: number, method: string, ...args: unknown[]) => void) & { a?: unknown[]; l?: number };
 declare global {
@@ -58,6 +59,14 @@ export default function AnalyticsLoader() {
     if (document.readyState === 'complete') idle();
     else window.addEventListener('load', idle, { once: true });
   }, [id, consent, pathname]);
+
+  // Скорость у реальных посетителей → параметры визита Метрики (только при согласии и своём счётчике)
+  useEffect(() => {
+    if (!id || consent !== 'yes') return;
+    return collectWebVitals((v, page) => {
+      if (typeof window.ym === 'function') window.ym(id, 'params', { webVitals: { [page]: v } });
+    });
+  }, [id, consent]);
 
   // Переходы внутри приложения — отдельные просмотры (defer: true выключил авто-хит)
   const first = useRef(true);

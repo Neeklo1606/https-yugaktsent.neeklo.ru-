@@ -43,10 +43,12 @@ import { BillingModule } from './modules/billing/billing.module';
 import { FeedLinksModule } from './modules/feed-links/feed-links.module';
 import { EcosystemModule } from './modules/ecosystem/ecosystem.module';
 
+import { CspReportModule } from './modules/csp-report/csp-report.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '../../.env' }),
     SentryModule.forRoot(),
+    CspReportModule,
     MonitoringModule,
     CacheModule,
     PrismaModule,

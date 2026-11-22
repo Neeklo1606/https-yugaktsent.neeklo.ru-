@@ -148,7 +148,7 @@ export default function ComplexOfferCard({
 
   return (
     <article className="group relative flex h-full w-full flex-col overflow-hidden rounded-card border border-border bg-card shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-raised motion-reduce:hover:translate-y-0">
-      <Link to={href} {...prefetchHandlers('/complex/')} className="relative z-[1] block aspect-[16/9] overflow-hidden bg-surface-soft" aria-label={`ЖК ${complex.name}`} tabIndex={-1}>
+      <Link to={href} {...prefetchHandlers('/complex/')} className="relative z-[1] block aspect-[16/9] overflow-hidden bg-surface-soft" aria-hidden tabIndex={-1}>
         {images.length > 0 ? <CoverCarousel images={images} name={complex.name} priority={priority} onError={onCoverError ?? (() => {})} /> : null}
       </Link>
       <button
