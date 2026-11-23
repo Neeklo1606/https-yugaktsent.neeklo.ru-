@@ -405,7 +405,7 @@ const RedesignApartment = () => {
         ) : null}
 
         {/* Первый экран как у ЖК: планировка слева, всё для решения — в карточке справа */}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
           <div className="min-w-0 lg:h-full">
             <ApartmentMediaGallery
               planSrc={apt.planImage}

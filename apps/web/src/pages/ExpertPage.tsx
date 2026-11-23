@@ -213,7 +213,7 @@ const ExpertPage = () => {
                           href={youtube.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-medium text-primary hover:underline underline-offset-4"
+                          className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-[14px] font-medium text-primary hover:underline underline-offset-4"
                         >
                           Смотреть видеообзоры на YouTube
                           <ArrowUpRight className="h-4 w-4" aria-hidden />

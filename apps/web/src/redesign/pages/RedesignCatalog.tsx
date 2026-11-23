@@ -621,7 +621,7 @@ const RedesignCatalog = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-mobile-nav">
+    <div className="min-h-screen bg-background">
       <RedesignHeader />
 
       <div className="border-b border-border bg-card">
@@ -1023,7 +1023,7 @@ const RedesignCatalog = () => {
       </Sheet>
 
       <CompareSessionChip />
-      <FooterSection />
+      <FooterSection reserveMobileNav />
     </div>
   );
 };

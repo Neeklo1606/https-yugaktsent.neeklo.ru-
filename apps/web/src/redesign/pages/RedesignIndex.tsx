@@ -52,7 +52,7 @@ const RedesignIndex = () => {
   const featured = withCovers.slice(0, 8);
 
   return (
-    <div className="min-h-screen bg-background pb-mobile-nav">
+    <div className="min-h-screen bg-background">
       <RedesignHeader />
       <ApiConnectionStrip />
       <main id="main">
@@ -94,7 +94,7 @@ const RedesignIndex = () => {
       </DeferredSection>
       </main>
       <DeferredSection minHeight={480}>
-        <FooterSection />
+        <FooterSection reserveMobileNav />
       </DeferredSection>
     </div>
   );

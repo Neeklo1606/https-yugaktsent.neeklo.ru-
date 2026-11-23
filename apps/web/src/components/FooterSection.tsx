@@ -38,7 +38,12 @@ const FooterNavColumn = ({
   </div>
 );
 
-const FooterSection = React.forwardRef<HTMLElement>((_, ref) => {
+type FooterProps = {
+  /** Страница с нижним меню на телефоне: запас под меню — внутри подвала, без белой полосы под ним */
+  reserveMobileNav?: boolean;
+};
+
+const FooterSection = React.forwardRef<HTMLElement, FooterProps>(({ reserveMobileNav = false }, ref) => {
   const { data: s } = useSiteSettings();
   const { shortName, logoLightUrl, tagline } = useSiteBrand();
 
@@ -82,7 +87,7 @@ const FooterSection = React.forwardRef<HTMLElement>((_, ref) => {
     'inline-flex min-h-[38px] items-center gap-2.5 text-sm text-primary-foreground/80 transition-colors hover:text-primary-foreground';
 
   return (
-    <footer ref={ref} className="bg-foreground bg-footer-gradient text-primary-foreground">
+    <footer ref={ref} className={cn("bg-foreground bg-footer-gradient text-primary-foreground", reserveMobileNav && "pb-mobile-nav")}>
       <div className="container-page py-8 sm:py-12 lg:py-16">
         <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-10 lg:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,0.9fr))] lg:gap-8">
           {/* Бренд и контакты */}

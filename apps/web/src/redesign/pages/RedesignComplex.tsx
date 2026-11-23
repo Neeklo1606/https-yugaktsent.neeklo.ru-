@@ -581,7 +581,7 @@ const RedesignComplex = () => {
         </nav>
 
         {/* Первый экран: галерея + карточка с главным. Раньше — шапка, галерея на всю ширину и колонка 272 px до конца страницы */}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
           <div className="min-w-0">
             <ComplexPremiumGallery images={complex.images} title={complex.name} />
           </div>
@@ -667,6 +667,7 @@ const RedesignComplex = () => {
                       <Button
                         variant="secondary"
                         type="button"
+                        className="h-auto min-h-11 w-full whitespace-normal py-2 sm:w-auto"
                         disabled={listingsQuery.isFetchingNextPage}
                         onClick={() => void listingsQuery.fetchNextPage()}
                       >
@@ -829,7 +830,9 @@ const RedesignComplex = () => {
             type="button"
             onClick={() => openComplexConsult(`complex:${complex.slug}:sticky`)}
           >
-            {CONVERSION_CTA.viewing}
+            {/* На 320 px полная подпись не помещалась рядом с ценой */}
+            <span className="min-[360px]:hidden">Записаться</span>
+            <span className="hidden min-[360px]:inline">{CONVERSION_CTA.viewing}</span>
           </Button>
         </div>
       </div>
