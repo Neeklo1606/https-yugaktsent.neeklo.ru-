@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { cachedImageUrl } from '@/redesign/lib/image-media';
 import { ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import StableMediaFrame from '@/redesign/components/StableMediaFrame';
@@ -207,7 +208,7 @@ const ApartmentMediaGallery = ({ planSrc, finishingSrc, gallerySrcs = [], title 
                 )}
                 aria-label={item.label}
               >
-                <img src={item.src} alt="" className="h-full w-full object-cover" loading="lazy" />
+                <img src={cachedImageUrl(item.src)} alt="" className="h-full w-full object-cover" loading="lazy" />
               </button>
             ))}
           </div>
@@ -229,7 +230,7 @@ const ApartmentMediaGallery = ({ planSrc, finishingSrc, gallerySrcs = [], title 
                 Закрыть
               </button>
             </div>
-            <img src={current.src} alt={current.label} className="max-h-[82vh] w-full rounded-xl object-contain" />
+            <img src={cachedImageUrl(current.src)} alt={current.label} className="max-h-[82vh] w-full rounded-xl object-contain" />
           </div>
         </div>
       ) : null}

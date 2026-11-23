@@ -97,3 +97,9 @@ export function imageSrcSet(url: unknown): string | undefined {
   });
   return parts.every(Boolean) ? parts.join(', ') : undefined;
 }
+
+/** Адрес картинки через наш ресайзер/кэш (800 px), если он применим; иначе — как есть. Для простых <img> без srcSet */
+export function cachedImageUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  return proxiedImageUrl(url, 800) ?? url;
+}

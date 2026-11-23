@@ -4,7 +4,7 @@ import { btnClass } from '@/redesign/lib/button-styles';
 import { useNavigate } from 'react-router-dom';
 import type { LayoutGroup } from '@/redesign/data/types';
 import { formatPriceFrom, isPriceFallbackText } from '@/redesign/lib/display-price';
-import { getSafeImageUrl, handleImageError, IMAGE_PLACEHOLDER } from '@/redesign/lib/image-media';
+import { getSafeImageUrl, handleImageError, IMAGE_PLACEHOLDER, cachedImageUrl } from '@/redesign/lib/image-media';
 import { cardVisual } from '@/redesign/lib/card-visual';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +30,7 @@ const LayoutCard = ({ layout }: { layout: LayoutGroup }) => {
     >
       <div className="aspect-square bg-muted/50 flex items-center justify-center p-4 sm:p-6">
         <img
-          src={getSafeImageUrl(layout.planImage)}
+          src={cachedImageUrl(getSafeImageUrl(layout.planImage))}
           alt={`${layout.rooms}-комн`}
           className="max-w-full max-h-full object-contain opacity-60 group-hover:opacity-100 transition-opacity"
           loading="lazy"

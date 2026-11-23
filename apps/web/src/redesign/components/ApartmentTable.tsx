@@ -1,4 +1,5 @@
 import { formatArea } from '@/redesign/lib/listing-format';
+import { cachedImageUrl } from '@/redesign/lib/image-media';
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Eye, ArrowUpDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -274,7 +275,7 @@ const ApartmentTable = ({ apartments, sort, onSort }: Props) => {
                                   }}
                                   onMouseLeave={() => setPreview((p) => (p?.url === a.planImage ? null : p))}
                                 >
-                                  <img src={a.planImage} alt="Планировка" className="w-full h-full object-contain" loading="lazy" />
+                                  <img src={cachedImageUrl(a.planImage)} alt="Планировка" className="w-full h-full object-contain" loading="lazy" />
                                 </div>
                               ) : (
                                 <MissingPhotoPlaceholder className="h-12 w-12 rounded-md border text-[9px]" />
@@ -331,7 +332,7 @@ const ApartmentTable = ({ apartments, sort, onSort }: Props) => {
                       >
                         <div className="shrink-0">
                           {hasPlanPreview(a.planImage) ? (
-                            <img src={a.planImage} alt="Планировка" className="w-16 h-16 rounded-lg border object-contain bg-background" loading="lazy" />
+                            <img src={cachedImageUrl(a.planImage)} alt="Планировка" className="w-16 h-16 rounded-lg border object-contain bg-background" loading="lazy" />
                           ) : (
                             <MissingPhotoPlaceholder className="w-16 h-16 rounded-lg border text-[9px]" />
                           )}
@@ -382,7 +383,7 @@ const ApartmentTable = ({ apartments, sort, onSort }: Props) => {
           style={{ left: `${preview.x}px`, top: `${preview.y}px` }}
         >
           <div className="w-[220px] h-[280px] rounded-2xl border border-border/70 bg-background/95 shadow-[0_12px_40px_rgba(0,0,0,0.18)] p-2 backdrop-blur-sm">
-            <img src={preview.url} alt="Планировка" className="w-full h-full object-contain" />
+            <img src={cachedImageUrl(preview.url)} alt="Планировка" className="w-full h-full object-contain" />
           </div>
         </div>
       ) : null}
