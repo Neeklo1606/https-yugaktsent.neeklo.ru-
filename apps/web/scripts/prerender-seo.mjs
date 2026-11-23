@@ -395,7 +395,32 @@ ${body}
 }
 
 /**
- * /apartment/:id — лёгкий HTML без SSR-разметки: свой title/description/canonical/og и JSON-LD.
+ * Статичный первый экран квартиры (до загрузки скриптов): логотип, название, цена, описание.
+ * Стоит в #ssr-shell перед #root — приложение убирает его в том же кадре, когда отрисует страницу.
+ * Без картинок: главный элемент — текст, виден сразу с HTML (LCP), поисковик видит текст страницы.
+ */
+export function apartmentShellHtml({ title, description, price, complexName, complexSlug }) {
+  const [name, ...rest] = String(title || '').split(' — ');
+  const priceText = rest.join(' — ') || (Number(price) > 0 ? `${Math.round(Number(price)).toLocaleString('ru-RU')} ₽` : 'Цена по запросу');
+  const crumb = complexName && complexSlug
+    ? `<a href="/complex/${escapeXml(encodeURIComponent(complexSlug))}" class="apt-crumb">ЖК ${escapeXml(complexName)}</a>`
+    : '<a href="/catalog" class="apt-crumb">Каталог</a>';
+  return (
+    '<style>#ssr-shell~#root>.boot-header,#ssr-shell~#root>.boot-hero{display:none}' +
+    '.apt-shell{max-width:1400px;margin:0 auto;padding:16px 16px 48px;color:#1b2126}' +
+    '.apt-crumb{font-size:14px;color:#5b6670;text-decoration:none}' +
+    '.apt-shell h1{font-size:22px;line-height:1.25;margin:12px 0 8px;font-weight:600}' +
+    '.apt-price{font-size:26px;font-weight:700;margin:0 0 12px}' +
+    '.apt-desc{font-size:15px;line-height:1.5;color:#5b6670;margin:0;max-width:720px}' +
+    '@media(min-width:1024px){.apt-shell{padding:24px 32px 64px}.apt-shell h1{font-size:30px}.apt-price{font-size:32px}}</style>' +
+    '<div id="ssr-shell"><div class="boot-header"><a href="/"><img src="/logo-yug-aktsent.png" alt="ЮгАкцент" width="194" height="48"></a></div>' +
+    `<main class="apt-shell">${crumb}<h1>${escapeXml(name)}</h1><p class="apt-price">${escapeXml(priceText)}</p>` +
+    `<p class="apt-desc">${escapeXml(description || '')}</p></main></div>`
+  );
+}
+
+/**
+ * /apartment/:id — лёгкий HTML: свой title/description/canonical/og, JSON-LD и статичный первый экран (apartmentShellHtml).
  * nginx отдаёт apartment/<id>/index.html (try_files $uri/index.html), для остальных id — spa.html.
  * Пишем в соседнюю папку и меняем местами: проданные квартиры исчезают, недописанный набор не виден.
  */
@@ -432,6 +457,13 @@ async function writeApartmentPages(apiBase, baseHtml, mod, siteUrl, siteBrand) {
           siteUrl,
           brand: siteBrand,
         });
+        const shell = apartmentShellHtml({
+          title: seo.title,
+          description: seo.description,
+          price: l.price,
+          complexName: l.block?.name || ap.blockName || null,
+          complexSlug: l.block?.slug || null,
+        });
         const html = patchOgImage(
           patchHtmlHead(injectHead(shellBase, jsonLdTag(seo.jsonLd, 'lg-entity-seo-jsonld')), {
             title: `${seo.title} | ${siteBrand}`,
@@ -439,7 +471,7 @@ async function writeApartmentPages(apiBase, baseHtml, mod, siteUrl, siteBrand) {
             canonical: seo.canonical,
           }),
           image,
-        );
+        ).replace(/<div id="root">/, (m) => `${shell}\n    ${m}`);
         const dir = path.join(tmpDir, String(id));
         fs.mkdirSync(dir);
         fs.writeFileSync(path.join(dir, 'index.html'), html, 'utf8');
