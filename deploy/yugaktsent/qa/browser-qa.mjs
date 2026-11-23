@@ -130,8 +130,11 @@ async function checkPage(browser, route, vp) {
   const started = Date.now();
   let status = 0;
   try {
-    const res = await page.goto(route.base + route.path, { waitUntil: "networkidle", timeout: 45_000 });
+    // «load», а не «networkidle»: Яндекс Карта держит сеть занятой бесконечно, и страница
+    // формально не «успокаивается». Тишину сети ждём отдельно и недолго.
+    const res = await page.goto(route.base + route.path, { waitUntil: "load", timeout: 45_000 });
     status = res?.status() ?? 0;
+    await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => {});
   } catch (e) {
     consoleErrors.push(`goto: ${e.message.slice(0, 120)}`);
   }
