@@ -143,6 +143,7 @@ const ApartmentMediaGallery = ({ planSrc, finishingSrc, gallerySrcs = [], title 
                 aspect="none"
                 fallback="branded"
                 loading="eager"
+                fetchPriority={indexInTab === 0 ? 'high' : undefined}
                 className="h-full w-full"
                 imgClassName={cn(
                   'h-full w-full',

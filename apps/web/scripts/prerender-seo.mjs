@@ -419,6 +419,18 @@ export function apartmentShellHtml({ title, description, price, complexName, com
   );
 }
 
+/** Тот же адрес планировки, что выберет галерея (ресайзер + srcset), — браузер начинает качать её с HTML */
+const GALLERY_SIZES = '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw';
+function planPreloadTag(mod, image) {
+  if (!image || typeof mod?.proxiedImageUrl !== 'function') return '';
+  const srcset = mod.imageSrcSet(image);
+  const href = (srcset && mod.proxiedImageUrl(image, 800)) || image;
+  const set = srcset && new Set(srcset.split(', ').map((p) => p.split(' ')[0])).size > 1
+    ? ` imagesrcset="${escapeAttr(srcset)}" imagesizes="${GALLERY_SIZES}"`
+    : '';
+  return `<link rel="preload" as="image" href="${escapeAttr(href)}"${set} fetchpriority="high">\n  `;
+}
+
 /**
  * /apartment/:id — лёгкий HTML: свой title/description/canonical/og, JSON-LD и статичный первый экран (apartmentShellHtml).
  * nginx отдаёт apartment/<id>/index.html (try_files $uri/index.html), для остальных id — spa.html.
@@ -471,7 +483,7 @@ async function writeApartmentPages(apiBase, baseHtml, mod, siteUrl, siteBrand) {
             canonical: seo.canonical,
           }),
           image,
-        ).replace(/<div id="root">/, (m) => `${shell}\n    ${m}`);
+        ).replace(/<div id="root">/, (m) => `${shell}\n    ${m}`).replace('</head>', `${planPreloadTag(mod, image)}</head>`);
         const dir = path.join(tmpDir, String(id));
         fs.mkdirSync(dir);
         fs.writeFileSync(path.join(dir, 'index.html'), html, 'utf8');

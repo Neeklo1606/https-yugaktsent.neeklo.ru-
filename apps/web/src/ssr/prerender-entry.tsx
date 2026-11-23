@@ -84,3 +84,4 @@ export async function render(url: string, passes = 4): Promise<PrerenderResult> 
 
 // Тексты и JSON-LD для HTML квартир/ЖК/главной — тот же код, что у приложения
 export { apartmentSeo, complexSeoText, complexJsonLd, homeJsonLd, roomsFromName, jsonLdScriptBody } from '@/shared/seo/structured-seo';
+export { imageSrcSet, proxiedImageUrl } from '@/redesign/lib/image-media';
