@@ -1082,11 +1082,11 @@ export class BlocksService {
       where: {
         blockId: block.id,
         kind: CHESSBOARD_LISTING_KIND,
-        visibility: 'PUBLIC',
-        // В продаже — только опубликованные; проданные и снятые с продажи тоже рисуем
-        // (серым, без цены и ссылки), чтобы шахматка показывала реальную распроданность дома
+        // В продаже — только опубликованные публичные; проданные и снятые с продажи тоже рисуем
+        // (серым, без цены и ссылки), чтобы шахматка показывала реальную распроданность дома.
+        // Снятые лоты синхронизация переводит в HIDDEN/ARCHIVED — для серой ячейки это не важно.
         OR: [
-          { isPublished: true, status: { in: CHESSBOARD_LISTING_STATUSES } },
+          { visibility: 'PUBLIC', isPublished: true, status: { in: CHESSBOARD_LISTING_STATUSES } },
           { status: { in: CHESSBOARD_SOLD_STATUSES } },
         ],
       },
