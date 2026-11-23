@@ -44,6 +44,13 @@ interface Props {
   height?: string;
   compact?: boolean;
   filterSearchParams?: URLSearchParams;
+  /**
+   * false — точки только из `complexes` (каталог уже загрузил ЖК по своим фильтрам,
+   * в т.ч. тем, что API вьюпорта карты не знает). По умолчанию true.
+   */
+  useViewportApi?: boolean;
+  /** Подсветка точки без открытия карточки и сдвига карты (наведение на карточку в списке) */
+  highlightSlug?: string | null;
 }
 
 function getAptCount(c: ResidentialComplex) {
@@ -51,15 +58,26 @@ function getAptCount(c: ResidentialComplex) {
   return c.buildings.reduce((s, b) => s + b.apartments.filter(a => a.status === 'available').length, 0);
 }
 
-const MapSearch = ({ complexes, activeSlug, onSelect, height = '70vh', compact, regionCenter, regionId, filterSearchParams }: Props) => {
+const MapSearch = ({
+  complexes,
+  activeSlug,
+  onSelect,
+  height = '70vh',
+  compact,
+  regionCenter,
+  regionId,
+  filterSearchParams,
+  useViewportApi = true,
+  highlightSlug = null,
+}: Props) => {
   const fillParent = Boolean(compact) || height === '100%';
   const mapRef = useRef<HTMLDivElement>(null);
   const { ready, failure } = useYandexMapsReady();
   const [consultOpen, setConsultOpen] = useState(false);
   const [consultContext, setConsultContext] = useState<ConsultationContext | null>(null);
 
-  const viewportProduction = isMapViewportProductionEnabled();
-  const viewportExperimental = isViewportExperimentalEnabled();
+  const viewportProduction = useViewportApi && isMapViewportProductionEnabled();
+  const viewportExperimental = useViewportApi && isViewportExperimentalEnabled();
   const shadowRender = isViewportShadowRenderEnabled();
 
   const [effectiveComplexes, setEffectiveComplexes] = useState(complexes);
@@ -84,7 +102,7 @@ const MapSearch = ({ complexes, activeSlug, onSelect, height = '70vh', compact, 
   const { mapInstance } = useMapClusterLayer({
     layerKind: 'blocks',
     buildDescriptors,
-    activeId: activeSlug,
+    activeId: activeSlug ?? highlightSlug,
     ready,
     mapRef,
     onSelect,
@@ -185,7 +203,7 @@ const MapSearch = ({ complexes, activeSlug, onSelect, height = '70vh', compact, 
           className="pointer-events-none absolute inset-x-4 top-4 z-[6] rounded-xl border border-warning/20 bg-warning-soft/95 px-3 py-2 text-xs text-warning shadow-sm"
           role="status"
         >
-          У найденных ЖК не заполнены координаты, поэтому на карте их пока нет. Список справа работает.
+          У найденных ЖК не заполнены координаты, поэтому на карте их пока нет. В списке они есть.
         </div>
       ) : null}
       {!ready && !failure ? (
@@ -230,7 +248,14 @@ const MapSearch = ({ complexes, activeSlug, onSelect, height = '70vh', compact, 
               </div>
               <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <MapPin className="w-3 h-3 shrink-0" />
-                <span className="truncate">{activeComplex.district} · м. {activeComplex.subway}</span>
+                <span className="truncate">
+                  {[
+                    activeComplex.district?.trim(),
+                    activeComplex.subway?.trim() ? `м. ${activeComplex.subway.trim()}` : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || activeComplex.address}
+                </span>
               </div>
               <p className="text-[11px] text-muted-foreground">{getAptCount(activeComplex)} квартир в продаже</p>
               <MapPopupActions

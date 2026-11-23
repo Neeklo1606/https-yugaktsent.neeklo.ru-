@@ -23,6 +23,7 @@ const RedesignComplex = lazyWithReload(() => import("./redesign/pages/RedesignCo
 const RedesignApartment = lazyWithReload(() => import("./redesign/pages/RedesignApartment"));
 const RedesignListingDetail = lazyWithReload(() => import("./redesign/pages/RedesignListingDetail"));
 const RedesignMap = lazyWithReload(() => import("./redesign/pages/RedesignMap"));
+const RedesignMortgage = lazyWithReload(() => import("./redesign/pages/RedesignMortgage"));
 
 // Catalog sub-pages
 
@@ -162,7 +163,7 @@ const AppRoutes = () => (
     <Route path="/presentation/listing/:listingId" element={<ListingPresentation />} />
     <Route path="/presentation/:slug" element={<Presentation />} />
     <Route path="/map" element={<RedesignMap />} />
-    <Route path="/mortgage" element={<Navigate to="/catalog" replace />} />
+    <Route path="/mortgage" element={<RedesignMortgage />} />
     {/* Сравнение, подборки и профили агентств LiveGrid сняты с публичной части (план сдачи, D9) */}
     <Route path="/compare" element={<Navigate to="/favorites" replace />} />
     {/* Избранное живёт в localStorage — регистрация для него не нужна */}

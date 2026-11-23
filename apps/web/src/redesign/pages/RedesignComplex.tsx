@@ -16,6 +16,9 @@ import ComplexAnchorNav, { type ComplexSection } from '@/redesign/components/Com
 import Chessboard from '@/redesign/components/Chessboard';
 import type { ChessboardBlockResponse } from '@/redesign/lib/chessboard-api';
 import ChessDebugOverlay from '@/redesign/components/ChessDebugOverlay';
+import { ComplexFaq, ComplexMasterplan, ComplexVideos } from '@/redesign/components/ComplexContentBlocks';
+import MortgageCalculator from '@/redesign/components/mortgage/MortgageCalculator';
+import { buildComplexFaq, faqJsonLd, parseComplexContent } from '@/redesign/lib/complex-content';
 import ConversionDebugOverlay from '@/redesign/components/ConversionDebugOverlay';
 import ConsultationFlow from '@/redesign/components/ConsultationFlow';
 import { CONVERSION_CTA, type ConsultationContext } from '@/redesign/lib/conversion-cta';
@@ -143,7 +146,18 @@ const RedesignComplex = () => {
     return priceRangesQuery.data?.length ? { ...mapped, priceRanges: priceRangesQuery.data } : mapped;
   }, [apiBlockQuery.data, listingRows, priceRangesQuery.data]);
 
-  const complex = apiComplex ?? null;
+  const content = useMemo(
+    () => parseComplexContent((apiBlockQuery.data as { content?: unknown } | undefined)?.content),
+    [apiBlockQuery.data],
+  );
+  const housingType = (apiBlockQuery.data as { housingType?: string } | undefined)?.housingType ?? 'flat';
+  // Фото, догруженные вручную в админке, — после фото из фида
+  const complex = useMemo(() => {
+    if (!apiComplex) return null;
+    if (!content.gallery.length) return apiComplex;
+    const seen = new Set(apiComplex.images);
+    return { ...apiComplex, images: [...apiComplex.images, ...content.gallery.filter((u) => !seen.has(u))] };
+  }, [apiComplex, content.gallery]);
   const fromApi = Boolean(apiComplex);
   const regionId = apiBlockQuery.data?.region?.id ?? null;
 
@@ -239,6 +253,11 @@ const RedesignComplex = () => {
   const [roomFilter, setRoomFilter] = useState<number | null>(null);
   const [activeBuildingId, setActiveBuildingId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('');
+  const [flatsTab, setFlatsTab] = useState<'chess' | 'list' | 'plans' | null>(null);
+  const [descOpen, setDescOpen] = useState(false);
+  /** Фильтр дома во вкладке «Списком»; null — все дома. Отдельно от дома в шахматке */
+  const [listBuildingId, setListBuildingId] = useState<string | null>(null);
+  const chessAutoPickRef = useRef(false);
   const [consultOpen, setConsultOpen] = useState(false);
   const [consultContext, setConsultContext] = useState<ConsultationContext | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -254,13 +273,6 @@ const RedesignComplex = () => {
   }, [complex, similarQuery.data]);
 
   const buildings = complex?.buildings ?? [];
-  const activeBuilding = useMemo(() => {
-    if (!buildings.length) return null;
-    if (activeBuildingId) {
-      return buildings.find((b) => b.id === activeBuildingId) ?? buildings[0];
-    }
-    return buildings[0];
-  }, [buildings, activeBuildingId]);
 
   const activeChessMatrix = useMemo(() => {
     const boards = chessboardQuery.data?.buildings;
@@ -290,16 +302,18 @@ const RedesignComplex = () => {
   useEffect(() => {
     const boards = chessboardQuery.data?.buildings;
     if (!boards?.length) return;
-    if (!activeBuildingId || !boards.some((b) => b.id === activeBuildingId)) {
-      setActiveBuildingId(boards[0].id);
+    if (!chessAutoPickRef.current || !activeBuildingId || !boards.some((b) => b.id === activeBuildingId)) {
+      chessAutoPickRef.current = true;
+      // Открываем дом, где больше всего квартир в продаже, — первая секция бывает почти пустой
+      const best = boards.reduce((a, b) => (b.apartmentCount > a.apartmentCount ? b : a), boards[0]);
+      setActiveBuildingId(best.id);
     }
   }, [chessboardQuery.data, activeBuildingId]);
 
   const scopedApartments = useMemo(() => {
     if (!complex) return [];
-    const source = activeBuilding
-      ? activeBuilding.apartments
-      : complex.buildings.flatMap((b) => b.apartments);
+    const listBuilding = listBuildingId ? complex.buildings.find((b) => b.id === listBuildingId) : null;
+    const source = listBuilding ? listBuilding.apartments : complex.buildings.flatMap((b) => b.apartments);
     const apts = source.filter((a) => a.status !== 'sold');
     apts.sort((a, b) => {
       if (sort.field === 'price') {
@@ -309,18 +323,17 @@ const RedesignComplex = () => {
       return (a[sort.field] - b[sort.field]) * m;
     });
     return apts;
-  }, [complex, activeBuilding, sort]);
+  }, [complex, listBuildingId, sort]);
 
   const layouts = useMemo(() => {
     if (!complex) return [];
-    const apts = activeBuilding
-      ? activeBuilding.apartments
-      : complex.buildings.flatMap((b) => b.apartments);
+    // Планировки — по всему комплексу: выбранный в шахматке дом не должен их прятать
+    const apts = complex.buildings.flatMap((b) => b.apartments);
     if (fromApi) {
       return buildLayoutGroupsFromApartments(complex.id, apts);
     }
     return [];
-  }, [complex, fromApi, activeBuilding]);
+  }, [complex, fromApi]);
 
   const hasApartments = scopedApartments.length > 0;
   const hasLayouts = layouts.length > 0;
@@ -354,16 +367,24 @@ const RedesignComplex = () => {
   const hasDeveloper = Boolean(complex?.builder?.trim() && complex.builder !== '—');
   const hasBuildings = buildings.length > 0;
 
+  const hasMasterplan = Boolean(content.masterplanUrl || content.masterplan3dUrl);
+  const hasVideo = content.videos.length > 0;
+  const hasFlatsBlock = hasBuildings || hasApartments || hasLayouts || hasChess;
+  const currentFlatsTab: 'chess' | 'list' | 'plans' =
+    flatsTab ?? (hasChess && fromApi ? 'chess' : hasApartments ? 'list' : 'plans');
+
   const navSections = useMemo((): ComplexSection[] => {
     const s: ComplexSection[] = [];
-    if (hasBuildings || hasApartments || hasLayouts) s.push({ id: 'layouts', label: 'Квартиры' });
-    if (hasChess) s.push({ id: 'chessboard', label: 'Шахматка' });
-    if (hasLayouts) s.push({ id: 'plans', label: 'Планировки' });
+    if (hasFlatsBlock) s.push({ id: 'flats', label: 'Квартиры и цены' });
+    if (hasMasterplan) s.push({ id: 'masterplan', label: 'Генплан' });
     // Блок «О комплексе» есть почти всегда: в фактах хотя бы цена и срок сдачи
     if (complex) s.push({ id: 'description', label: 'О комплексе' });
+    if (hasVideo) s.push({ id: 'video', label: 'Видео' });
+    if (complex) s.push({ id: 'mortgage', label: 'Ипотека' });
+    if (complex) s.push({ id: 'faq', label: 'Вопросы' });
     if (similarComplexes.length > 0) s.push({ id: 'similar', label: 'Похожие' });
     return s;
-  }, [complex, hasApartments, hasChess, hasBuildings, hasLayouts, similarComplexes.length]);
+  }, [complex, hasFlatsBlock, hasMasterplan, hasVideo, similarComplexes.length]);
 
   const initMap = useCallback(() => {
     if (!ymapsReady || !complex || mapInstanceRef.current || !mapRef.current || !window.ymaps) return;
@@ -390,9 +411,14 @@ const RedesignComplex = () => {
 
   const scrollToSection = useCallback(
     (id: string) => {
-      const sectionId =
-        id === 'chess' ? 'chessboard' : id === 'apartments' ? 'layouts' : id;
-      if (sectionId === 'chessboard') setChessboardEnabled(true);
+      // Старые якоря (шахматка, список, планировки) ведут в общий блок «Квартиры и цены»
+      const tabByAnchor: Record<string, 'chess' | 'list' | 'plans'> = {
+        chess: 'chess', chessboard: 'chess', apartments: 'list', layouts: 'list', plans: 'plans',
+      };
+      const tab = tabByAnchor[id];
+      if (tab) setFlatsTab(tab);
+      const sectionId = tab ? 'flats' : id;
+      if (tab === 'chess') setChessboardEnabled(true);
       setActiveSection(sectionId);
       const el = document.getElementById(sectionId);
       if (!el) return;
@@ -530,8 +556,36 @@ const RedesignComplex = () => {
   const city = apiBlockQuery.data?.region?.name ?? null;
   const pickRooms = (rooms: number) => {
     setRoomFilter(roomCategoryFromRooms(rooms));
-    scrollToSection('layouts');
+    scrollToSection('flats');
   };
+
+  const faqItems = buildComplexFaq(
+    {
+      name: complex.name,
+      city,
+      builder: hasDeveloper ? complex.builder.trim() : null,
+      deadline: complex.deadline?.trim() && complex.deadline !== '—' ? complex.deadline.trim() : null,
+      address: complex.address?.trim() && complex.address !== '—' ? complex.address.trim() : null,
+      priceFromText: !isPriceHidden(complex.priceFrom) ? formatPriceRangeDisplay(complex.priceFrom, complex.priceTo) : null,
+      availableCount,
+      buildingsCount: chessboardQuery.data?.buildings.length ?? buildings.length,
+      finishings: [...new Set(complex.buildings.flatMap((b) => b.apartments.map((a) => a.finishing)).filter(Boolean))].slice(0, 4),
+      roomsText:
+        [...new Set((complex.priceRanges ?? []).map((r) => r.rooms))]
+          .sort((a, b) => a - b)
+          .map((r) => (r === 0 ? 'студии' : `${r}-комн.`))
+          .join(', ') || null,
+      housingType,
+    },
+    content.faq,
+  );
+  const flatsTabs = [
+    hasChess && fromApi ? { id: 'chess' as const, label: 'Шахматка' } : null,
+    hasApartments || hasBuildings ? { id: 'list' as const, label: 'Списком' } : null,
+    hasLayouts ? { id: 'plans' as const, label: 'Планировки' } : null,
+  ].filter((x): x is { id: 'chess' | 'list' | 'plans'; label: string } => x != null);
+  const descLong = (complex.description?.length ?? 0) > 600;
+  const mortgagePrice = typeof complex.priceFrom === 'number' && complex.priceFrom > 0 ? complex.priceFrom : undefined;
   const pageActions = [
     {
       key: 'fav',
@@ -616,115 +670,144 @@ const RedesignComplex = () => {
         </div>
 
         <div className="space-y-12 sm:space-y-14">
-          {hasBuildings || hasApartments || hasLayouts ? (
-            <Reveal as="section" id="layouts" className="scroll-mt-36">
-              {sectionHeading('Квартиры', listingsTotal > 0 ? `${listingsTotal.toLocaleString('ru-RU')} в продаже` : undefined)}
-              {listingsQuery.isError && listingRows.length === 0 ? (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card p-4 text-sm text-muted-foreground">
-                  Не удалось загрузить квартиры.
-                  <Button variant="secondary" size="sm" type="button" onClick={() => void listingsQuery.refetch()}>
-                    Повторить
-                  </Button>
-                </div>
-              ) : listingsQuery.isPending ? (
-                <div className="space-y-2" aria-label="Загрузка квартир">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="h-14 rounded-xl bg-muted/50 animate-pulse" />
-                  ))}
-                </div>
-              ) : hasApartments ? (
-                <div className="space-y-4">
-                  <ComplexInlineFilters
-                    search={aptSearch}
-                    onSearchChange={setAptSearch}
-                    roomFilter={roomFilter}
-                    onRoomFilter={setRoomFilter}
-                    sort={sort}
-                    onSort={handleSort}
-                    buildingOptions={buildingFilterOptions}
-                    activeBuildingId={activeBuildingId}
-                    onBuildingChange={setActiveBuildingId}
-                  />
-                  <ComplexQueueTable
-                    buildings={
-                      buildings.length > 0
-                        ? buildings
-                        : [
-                            {
-                              id: 'main',
-                              complexId: complex.id,
-                              name: complex.name,
-                              floors: 1,
-                              sections: 1,
-                              deadline: complex.deadline,
-                              apartments: scopedApartments,
-                            },
-                          ]
-                    }
-                    sort={sort}
-                    onSort={handleSort}
-                    filterApartments={filterApartments}
-                    activeBuildingId={buildings.length > 1 ? activeBuildingId : null}
-                  />
-                  {listingsQuery.hasNextPage ? (
-                    <div className="flex justify-center pt-1">
-                      <Button
-                        variant="secondary"
-                        type="button"
-                        className="h-auto min-h-11 w-full whitespace-normal py-2 sm:w-auto"
-                        disabled={listingsQuery.isFetchingNextPage}
-                        onClick={() => void listingsQuery.fetchNextPage()}
-                      >
-                        {listingsQuery.isFetchingNextPage
-                          ? 'Загружаем…'
-                          : `Показать ещё · загружено ${listingRows.length.toLocaleString('ru-RU')} из ${listingsTotal.toLocaleString('ru-RU')}`}
-                      </Button>
-                    </div>
+          {hasFlatsBlock ? (
+            <section ref={chessboardSectionRef} id="flats" className="scroll-mt-36">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-[22px] font-semibold leading-tight tracking-tight lg:text-2xl">Квартиры и цены</h2>
+                  {listingsTotal > 0 ? (
+                    <p className="mt-1 text-[14px] text-muted-foreground">{listingsTotal.toLocaleString('ru-RU')} в продаже · цены застройщика</p>
                   ) : null}
                 </div>
-              ) : (
-                <div className="rounded-xl border border-border/70 bg-card p-5 text-sm text-muted-foreground">
-                  Свободных квартир пока нет
-                </div>
-              )}
-            </Reveal>
-          ) : null}
+                {flatsTabs.length > 1 ? (
+                  <div className="inline-flex rounded-xl border border-border bg-muted/40 p-1" role="tablist" aria-label="Как показать квартиры">
+                    {flatsTabs.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={currentFlatsTab === t.id}
+                        onClick={() => {
+                          setFlatsTab(t.id);
+                          if (t.id === 'chess') setChessboardEnabled(true);
+                        }}
+                        className={cn(
+                          'min-h-10 rounded-lg px-4 text-[14px] font-medium transition-colors',
+                          currentFlatsTab === t.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
 
-          {hasChess && fromApi ? (
-            <section ref={chessboardSectionRef} id="chessboard" className="scroll-mt-36">
-              {sectionHeading('Шахматка', activeBuilding?.name || 'Квартиры по этажам')}
-              {!chessboardEnabled ? (
-                <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-                  Загрузим шахматку, когда вы до неё доберётесь
-                </div>
-              ) : chessboardQuery.isError ? (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center text-sm text-muted-foreground">
-                  Не удалось загрузить шахматку. Обновите страницу.
-                </div>
-              ) : activeChessMatrix ? (
-                <Chessboard
-                  matrix={activeChessMatrix}
-                  buildingName={activeChessMatrix.name}
-                  roomFilter={roomFilter}
-                  buildingOptions={
-                    chessBuildingOptions && chessBuildingOptions.length > 1
-                      ? chessBuildingOptions
-                      : undefined
-                  }
-                  activeBuildingId={activeBuildingId}
-                  onBuildingChange={setActiveBuildingId}
-                  isLoading={chessboardQuery.isFetching}
-                />
-              ) : chessboardQuery.isLoading ? (
-                <div className="h-64 rounded-xl border border-border bg-muted/30 animate-pulse" aria-label="Загрузка шахматки" />
-              ) : null}
+              {currentFlatsTab === 'chess' ? (
+                !chessboardEnabled || chessboardQuery.isLoading ? (
+                  <div className="h-80 animate-pulse rounded-2xl border border-border bg-muted/30" aria-label="Загрузка шахматки" />
+                ) : chessboardQuery.isError ? (
+                  <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center text-sm text-muted-foreground">
+                    Не удалось загрузить шахматку.{' '}
+                    <button type="button" className="font-medium text-primary underline" onClick={() => void chessboardQuery.refetch()}>
+                      Повторить
+                    </button>
+                  </div>
+                ) : activeChessMatrix ? (
+                  <Chessboard
+                    matrix={activeChessMatrix}
+                    buildingName={activeChessMatrix.name}
+                    roomFilter={roomFilter}
+                    onRoomFilter={(k) => setRoomFilter(k as typeof roomFilter)}
+                    buildingOptions={chessBuildingOptions}
+                    activeBuildingId={activeBuildingId}
+                    onBuildingChange={setActiveBuildingId}
+                    isLoading={chessboardQuery.isFetching}
+                  />
+                ) : (
+                  <div className="rounded-xl border border-border/70 bg-card p-5 text-sm text-muted-foreground">Шахматки по этому ЖК пока нет — посмотрите квартиры списком.</div>
+                )
+              ) : currentFlatsTab === 'plans' ? (
+                <LayoutGrid layouts={layouts} complexSlug={complex.slug} />
+              ) : (
+              <>
+              {listingsQuery.isError && listingRows.length === 0 ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card p-4 text-sm text-muted-foreground">
+                    Не удалось загрузить квартиры.
+                    <Button variant="secondary" size="sm" type="button" onClick={() => void listingsQuery.refetch()}>
+                      Повторить
+                    </Button>
+                  </div>
+                ) : listingsQuery.isPending ? (
+                  <div className="space-y-2" aria-label="Загрузка квартир">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="h-14 rounded-xl bg-muted/50 animate-pulse" />
+                    ))}
+                  </div>
+                ) : hasApartments ? (
+                  <div className="space-y-4">
+                    <ComplexInlineFilters
+                      search={aptSearch}
+                      onSearchChange={setAptSearch}
+                      roomFilter={roomFilter}
+                      onRoomFilter={setRoomFilter}
+                      sort={sort}
+                      onSort={handleSort}
+                      buildingOptions={buildingFilterOptions}
+                      activeBuildingId={listBuildingId}
+                      onBuildingChange={(id) => setListBuildingId(id || null)}
+                    />
+                    <ComplexQueueTable
+                      buildings={
+                        buildings.length > 0
+                          ? buildings
+                          : [
+                              {
+                                id: 'main',
+                                complexId: complex.id,
+                                name: complex.name,
+                                floors: 1,
+                                sections: 1,
+                                deadline: complex.deadline,
+                                apartments: scopedApartments,
+                              },
+                            ]
+                      }
+                      sort={sort}
+                      onSort={handleSort}
+                      filterApartments={filterApartments}
+                      activeBuildingId={buildings.length > 1 ? listBuildingId : null}
+                    />
+                    {listingsQuery.hasNextPage ? (
+                      <div className="flex justify-center pt-1">
+                        <Button
+                          variant="secondary"
+                          type="button"
+                          className="h-auto min-h-11 w-full whitespace-normal py-2 sm:w-auto"
+                          disabled={listingsQuery.isFetchingNextPage}
+                          onClick={() => void listingsQuery.fetchNextPage()}
+                        >
+                          {listingsQuery.isFetchingNextPage
+                            ? 'Загружаем…'
+                            : `Показать ещё · загружено ${listingRows.length.toLocaleString('ru-RU')} из ${listingsTotal.toLocaleString('ru-RU')}`}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-border/70 bg-card p-5 text-sm text-muted-foreground">
+                    Свободных квартир пока нет
+                  </div>
+                )}
+              </>
+              )}
             </section>
           ) : null}
 
-          {hasLayouts ? (
-            <Reveal as="section" id="plans" className="scroll-mt-36">
-              {sectionHeading('Планировки', `${layouts.length} типов`)}
-              <LayoutGrid layouts={layouts} complexSlug={complex.slug} />
+          {hasMasterplan ? (
+            <Reveal as="section" id="masterplan" className="scroll-mt-36">
+              {sectionHeading('Генеральный план', 'Масштаб комплекса и расположение домов')}
+              <ComplexMasterplan name={complex.name} imageUrl={content.masterplanUrl} url3d={content.masterplan3dUrl} />
             </Reveal>
           ) : null}
 
@@ -750,14 +833,24 @@ const RedesignComplex = () => {
                     </dl>
                   ) : null}
                   {hasDescription ? (
-                    complex.description.includes('<') ? (
+                    <div className={cn('relative', !descOpen && descLong && 'max-h-[220px] overflow-hidden')}>
+                    {complex.description.includes('<') ? (
                       <div
                         className="text-[15px] text-muted-foreground leading-relaxed prose prose-sm max-w-none"
                         dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(complex.description, { USE_PROFILES: { html: true } }) }}
                       />
                     ) : (
                       <p className="text-[15px] text-muted-foreground leading-relaxed whitespace-pre-line">{complex.description}</p>
-                    )
+                    )}
+                    {!descOpen && descLong ? (
+                      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-card to-transparent" aria-hidden />
+                    ) : null}
+                    </div>
+                  ) : null}
+                  {hasDescription && descLong ? (
+                    <button type="button" onClick={() => setDescOpen((v) => !v)} className="text-[14px] font-medium text-primary hover:underline">
+                      {descOpen ? 'Свернуть' : 'Читать полностью'}
+                    </button>
                   ) : null}
                   {hasInfra ? (
                     <ul className="flex flex-wrap gap-2 text-sm">
@@ -781,6 +874,29 @@ const RedesignComplex = () => {
               </div>
             </Reveal>
           ) : null}
+
+
+          {hasVideo ? (
+            <Reveal as="section" id="video" className="scroll-mt-36">
+              {sectionHeading('Видеообзор')}
+              <ComplexVideos name={complex.name} videos={content.videos} />
+            </Reveal>
+          ) : null}
+
+          <Reveal as="section" id="mortgage" className="scroll-mt-36">
+            {sectionHeading(`Ипотека в «${complex.name}»`, 'Прикиньте платёж — точную ставку подберёт менеджер')}
+            <MortgageCalculator
+              compact
+              price={mortgagePrice}
+              onLead={() => openComplexConsult(`complex:${complex.slug}:mortgage`)}
+            />
+          </Reveal>
+
+          <Reveal as="section" id="faq" className="scroll-mt-36">
+            {sectionHeading('Частые вопросы')}
+            <ComplexFaq items={faqItems} />
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd(faqItems)).replace(/</g, '\\u003c') }} />
+          </Reveal>
 
           {/* Заявка — одной полосой, а не блоком на 800 px */}
           <Reveal as="section" id="lead" className="scroll-mt-36">

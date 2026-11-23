@@ -7,6 +7,7 @@ import PopularComplexesSection from '@/redesign/components/home/PopularComplexes
 import BuyObjectSection from '@/redesign/components/home/BuyObjectSection';
 import HomeApartmentsSection from '@/redesign/components/home/HomeApartmentsSection';
 import HomeAboutSection from '@/redesign/components/home/HomeAboutSection';
+import CityQuiz from '@/redesign/components/home/CityQuiz';
 import LatestNews from '@/components/LatestNews';
 import LeadHighlightSection from '@/redesign/components/LeadHighlightSection';
 import FooterSection from '@/components/FooterSection';
@@ -82,6 +83,10 @@ const RedesignIndex = () => {
       </DeferredSection>
       <DeferredSection minHeight={640}>
         <BuyObjectSection />
+      </DeferredSection>
+      {/* Квиз «подбор города» — одной карточкой, ниже первых подборок (созвон 24.11) */}
+      <DeferredSection minHeight={320}>
+        <CityQuiz />
       </DeferredSection>
       <DeferredSection minHeight={620}>
         <HomeAboutSection />

@@ -3,42 +3,30 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import type { Apartment } from '@/redesign/data/types';
-import ChessboardMatrixGrid from '@/redesign/components/ChessboardMatrixGrid';
-import ChessboardFloorList from '@/redesign/components/ChessboardFloorList';
-import ChessboardPreview, { ChessboardPreviewInline } from '@/redesign/components/ChessboardPreview';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import {
-  CHESS_STATUS_LABEL,
-  CHESS_STATUS_ORDER,
-  CHESS_SWATCH_CLASS,
-  type ChessStatusKey,
-} from '@/redesign/lib/chessboard-status';
-import {
-  chessObsHoverEnd,
-  chessObsHoverStart,
-  chessObsRegisterRender,
-  chessObsSelection,
-} from '@/redesign/lib/chessboard-observability';
-import { roomCategoryFromRooms } from '@/redesign/lib/complex-room-groups';
+import ChessboardPreview from '@/redesign/components/ChessboardPreview';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { chessObsRegisterRender, chessObsSelection } from '@/redesign/lib/chessboard-observability';
+import { ROOM_CATEGORY_DEFS, roomCategoryFromRooms, type RoomCategoryKey } from '@/redesign/lib/complex-room-groups';
 import type { ChessboardApartmentCell, ChessboardBuildingMatrix } from '@/redesign/lib/chessboard-api';
+import {
+  buildChessRows,
+  countChessCells,
+  groupChessBuildings,
+  shortChessPrice,
+  shortRooms,
+  splitBuildingName,
+  type ChessBuildingOption,
+} from '@/redesign/lib/chessboard-layout';
 
-export type ChessboardBuildingOption = {
-  id: string;
-  name: string;
-  apartmentCount: number;
-};
+export type ChessboardBuildingOption = ChessBuildingOption;
 
 interface Props {
-  /** Precomputed matrix from GET /blocks/:slug/chessboard — do not rebuild on client. */
+  /** Готовая матрица из GET /blocks/:slug/chessboard */
   matrix: ChessboardBuildingMatrix;
   buildingName: string;
   roomFilter?: number | null;
-  buildingOptions?: ChessboardBuildingOption[];
+  onRoomFilter?: (key: number | null) => void;
+  buildingOptions?: ChessBuildingOption[];
   activeBuildingId?: string | null;
   onBuildingChange?: (id: string) => void;
   isLoading?: boolean;
@@ -46,7 +34,7 @@ interface Props {
 
 function roomLabel(rooms: number): string {
   if (rooms === 0) return 'Студия';
-  if (rooms > 0) return `${rooms}-к.кв`;
+  if (rooms > 0) return `${rooms}-комн.`;
   return '';
 }
 
@@ -72,10 +60,10 @@ function cellToApartment(cell: ChessboardApartmentCell): Apartment {
 
 function useIsMobileChess(): boolean {
   const [mobile, setMobile] = useState(() =>
-    typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)').matches : false,
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 1023px)').matches : false,
   );
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 639px)');
+    const mq = window.matchMedia('(max-width: 1023px)');
     const fn = () => setMobile(mq.matches);
     mq.addEventListener('change', fn);
     return () => mq.removeEventListener('change', fn);
@@ -83,10 +71,26 @@ function useIsMobileChess(): boolean {
   return mobile;
 }
 
+const fmtArea = (v: number) => Number(v || 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+
+const chipClass = (active: boolean) =>
+  cn(
+    'inline-flex min-h-9 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium transition-colors',
+    active
+      ? 'border-primary bg-primary text-primary-foreground'
+      : 'border-border bg-background text-foreground hover:border-primary/50',
+  );
+
+/**
+ * Шахматка дома: этажи сверху вниз, окна по стоякам. Свободные — белые с ценой,
+ * бронь — жёлтые, проданные и окна, которых нет в продаже, — серые.
+ * Справа (на телефоне сверху) — выбор литера и секции, комнатности и легенда.
+ */
 const Chessboard = ({
   matrix,
   buildingName,
   roomFilter = null,
+  onRoomFilter,
   buildingOptions,
   activeBuildingId,
   onBuildingChange,
@@ -94,412 +98,366 @@ const Chessboard = ({
 }: Props) => {
   const navigate = useNavigate();
   const isMobile = useIsMobileChess();
-  const gridRef = useRef<HTMLDivElement>(null);
-  const hoverStartRef = useRef(0);
-  const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previewHoveredRef = useRef(false);
+  const [hover, setHover] = useState<{ apt: Apartment; rect: DOMRect } | null>(null);
+  const [sheetApt, setSheetApt] = useState<Apartment | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewHovered = useRef(false);
 
-  const clearHoverCloseTimer = useCallback(() => {
-    if (hoverCloseTimerRef.current) {
-      clearTimeout(hoverCloseTimerRef.current);
-      hoverCloseTimerRef.current = null;
-    }
-  }, []);
+  const rows = useMemo(() => buildChessRows(matrix), [matrix]);
+  const counts = useMemo(() => countChessCells(rows), [rows]);
+  const groups = useMemo(() => groupChessBuildings(buildingOptions ?? []), [buildingOptions]);
+  const activeId = activeBuildingId ?? buildingOptions?.[0]?.id ?? null;
+  const activeGroup = groups.find((g) => g.items.some((i) => i.id === activeId)) ?? groups[0];
+  const { group: titleGroup, section: titleSection } = splitBuildingName(buildingName);
 
-  const scheduleHoverClose = useCallback(() => {
-    clearHoverCloseTimer();
-    hoverCloseTimerRef.current = setTimeout(() => {
-      if (!previewHoveredRef.current) setHoverPreview(null);
-    }, 160);
-  }, [clearHoverCloseTimer]);
-
-  useEffect(() => () => clearHoverCloseTimer(), [clearHoverCloseTimer]);
-
-  const counts = matrix.statusCounts;
-
-  // Сетка заполнена слабо (в фиде только свободные лоты) — по умолчанию вид «по этажам»
-  const fillRatio = useMemo(() => {
-    const total = Math.max(1, matrix.shaftCount * matrix.floors.length);
-    let n = 0;
-    for (const row of matrix.grid) for (const c of row) if (c.apartment) n += 1;
-    return n / total;
-  }, [matrix]);
-  const [view, setView] = useState<'floors' | 'grid'>(() => (fillRatio < 0.45 ? 'floors' : 'grid'));
-  useEffect(() => {
-    setView(fillRatio < 0.45 ? 'floors' : 'grid');
-  }, [fillRatio]);
-
-  const [activeStatuses, setActiveStatuses] = useState<Set<ChessStatusKey>>(
-    () => new Set<ChessStatusKey>(['available', 'reserved', 'sold']),
-  );
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [hoverPreview, setHoverPreview] = useState<{
-    apt: Apartment;
-    rect: DOMRect;
-  } | null>(null);
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
-  const [mobileSheetApt, setMobileSheetApt] = useState<Apartment | null>(null);
-
-  const aptById = useMemo(() => {
-    const m = new Map<string, Apartment>();
-    for (const row of matrix.grid) {
-      for (const cell of row) {
-        if (cell.apartment) m.set(cell.apartment.id, cellToApartment(cell.apartment));
-      }
-    }
+  const roomCounts = useMemo(() => {
+    const m = new Map<RoomCategoryKey, number>();
+    for (const r of rows)
+      for (const c of r.cells)
+        if (c && c.status !== 'sold') {
+          const k = roomCategoryFromRooms(c.rooms);
+          m.set(k, (m.get(k) ?? 0) + 1);
+        }
     return m;
-  }, [matrix.grid]);
-
-  const isHidden = useCallback(
-    (apt: Apartment) =>
-      !activeStatuses.has(apt.status) ||
-      (roomFilter !== null && roomCategoryFromRooms(apt.rooms) !== roomFilter),
-    [activeStatuses, roomFilter],
-  );
-
-  const visibleCellCount = useMemo(() => {
-    let n = 0;
-    for (const row of matrix.grid) {
-      for (const cell of row) {
-        if (!cell.apartment) continue;
-        const apt = cellToApartment(cell.apartment);
-        if (!isHidden(apt)) n += 1;
-      }
-    }
-    return n;
-  }, [matrix.grid, isHidden]);
+  }, [rows]);
 
   useEffect(() => {
     chessObsRegisterRender({
       apartmentCount: matrix.apartmentCount,
-      visibleCellCount,
+      visibleCellCount: counts.available + counts.reserved,
       sectionCount: 1,
-      floorCount: matrix.floors.length,
+      floorCount: rows.length,
     });
-  }, [matrix.apartmentCount, matrix.floors.length, visibleCellCount]);
+  }, [matrix.apartmentCount, counts, rows.length]);
 
-  const toggleStatus = (s: ChessStatusKey) => {
-    setActiveStatuses((prev) => {
-      const next = new Set(prev);
-      if (next.has(s)) {
-        if (next.size > 1) next.delete(s);
-      } else {
-        next.add(s);
-      }
-      return next;
-    });
+  const aptById = useMemo(() => {
+    const m = new Map<string, Apartment>();
+    for (const r of rows) for (const c of r.cells) if (c) m.set(c.id, cellToApartment(c));
+    return m;
+  }, [rows]);
+
+  const isDimmed = useCallback(
+    (apt: Apartment) => roomFilter !== null && roomCategoryFromRooms(apt.rooms) !== roomFilter,
+    [roomFilter],
+  );
+
+  const clearTimer = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  };
+  const scheduleClose = () => {
+    clearTimer();
+    closeTimer.current = setTimeout(() => {
+      if (!previewHovered.current) setHover(null);
+    }, 160);
+  };
+  useEffect(() => () => clearTimer(), []);
+
+  const aptFromEvent = (e: React.SyntheticEvent): { apt: Apartment; el: HTMLElement } | null => {
+    const el = (e.target as HTMLElement).closest('[data-apt-id]') as HTMLElement | null;
+    const apt = el?.dataset.aptId ? aptById.get(el.dataset.aptId) : undefined;
+    if (!el || !apt || apt.status === 'sold') return null;
+    return { apt, el };
   };
 
-  const resolveCellContext = useCallback(
-    (el: HTMLElement): { apt: Apartment } | null => {
-      const cell = el.closest('[data-apt-id]') as HTMLElement | null;
-      if (!cell) return null;
-      const id = cell.dataset.aptId;
-      if (!id) return null;
-      const apt = aptById.get(id);
-      if (!apt) return null;
-      return { apt };
-    },
-    [aptById],
-  );
+  const onOver = (e: React.MouseEvent) => {
+    if (isMobile) return;
+    const hit = aptFromEvent(e);
+    if (!hit) return scheduleClose();
+    clearTimer();
+    setHover({ apt: hit.apt, rect: hit.el.getBoundingClientRect() });
+  };
 
-  const openMobileSheet = useCallback((apt: Apartment) => {
-    setMobileSheetApt(apt);
-    setMobileSheetOpen(true);
-    setSelectedId(apt.id);
-  }, []);
+  const openApt = (apt: Apartment) => {
+    chessObsSelection(apt.id, performance.now());
+    if (isMobile) setSheetApt(apt);
+    else navigate(`/apartment/${apt.id}`);
+  };
 
-  const handleGridMouseOver = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isMobile) return;
-      const ctx = resolveCellContext(e.target as HTMLElement);
-      if (!ctx || ctx.apt.status === 'sold' || isHidden(ctx.apt)) {
-        setHoverPreview(null);
-        return;
-      }
-      const cell = (e.target as HTMLElement).closest('[data-apt-id]') as HTMLElement;
-      if (!cell) return;
-      clearHoverCloseTimer();
-      hoverStartRef.current = chessObsHoverStart(ctx.apt.id);
-      const rect = cell.getBoundingClientRect();
-      setHoverPreview({ apt: ctx.apt, rect });
-      requestAnimationFrame(() => {
-        chessObsHoverEnd(performance.now() - hoverStartRef.current);
-      });
-    },
-    [isMobile, resolveCellContext, isHidden, clearHoverCloseTimer],
-  );
+  const onClick = (e: React.MouseEvent) => {
+    const hit = aptFromEvent(e);
+    if (hit) openApt(hit.apt);
+  };
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const hit = aptFromEvent(e);
+    if (!hit) return;
+    e.preventDefault();
+    openApt(hit.apt);
+  };
 
-  const handleGridMouseLeave = useCallback(() => {
-    if (!isMobile) scheduleHoverClose();
-  }, [isMobile, scheduleHoverClose]);
+  const previewPos = useMemo(() => {
+    if (!hover) return null;
+    const W = 280;
+    const H = 380;
+    let left = hover.rect.right + 8;
+    let top = hover.rect.top - 40;
+    if (left + W > window.innerWidth - 8) left = hover.rect.left - W - 8;
+    if (top + H > window.innerHeight - 8) top = window.innerHeight - H - 8;
+    return { left: Math.max(8, left), top: Math.max(8, top) };
+  }, [hover]);
 
-  useEffect(() => {
-    if (!hoverPreview || isMobile) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        clearHoverCloseTimer();
-        previewHoveredRef.current = false;
-        setHoverPreview(null);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [hoverPreview, isMobile, clearHoverCloseTimer]);
+  const shaftCount = matrix.shaftCount;
+  const hasGrid = rows.length > 0 && shaftCount > 0;
 
-  const handleGridClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const ctx = resolveCellContext(e.target as HTMLElement);
-      if (!ctx) return;
-      const { apt } = ctx;
-      if (apt.status === 'sold' || isHidden(apt)) return;
-
-      const startedAt = performance.now();
-      setSelectedId(apt.id);
-      chessObsSelection(apt.id, startedAt);
-
-      if (isMobile) {
-        e.preventDefault();
-        openMobileSheet(apt);
-        return;
-      }
-
-      if (e.detail === 2) {
-        navigate(`/apartment/${apt.id}`);
-      }
-    },
-    [resolveCellContext, isHidden, isMobile, openMobileSheet, navigate],
-  );
-
-  const handleGridKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      const target = e.target as HTMLElement;
-      if (!target.matches('[data-apt-id]')) return;
-      const id = target.dataset.aptId;
-      if (!id) return;
-      const apt = aptById.get(id);
-      if (!apt) return;
-
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        if (apt.status !== 'sold' && !isHidden(apt)) {
-          navigate(`/apartment/${apt.id}`);
-        }
-      }
-      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        const cells = Array.from(
-          gridRef.current?.querySelectorAll<HTMLElement>('[data-interactive="true"]') ?? [],
-        );
-        const idx = cells.indexOf(target);
-        if (idx < 0) return;
-        const delta =
-          e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowDown' ? 1 : -1;
-        const next = cells[idx + delta];
-        next?.focus();
-        const nextId = next?.dataset.aptId;
-        const nextApt = nextId ? aptById.get(nextId) : null;
-        if (nextApt) setSelectedId(nextApt.id);
-      }
-    },
-    [aptById, isHidden, navigate],
-  );
-
-  const selectedApt = selectedId ? aptById.get(selectedId) ?? null : null;
-
-  const previewPosition = useMemo(() => {
-    if (!hoverPreview || isMobile) return null;
-    const { rect } = hoverPreview;
-    const previewW = 280;
-    const previewH = 380;
-    let left = rect.right + 8;
-    let top = rect.top;
-    if (left + previewW > window.innerWidth - 8) left = rect.left - previewW - 8;
-    if (top + previewH > window.innerHeight - 8) top = window.innerHeight - previewH - 8;
-    if (top < 8) top = 8;
-    if (left < 8) left = 8;
-    return { left, top };
-  }, [hoverPreview, isMobile]);
-
-  const showBuildingTabs =
-    buildingOptions && buildingOptions.length > 1 && onBuildingChange != null;
-
-  return (
-    <div className="space-y-4">
-      {showBuildingTabs ? (
-        <div
-          className="flex gap-0 overflow-x-auto border-b border-border/60 scrollbar-hide"
-          role="tablist"
-          aria-label="Корпуса и башни"
-        >
-          {buildingOptions.map((b) => {
-            const active = b.id === (activeBuildingId ?? buildingOptions[0]?.id);
-            return (
-              <button
-                key={b.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => onBuildingChange(b.id)}
-                className={cn(
-                  'relative shrink-0 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap',
-                  active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground/80',
-                )}
-              >
-                {b.name}
-                <span className="ml-1.5 text-xs font-normal tabular-nums text-muted-foreground">
-                  ({b.apartmentCount})
-                </span>
-                <span
-                  className={cn(
-                    'absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-primary transition-opacity',
-                    active ? 'opacity-100' : 'opacity-0',
-                  )}
-                />
-              </button>
-            );
-          })}
+  const panel = (
+    <aside className="space-y-3 rounded-2xl border border-border/70 bg-card p-3 sm:p-4 lg:sticky lg:top-24 lg:space-y-4">
+      {groups.length > 1 || (activeGroup && activeGroup.items.length > 1) ? (
+        <div className="space-y-3">
+          {groups.length > 1 ? (
+            <div>
+              <p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-muted-foreground">Дом</p>
+              {groups.length > 8 ? (
+                <select
+                  aria-label="Дом"
+                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
+                  value={activeGroup?.group}
+                  onChange={(e) => {
+                    const g = groups.find((x) => x.group === e.target.value);
+                    if (g?.items[0]) onBuildingChange?.(g.items[0].id);
+                  }}
+                >
+                  {groups.map((g) => (
+                    <option key={g.group} value={g.group}>
+                      {g.group}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-hide lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0" role="group" aria-label="Дом">
+                  {groups.map((g) => (
+                    <button
+                      key={g.group}
+                      type="button"
+                      aria-pressed={g === activeGroup}
+                      className={chipClass(g === activeGroup)}
+                      onClick={() => g.items[0] && onBuildingChange?.(g.items[0].id)}
+                    >
+                      {g.group}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+          {activeGroup && activeGroup.items.length > 1 ? (
+            <div>
+              <p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-muted-foreground">Секция</p>
+              <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-hide lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0" role="group" aria-label="Секция">
+                {activeGroup.items.map((it) => (
+                  <button
+                    key={it.id}
+                    type="button"
+                    aria-pressed={it.id === activeId}
+                    className={chipClass(it.id === activeId)}
+                    title={`${it.label}: ${it.apartmentCount} в продаже`}
+                    onClick={() => onBuildingChange?.(it.id)}
+                  >
+                    {it.label.replace(/^секция\s*/i, '')}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {onRoomFilter ? (
         <div>
-          <h3 className="font-semibold text-sm">{buildingName}</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {counts.available} свободных · {counts.reserved} в брони · {counts.sold} продано
-            {matrix.shaftCount > 0 ? (
-              <span className="ml-2 text-muted-foreground">
-                · {matrix.floors.length} этажей
-              </span>
-            ) : null}
+          <p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-muted-foreground">Комнаты</p>
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-hide lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0" role="group" aria-label="Комнатность">
+            <button type="button" aria-pressed={roomFilter === null} className={chipClass(roomFilter === null)} onClick={() => onRoomFilter(null)}>
+              Все
+            </button>
+            {ROOM_CATEGORY_DEFS.filter((r) => roomCounts.has(r.key)).map((r) => (
+              <button
+                key={r.key}
+                type="button"
+                aria-pressed={roomFilter === r.key}
+                className={chipClass(roomFilter === r.key)}
+                onClick={() => onRoomFilter(roomFilter === r.key ? null : r.key)}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] lg:block lg:space-y-1.5" aria-label="Обозначения">
+        <li className="flex items-center gap-2">
+          <span className="h-3.5 w-3.5 rounded border border-primary/40 bg-background" />
+          Свободна <span className="tabular-nums text-muted-foreground lg:ml-auto">{counts.available}</span>
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="h-3.5 w-3.5 rounded border border-amber-500/50 bg-amber-400/30" />
+          Бронь <span className="tabular-nums text-muted-foreground lg:ml-auto">{counts.reserved}</span>
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="h-3.5 w-3.5 rounded border border-border bg-muted" />
+          Продана / нет в продаже <span className="tabular-nums text-muted-foreground lg:ml-auto">{counts.soldOrClosed}</span>
+        </li>
+      </ul>
+    </aside>
+  );
+
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="order-2 min-w-0 lg:order-1">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h3 className="text-[16px] font-semibold">
+            {titleGroup}
+            {titleSection ? <span className="text-muted-foreground"> · {titleSection.toLowerCase()}</span> : null}
+          </h3>
+          <p className="text-[13px] text-muted-foreground">
+            <span className="font-semibold text-foreground tabular-nums">{counts.available + counts.reserved}</span> свободно из{' '}
+            <span className="tabular-nums">{counts.total}</span> · {rows.length} {rows.length === 1 ? 'этаж' : rows.length < 5 ? 'этажа' : 'этажей'}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-        <div className="inline-flex rounded-full border border-border bg-muted/40 p-0.5" role="group" aria-label="Вид шахматки">
-          {(['floors', 'grid'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setView(v)}
-              aria-pressed={view === v}
-              className={cn(
-                'rounded-full px-3 py-1 font-medium transition-colors',
-                view === v ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {v === 'floors' ? 'По этажам' : 'Сетка'}
-            </button>
-          ))}
+
+        <div
+          role="group"
+          aria-label={`Шахматка: ${buildingName}`}
+          aria-busy={isLoading}
+          onMouseOver={onOver}
+          onMouseLeave={scheduleClose}
+          onClick={onClick}
+          onKeyDown={onKeyDown}
+          className={cn('rounded-2xl border border-border/70 bg-card', isLoading && 'pointer-events-none opacity-60')}
+        >
+          {hasGrid ? (
+            <div className="max-h-[min(72vh,720px)] overflow-auto overscroll-x-contain p-2 sm:p-3">
+              <table className="border-separate border-spacing-1" style={{ minWidth: 'max-content' }}>
+                <thead>
+                  <tr>
+                    <th className="sticky left-0 top-0 z-[3] bg-card text-[10px] font-medium text-muted-foreground">Этаж</th>
+                    {Array.from({ length: shaftCount }, (_, i) => (
+                      <th key={i} className="sticky top-0 z-[2] bg-card px-1 text-center text-[10px] font-normal text-muted-foreground tabular-nums">
+                        {i + 1}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.floor}>
+                      <th scope="row" className="sticky left-0 z-[1] w-9 bg-card pr-1 text-right text-[12px] font-medium text-muted-foreground tabular-nums">
+                        {r.floor}
+                      </th>
+                      {r.cells.map((cell, i) => {
+                        if (!cell) {
+                          return (
+                            <td key={i} className="p-0">
+                              <div className="h-[52px] w-[78px] rounded-md bg-muted/70" title="Нет в продаже" aria-hidden />
+                            </td>
+                          );
+                        }
+                        const apt = aptById.get(cell.id)!;
+                        if (cell.status === 'sold') {
+                          return (
+                            <td key={i} className="p-0">
+                              <div
+                                className="flex h-[52px] w-[78px] flex-col justify-center rounded-md bg-muted/70 px-1.5 text-[10px] leading-tight text-muted-foreground/80"
+                                title={`Продана${cell.number ? ` · № ${cell.number}` : ''}`}
+                              >
+                                <span className="tabular-nums">
+                                  {shortRooms(cell.rooms)} · {fmtArea(cell.area)}
+                                </span>
+                                <span>продана</span>
+                              </div>
+                            </td>
+                          );
+                        }
+                        const dim = isDimmed(apt);
+                        const reserved = cell.status === 'reserved';
+                        return (
+                          <td key={i} className="p-0">
+                            <div
+                              role="button"
+                              tabIndex={dim ? -1 : 0}
+                              data-apt-id={cell.id}
+                              aria-label={`${roomLabel(cell.rooms)}${cell.number ? ` № ${cell.number}` : ''}, ${fmtArea(cell.area)} м², ${r.floor} этаж, ${shortChessPrice(cell.price) || 'цена по запросу'}${reserved ? ', бронь' : ''}`}
+                              className={cn(
+                                'flex h-[52px] w-[78px] cursor-pointer flex-col justify-between rounded-md border px-1.5 py-1 text-[10px] leading-tight transition-[border-color,box-shadow,opacity] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                                reserved
+                                  ? 'border-amber-500/40 bg-amber-400/20 hover:border-amber-600'
+                                  : 'border-primary/30 bg-background shadow-sm hover:border-primary hover:shadow-md',
+                                dim && 'opacity-25',
+                              )}
+                            >
+                              <span className="flex items-center justify-between gap-1">
+                                <span className={cn('rounded px-1 font-semibold', reserved ? 'bg-amber-500/20' : 'bg-primary/10 text-primary')}>
+                                  {shortRooms(cell.rooms)}
+                                </span>
+                                <span className="tabular-nums text-muted-foreground">
+                                  {cell.number ? `№${cell.number}` : `${fmtArea(cell.area)}`}
+                                </span>
+                              </span>
+                              <span className="truncate text-[11px] font-semibold tabular-nums">
+                                {shortChessPrice(cell.price) || 'по запросу'}
+                              </span>
+                              {cell.number ? (
+                                <span className="tabular-nums text-muted-foreground">{fmtArea(cell.area)} м²</span>
+                              ) : null}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="p-6 text-center text-sm text-muted-foreground">В этом доме нет данных о квартирах</p>
+          )}
         </div>
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Фильтр статусов">
-          {CHESS_STATUS_ORDER.map((s) => {
-            const isActive = activeStatuses.has(s);
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => toggleStatus(s)}
-                aria-pressed={isActive}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors',
-                  isActive
-                    ? 'border-foreground/20 bg-background text-foreground'
-                    : 'border-transparent bg-muted/40 text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <span className={cn('w-3 h-3 rounded border', CHESS_SWATCH_CLASS[s])} />
-                <span>{CHESS_STATUS_LABEL[s]}</span>
-                <span className="ml-1 text-muted-foreground tabular-nums">{counts[s]}</span>
-              </button>
-            );
-          })}
-        </div>
-        </div>
+        <p className="mt-2 text-[12px] text-muted-foreground">
+          {isMobile ? 'Нажмите на свободную квартиру, чтобы посмотреть планировку.' : 'Наведите на квартиру — покажем планировку, нажмите — откроем её страницу.'}{' '}
+          Данные застройщика, обновляются несколько раз в день.
+        </p>
       </div>
 
-      <div
-        ref={gridRef}
-        role="group"
-        aria-label={`Шахматка ${buildingName}`}
-        aria-busy={isLoading}
-        onMouseOver={handleGridMouseOver}
-        onMouseLeave={handleGridMouseLeave}
-        onClick={handleGridClick}
-        onKeyDown={handleGridKeyDown}
-        className={cn(
-          'overflow-hidden rounded-xl border border-border bg-card',
-          isLoading && 'opacity-60 pointer-events-none',
-        )}
-      >
-        {view === 'floors' ? (
-          <ChessboardFloorList matrix={matrix} isHidden={isHidden} roomLabel={roomLabel} />
-        ) : (
-          <ChessboardMatrixGrid
-            matrix={matrix}
-            selectedId={selectedId}
-            isHidden={isHidden}
-            roomLabel={roomLabel}
-          />
-        )}
-      </div>
+      <div className="order-1 lg:order-2">{panel}</div>
 
-      {!isMobile && hoverPreview && previewPosition
+      {!isMobile && hover && previewPos
         ? createPortal(
             <div
-              className="fixed z-[70] w-[280px] rounded-xl border border-border bg-popover p-3 shadow-xl pointer-events-auto transition-opacity duration-150"
-              style={{ left: previewPosition.left, top: previewPosition.top }}
+              className="fixed z-[70] w-[280px] rounded-xl border border-border bg-popover p-3 shadow-xl"
+              style={{ left: previewPos.left, top: previewPos.top }}
               role="dialog"
               aria-label="Превью квартиры"
               onMouseEnter={() => {
-                previewHoveredRef.current = true;
-                clearHoverCloseTimer();
+                previewHovered.current = true;
+                clearTimer();
               }}
               onMouseLeave={() => {
-                previewHoveredRef.current = false;
-                scheduleHoverClose();
+                previewHovered.current = false;
+                scheduleClose();
               }}
             >
-              <ChessboardPreview
-                apartment={hoverPreview.apt}
-                buildingName={buildingName}
-                section={1}
-                roomLabel={roomLabel(hoverPreview.apt.rooms)}
-              />
+              <ChessboardPreview apartment={hover.apt} buildingName={buildingName} section={0} roomLabel={roomLabel(hover.apt.rooms)} />
             </div>,
             document.body,
           )
         : null}
 
-      {isMobile && selectedApt ? (
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
-          <ChessboardPreviewInline apartment={selectedApt} buildingName={buildingName} section={1} />
-        </div>
-      ) : null}
-
-      <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
+      <Sheet open={sheetApt != null} onOpenChange={(o) => !o && setSheetApt(null)}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
           <SheetHeader>
             <SheetTitle className="text-left text-base">Квартира</SheetTitle>
           </SheetHeader>
-          {mobileSheetApt ? (
+          {sheetApt ? (
             <ChessboardPreview
-              apartment={mobileSheetApt}
+              apartment={sheetApt}
               buildingName={buildingName}
-              section={1}
-              roomLabel={roomLabel(mobileSheetApt.rooms)}
-              onClose={() => setMobileSheetOpen(false)}
+              section={0}
+              roomLabel={roomLabel(sheetApt.rooms)}
+              onClose={() => setSheetApt(null)}
             />
           ) : null}
         </SheetContent>
       </Sheet>
-
-      <p className="text-[11px] text-muted-foreground">
-        {isMobile
-          ? 'Нажмите на квартиру для просмотра. Белые свободны, жёлтые забронированы, тёмные проданы.'
-          : view === 'floors'
-            ? 'Показаны квартиры, которые есть у застройщика в продаже. Нажмите на квартиру, чтобы открыть её страницу.'
-            : 'Наведите на квартиру — появится превью, двойной клик открывает её страницу.'}
-      </p>
     </div>
   );
 };

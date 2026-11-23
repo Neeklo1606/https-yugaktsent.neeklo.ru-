@@ -395,10 +395,10 @@ const QuickSearch = ({ variant = 'below' }: { variant?: Variant }) => {
               <button
                 type="button"
                 onClick={() => go('/map')}
-                className="inline-flex h-11 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium text-primary underline-offset-4 hover:underline"
+                className={btnClass('secondary', { className: 'gap-1.5 px-4' })}
               >
                 <MapIcon className="h-4 w-4" aria-hidden />
-                На карте
+                Выбрать ЖК на карте
               </button>
               {paramsButton}
               {submitButton('min-w-[220px] px-6')}
@@ -434,6 +434,14 @@ const QuickSearch = ({ variant = 'below' }: { variant?: Variant }) => {
           <div className="[&>*]:h-10 [&>*]:text-[15px]">{locationField}</div>
           {submitButton('h-10 px-3 text-[15px]', true)}
         </div>
+        <button
+          type="button"
+          onClick={() => go('/map')}
+          className="mt-2 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg text-[15px] font-medium text-primary transition-colors hover:bg-surface-soft"
+        >
+          <MapIcon className="h-4 w-4" aria-hidden />
+          Выбрать ЖК на карте
+        </button>
       </div>
 
       <Sheet open={searchSheetOpen} onOpenChange={setSearchSheetOpen}>

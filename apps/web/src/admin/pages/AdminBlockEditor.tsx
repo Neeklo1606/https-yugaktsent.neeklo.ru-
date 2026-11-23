@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ImagePlus, Loader2, Plus, Save } from 'lucide-react';
+import { ArrowLeft, ImagePlus, Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { parseComplexContent } from '@/redesign/lib/complex-content';
 import { apiGet, apiPost, apiPostForm, apiUrl, getAccessToken } from '@/lib/api';
 import { toast } from '@/components/ui/sonner';
 
@@ -19,6 +20,8 @@ type BlockDetail = {
   longitude?: number | string | null;
   addresses?: { address: string }[];
   images?: { url: string; kind?: string }[];
+  housingType?: string;
+  content?: unknown;
 };
 
 type RegionOpt = { id: number; name: string; code: string; isEnabled?: boolean };
@@ -61,6 +64,12 @@ export default function AdminBlockEditor() {
     latitude: '',
     longitude: '',
     cover: '',
+    housingType: 'flat',
+    masterplanUrl: '',
+    masterplan3dUrl: '',
+    videos: '',
+    gallery: [] as string[],
+    faq: [] as { q: string; a: string }[],
   });
   const [newBuilder, setNewBuilder] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -102,6 +111,17 @@ export default function AdminBlockEditor() {
       latitude: numOrEmpty(block.latitude),
       longitude: numOrEmpty(block.longitude),
       cover: block.images?.find((i) => i.kind === 'RENDER')?.url ?? block.images?.[0]?.url ?? '',
+      ...(() => {
+        const c = parseComplexContent(block.content);
+        return {
+          housingType: block.housingType ?? 'flat',
+          masterplanUrl: c.masterplanUrl ?? '',
+          masterplan3dUrl: c.masterplan3dUrl ?? '',
+          videos: c.videos.join('\n'),
+          gallery: c.gallery,
+          faq: c.faq,
+        };
+      })(),
     });
   }, [block]);
 
@@ -116,15 +136,37 @@ export default function AdminBlockEditor() {
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Не удалось добавить застройщика'),
   });
 
+  const uploadFile = async (file: File): Promise<string> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await apiPostForm<{ url: string }>('/admin/media/upload', fd);
+    return res.url;
+  };
+
+  const [extraUploading, setExtraUploading] = useState<'gallery' | 'masterplan' | null>(null);
+  const uploadExtra = async (kind: 'gallery' | 'masterplan', files: FileList | null) => {
+    if (!files?.length) return;
+    setExtraUploading(kind);
+    try {
+      const urls: string[] = [];
+      for (const f of Array.from(files)) urls.push(await uploadFile(f));
+      setForm((prev) =>
+        kind === 'gallery' ? { ...prev, gallery: [...prev.gallery, ...urls] } : { ...prev, masterplanUrl: urls[0] ?? prev.masterplanUrl },
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Не удалось загрузить фото');
+    } finally {
+      setExtraUploading(null);
+    }
+  };
+
   const uploadCover = async (file?: File) => {
     if (!file) return;
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await apiPostForm<{ url: string }>('/admin/media/upload', fd);
+      const rawUrl = await uploadFile(file);
       // Обложка хранится абсолютной ссылкой (так её ждёт API обложек)
-      const url = res.url.startsWith('/') ? `${window.location.origin}${res.url}` : res.url;
+      const url = rawUrl.startsWith('/') ? `${window.location.origin}${rawUrl}` : rawUrl;
       setForm((f) => ({ ...f, cover: url }));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Не удалось загрузить фото');
@@ -145,6 +187,14 @@ export default function AdminBlockEditor() {
         salesStartDate: form.salesStartDate.trim() ? form.salesStartDate.trim() : null,
         builderId: form.builderId === '' ? null : form.builderId,
         address: form.address,
+        housingType: form.housingType,
+        content: {
+          masterplanUrl: form.masterplanUrl.trim() || undefined,
+          masterplan3dUrl: form.masterplan3dUrl.trim() || undefined,
+          videos: form.videos.split(/\s*\n\s*/).map((v) => v.trim()).filter(Boolean),
+          gallery: form.gallery,
+          faq: form.faq.filter((x) => x.q.trim() && x.a.trim()),
+        },
         ...(form.latitude.trim() && form.longitude.trim()
           ? { latitude: Number(form.latitude.replace(',', '.')), longitude: Number(form.longitude.replace(',', '.')) }
           : {}),
@@ -313,6 +363,109 @@ export default function AdminBlockEditor() {
             </div>
           </div>
         </div>
+        <div>
+          <label className="text-xs text-muted-foreground font-medium" htmlFor="be-housing">Тип жилья</label>
+          <select
+            id="be-housing"
+            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm bg-background"
+            value={form.housingType}
+            onChange={(e) => setForm((f) => ({ ...f, housingType: e.target.value }))}
+          >
+            <option value="flat">Квартиры (жилой комплекс)</option>
+            <option value="aparthotel">Апартаменты (гостиничный комплекс)</option>
+            <option value="cottage">Коттеджи / коттеджный посёлок</option>
+          </select>
+          <p className="text-[11px] text-muted-foreground mt-1">По этому полю ЖК попадает во вкладку «Квартиры», «Апартаменты» или «Коттеджи» в каталоге.</p>
+        </div>
+
+        <fieldset className="space-y-3 rounded-xl border p-4">
+          <legend className="px-1 text-sm font-semibold">Наполнение карточки (чего нет в фиде)</legend>
+
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Дополнительные фото ЖК</p>
+            {form.gallery.length ? (
+              <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {form.gallery.map((u, i) => (
+                  <div key={u + i} className="relative">
+                    <img src={u} alt="" className="h-20 w-full rounded-lg border object-cover" />
+                    <button
+                      type="button"
+                      aria-label="Убрать фото"
+                      className="absolute right-1 top-1 rounded-md bg-background/90 p-1 shadow"
+                      onClick={() => setForm((f) => ({ ...f, gallery: f.gallery.filter((_, j) => j !== i) }))}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted">
+              {extraUploading === 'gallery' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ImagePlus className="h-4 w-4" aria-hidden />}
+              Добавить фото
+              <input type="file" multiple accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => void uploadExtra('gallery', e.target.files)} />
+            </label>
+            <p className="text-[11px] text-muted-foreground mt-1">Показываются в галерее ЖК после фото из фида.</p>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground font-medium" htmlFor="be-mp">Генплан — картинка</label>
+            <div className="mt-1 flex items-start gap-3">
+              {form.masterplanUrl ? <img src={form.masterplanUrl} alt="" className="h-20 w-28 shrink-0 rounded-lg border object-cover" /> : null}
+              <div className="flex-1 space-y-2">
+                <input id="be-mp" type="text" className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="https://… или загрузите файл" value={form.masterplanUrl} onChange={(e) => setForm((f) => ({ ...f, masterplanUrl: e.target.value }))} />
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted">
+                  {extraUploading === 'masterplan' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ImagePlus className="h-4 w-4" aria-hidden />}
+                  Загрузить генплан
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => void uploadExtra('masterplan', e.target.files)} />
+                </label>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground font-medium" htmlFor="be-mp3d">Генплан 3D — ссылка от застройщика (если есть)</label>
+            <input id="be-mp3d" type="url" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="https://…" value={form.masterplan3dUrl} onChange={(e) => setForm((f) => ({ ...f, masterplan3dUrl: e.target.value }))} />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground font-medium" htmlFor="be-video">Видеообзоры — ссылки VK Видео, YouTube или Rutube, по одной в строке</label>
+            <textarea id="be-video" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[72px]" placeholder="https://vkvideo.ru/video-123_456" value={form.videos} onChange={(e) => setForm((f) => ({ ...f, videos: e.target.value }))} />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Свои частые вопросы (идут первыми; вопросы по цене, сроку, адресу, ипотеке и эскроу сайт добавит сам)</p>
+            <div className="mt-2 space-y-2">
+              {form.faq.map((x, i) => (
+                <div key={i} className="space-y-1.5 rounded-lg border p-2">
+                  <input
+                    type="text"
+                    aria-label={`Вопрос ${i + 1}`}
+                    className="w-full border rounded-lg px-3 py-1.5 text-sm"
+                    placeholder="Вопрос"
+                    value={x.q}
+                    onChange={(e) => setForm((f) => ({ ...f, faq: f.faq.map((y, j) => (j === i ? { ...y, q: e.target.value } : y)) }))}
+                  />
+                  <textarea
+                    aria-label={`Ответ ${i + 1}`}
+                    className="w-full border rounded-lg px-3 py-1.5 text-sm min-h-[60px]"
+                    placeholder="Ответ"
+                    value={x.a}
+                    onChange={(e) => setForm((f) => ({ ...f, faq: f.faq.map((y, j) => (j === i ? { ...y, a: e.target.value } : y)) }))}
+                  />
+                  <button type="button" className="text-xs text-destructive" onClick={() => setForm((f) => ({ ...f, faq: f.faq.filter((_, j) => j !== i) }))}>
+                    Удалить вопрос
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm"
+                onClick={() => setForm((f) => ({ ...f, faq: [...f.faq, { q: '', a: '' }] }))}
+              >
+                <Plus className="h-4 w-4" aria-hidden /> Добавить вопрос
+              </button>
+            </div>
+          </div>
+        </fieldset>
+
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"

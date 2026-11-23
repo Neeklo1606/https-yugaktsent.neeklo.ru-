@@ -8,6 +8,8 @@ import {
   IsDateString,
   MaxLength,
   ValidateIf,
+  IsIn,
+  IsObject,
 } from 'class-validator';
 
 export class CreateBlockDto {
@@ -76,4 +78,15 @@ export class CreateBlockDto {
   @IsOptional()
   @IsString()
   dataSource?: string;
+
+  @ApiPropertyOptional({ enum: ['flat', 'aparthotel', 'cottage'], description: 'Тип жилья: квартиры, апартаменты, коттеджи' })
+  @IsOptional()
+  @IsIn(['flat', 'aparthotel', 'cottage'])
+  housingType?: string;
+
+  @ApiPropertyOptional({ description: 'Наполнение карточки: videos, masterplanUrl, masterplan3dUrl, gallery, faq' })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsObject()
+  content?: Record<string, unknown> | null;
 }

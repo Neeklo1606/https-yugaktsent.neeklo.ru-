@@ -5,8 +5,8 @@
  */
 
 export const FOOTER_CATALOG_LINKS = [
-  { label: 'Новостройки Анапы', to: '/catalog?type=apartments&market=new' },
-  { label: 'Каталог недвижимости', to: '/catalog' },
+  { label: 'Новостройки', to: '/catalog' },
+  { label: 'Ипотека', to: '/mortgage' },
   { label: 'Поиск на карте', to: '/map' },
   { label: 'Избранное', to: '/favorites' },
 ] as const;

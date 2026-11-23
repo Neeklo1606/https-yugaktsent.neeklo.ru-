@@ -18,8 +18,10 @@ import {
   buildBlockChessboardResponse,
   CHESSBOARD_LISTING_KIND,
   CHESSBOARD_LISTING_STATUSES,
+  CHESSBOARD_SOLD_STATUSES,
 } from './blocks-chessboard.util';
 import type { ChessboardBlockResponse } from '@lg/shared';
+import { sanitizeBlockContent } from './block-content.util';
 
 type BlockPublicDetailPayload = Prisma.BlockGetPayload<{
   include: {
@@ -177,6 +179,9 @@ export class BlocksService {
     if (region_id) where.regionId = region_id;
     if (district_id) where.districtId = district_id;
     if (builder_id) where.builderId = builder_id;
+    if (query.housing && ['flat', 'aparthotel', 'cottage'].includes(query.housing)) {
+      where.housingType = query.housing;
+    }
     if (status && Object.values(BlockStatus).includes(status as BlockStatus)) {
       where.status = status as BlockStatus;
     }
@@ -1078,8 +1083,12 @@ export class BlocksService {
         blockId: block.id,
         kind: CHESSBOARD_LISTING_KIND,
         visibility: 'PUBLIC',
-        isPublished: true,
-        status: { in: CHESSBOARD_LISTING_STATUSES },
+        // В продаже — только опубликованные; проданные и снятые с продажи тоже рисуем
+        // (серым, без цены и ссылки), чтобы шахматка показывала реальную распроданность дома
+        OR: [
+          { isPublished: true, status: { in: CHESSBOARD_LISTING_STATUSES } },
+          { status: { in: CHESSBOARD_SOLD_STATUSES } },
+        ],
       },
       select: {
         id: true,
@@ -1143,6 +1152,8 @@ export class BlocksService {
         isPromoted: dto.isPromoted ?? false,
         salesStartDate: this.parseSalesStartDate(dto.salesStartDate),
         dataSource: this.parseDataSource(dto.dataSource),
+        ...(dto.housingType && { housingType: dto.housingType }),
+        ...(dto.content && { content: sanitizeBlockContent(dto.content) as Prisma.InputJsonValue }),
       },
     });
     if (dto.address?.trim()) await this.setMainAddress(created.id, dto.address);
@@ -1168,6 +1179,10 @@ export class BlocksService {
           salesStartDate: this.parseSalesStartDate(dto.salesStartDate),
         }),
         ...(dto.dataSource !== undefined && { dataSource: this.parseDataSource(dto.dataSource) }),
+        ...(dto.housingType !== undefined && { housingType: dto.housingType }),
+        ...(dto.content !== undefined && {
+          content: dto.content === null ? Prisma.DbNull : (sanitizeBlockContent(dto.content) as Prisma.InputJsonValue),
+        }),
       },
     });
     if (dto.address !== undefined) await this.setMainAddress(id, dto.address);

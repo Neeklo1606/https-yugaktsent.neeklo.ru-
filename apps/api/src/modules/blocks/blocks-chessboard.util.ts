@@ -44,8 +44,35 @@ function roomsFromRoomTypeName(name: string | undefined | null): number {
 
 function listingStatus(s: ListingStatus): ChessboardApartmentInput['status'] {
   if (s === ListingStatus.RESERVED) return 'reserved';
-  if (s === ListingStatus.SOLD) return 'sold';
+  if (s === ListingStatus.SOLD || s === ListingStatus.INACTIVE) return 'sold';
   return 'available';
+}
+
+const isSoldRow = (row: ListingRow) => row.status === ListingStatus.SOLD || row.status === ListingStatus.INACTIVE;
+
+/**
+ * Проданные/снятые лоты: берём только те, что не дублируют квартиру в продаже.
+ * Снятые (INACTIVE) без номера пропускаем — это могут быть дубли из старых выгрузок.
+ */
+export function dedupeChessboardRows(rows: ListingRow[]): ListingRow[] {
+  const norm = (v: string | null | undefined) => (v ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const key = (r: ListingRow) =>
+    `${r.buildingId ?? ''}|${norm(r.apartment?.buildingName)}|${r.apartment?.floor ?? ''}|${norm(r.apartment?.number)}`;
+  const live = rows.filter((r) => !isSoldRow(r));
+  const taken = new Set(live.filter((r) => norm(r.apartment?.number)).map(key));
+  const out = [...live];
+  for (const r of rows) {
+    if (!isSoldRow(r)) continue;
+    const num = norm(r.apartment?.number);
+    if (r.status === ListingStatus.INACTIVE && !num) continue;
+    if (num) {
+      const k = key(r);
+      if (taken.has(k)) continue;
+      taken.add(k);
+    }
+    out.push(r);
+  }
+  return out;
 }
 
 function mapFinishing(name: string | undefined | null): string {
@@ -63,7 +90,7 @@ export function mapListingToChessboardInput(row: ListingRow): ChessboardApartmen
   if (floor == null || floor <= 0 || floor > 200) return null;
   const area = num(apt.areaTotal);
   if (area <= 0) return null;
-  const price = num(row.price);
+  const price = isSoldRow(row) ? 0 : num(row.price);
   const safePrice = price >= MIN_REASONABLE_PRICE_RUB ? price : 0;
   const kitchen = num(apt.areaKitchen);
   let rooms = roomsFromRoomTypeName(apt.roomType?.nameOne ?? apt.roomType?.name);
@@ -99,7 +126,7 @@ export function buildBlockChessboardResponse(
   const indexById = new Map(buildings.map((b, i) => [String(b.id), i]));
   const indexByName = new Map(buildings.map((b, i) => [norm(b.name), i] as const).filter(([n]) => n));
   const buckets: ListingRow[][] = buildings.map(() => []);
-  for (const l of listings) {
+  for (const l of dedupeChessboardRows(listings)) {
     let idx = l.buildingId != null ? indexById.get(String(l.buildingId)) : undefined;
     if (idx === undefined) idx = indexByName.get(norm(l.apartment?.buildingName));
     buckets[idx ?? 0].push(l);
@@ -111,8 +138,9 @@ export function buildBlockChessboardResponse(
       .filter((x): x is ChessboardApartmentInput => x != null);
     return { count: apts.length, matrix: buildChessboardBuildingMatrix(String(b.id), b.name ?? `Корпус ${idx + 1}`, apts) };
   });
-  // Пустые корпуса не показываем, если есть корпуса с квартирами
-  const nonEmpty = built.filter((x) => x.count > 0);
+  // Пустые корпуса и корпуса, где всё продано, не показываем, если есть корпуса с квартирами в продаже
+  const withLive = built.filter((x) => x.matrix.statusCounts.available + x.matrix.statusCounts.reserved > 0);
+  const nonEmpty = withLive.length ? withLive : built.filter((x) => x.count > 0);
   const buildingMatrices = (nonEmpty.length ? nonEmpty : built.slice(0, 1)).map((x) => x.matrix);
 
   return {
@@ -128,5 +156,8 @@ export const CHESSBOARD_LISTING_STATUSES: ListingStatus[] = [
   ListingStatus.RESERVED,
   ListingStatus.SOLD,
 ];
+
+/** Проданные и снятые с продажи — для серых ячеек «продано» */
+export const CHESSBOARD_SOLD_STATUSES: ListingStatus[] = [ListingStatus.SOLD, ListingStatus.INACTIVE];
 
 export const CHESSBOARD_LISTING_KIND = ListingKind.APARTMENT;

@@ -58,6 +58,11 @@ export class QueryBlocksDto {
   @Type(() => Number)
   per_page?: number = 20;
 
+  @ApiPropertyOptional({ enum: ['flat', 'aparthotel', 'cottage'], description: 'Тип жилья ЖК' })
+  @IsOptional()
+  @IsString()
+  housing?: string;
+
   @ApiPropertyOptional({ description: 'Filter by district names (comma-separated)' })
   @IsOptional()
   @IsString()

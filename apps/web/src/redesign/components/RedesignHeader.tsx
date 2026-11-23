@@ -12,19 +12,13 @@ import { btnClass } from '@/redesign/lib/button-styles';
 import FavoritesBadgeIcon from '@/redesign/components/FavoritesBadgeIcon';
 import { useFavorites } from '@/shared/hooks/useFavorites';
 
-/** Пять пунктов меню по согласованным макетам. */
-const NAV_ITEMS: { label: string; short?: string; href: string; match: (path: string, search: string) => boolean }[] = [
-  {
-    label: 'Каталог недвижимости',
-    short: 'Каталог',
-    href: '/catalog',
-    match: (p, s) => p.startsWith('/catalog') && !s.includes('market=new'),
-  },
-  {
-    label: 'Новостройки',
-    href: '/catalog?type=apartments&market=new',
-    match: (p, s) => p.startsWith('/catalog') && s.includes('market=new'),
-  },
+/**
+ * Пять пунктов меню. «Каталог недвижимости» убран (созвон 24.11): дублировал «Новостройки» —
+ * обе ссылки вели в один каталог. «Новостройки» подсвечены на любом адресе каталога.
+ */
+const NAV_ITEMS: { label: string; href: string; match: (path: string, search: string) => boolean }[] = [
+  { label: 'Новостройки', href: '/catalog', match: (p) => p.startsWith('/catalog') },
+  { label: 'Ипотека', href: '/mortgage', match: (p) => p.startsWith('/mortgage') },
   { label: 'О компании', href: '/about', match: (p) => p.startsWith('/about') },
   { label: 'Новости', href: '/news', match: (p) => p.startsWith('/news') },
   { label: 'Контакты', href: '/contacts', match: (p) => p.startsWith('/contacts') },
@@ -139,15 +133,7 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
                     : 'text-foreground hover:bg-muted hover:text-primary',
                 )}
               >
-                {item.short ? (
-                  <>
-                    <span className="min-[1400px]:hidden">{item.short}</span>
-                    <span className="hidden min-[1400px]:inline 2xl:hidden">{item.label}</span>
-                    <span className="hidden 2xl:inline">{item.short}</span>
-                  </>
-                ) : (
-                  item.label
-                )}
+                {item.label}
               </Link>
             ))}
           </nav>

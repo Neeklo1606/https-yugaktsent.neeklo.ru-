@@ -72,6 +72,7 @@ export default function ComplexInlineFilters({
           value={activeBuildingId ?? ''}
           onChange={(e) => onBuildingChange(e.target.value)}
         >
+          <option value="">Все дома</option>
           {buildingOptions.map((b) => (
             <option key={b.id} value={b.id}>
               {b.label}

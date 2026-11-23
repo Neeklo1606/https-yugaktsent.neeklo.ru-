@@ -1,4 +1,5 @@
 import type { CatalogFilters, ObjectType } from '@/redesign/data/types';
+import type { HousingType } from '@/redesign/lib/catalog-housing';
 
 export type ListingKind = 'APARTMENT' | 'HOUSE' | 'LAND' | 'COMMERCIAL';
 
@@ -80,8 +81,10 @@ export function buildBlocksSearchParams(args: {
   sort?: string;
   geo?: CatalogGeoParams;
   requireActiveListings?: boolean;
+  /** Тип жилья ЖК (квартиры / апартаменты / коттеджи); null — все */
+  housing?: HousingType | null;
 }): URLSearchParams {
-  const { filters, regionId, page, perPage, sort, geo, requireActiveListings } = args;
+  const { filters, regionId, page, perPage, sort, geo, requireActiveListings, housing } = args;
   const sp = new URLSearchParams();
   if (regionId != null) sp.set('region_id', String(regionId));
   if (filters.search.trim()) sp.set('search', filters.search.trim());
@@ -89,6 +92,7 @@ export function buildBlocksSearchParams(args: {
   if (perPage != null) sp.set('per_page', String(perPage));
   if (sort) sp.set('sort', sort);
   if (requireActiveListings) sp.set('require_active_listings', 'true');
+  if (housing) sp.set('housing', housing);
 
   setFinite(sp, 'price_min', filters.priceMin);
   setFinite(sp, 'price_max', filters.priceMax);

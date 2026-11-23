@@ -616,6 +616,10 @@ model Block {
   salesStartDate DateTime?   @map("sales_start_date") @db.Date
   /** Список инфраструктуры (POI вокруг ЖК) — массив строк или объектов { name, distance, type }. */
   infrastructure Json?       @map("infrastructure")
+  /** flat — квартиры в ЖК, aparthotel — апартаменты, cottage — коттеджи и посёлки */
+  housingType    String      @default("flat") @map("housing_type")
+  /** Наполнение карточки, которого нет в фидах: videos[], masterplanUrl, masterplan3dUrl, gallery[], faq[{q,a}] */
+  content        Json?       @map("content")
   dataSource     DataSource  @default(FEED) @map("data_source")
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @updatedAt @map("updated_at")
@@ -631,6 +635,7 @@ model Block {
   favorites Favorite[]
 
   @@unique([regionId, externalId])
+  @@index([housingType])
   @@map("blocks")
 }
 

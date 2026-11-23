@@ -4,7 +4,7 @@ import { Phone, Mail, MapPin, Clock, MessageCircle, Send, Users, Youtube } from 
 import { cn } from '@/lib/utils';
 import { settingOptional, useSiteSettings } from '@/redesign/hooks/useSiteSettings';
 import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
-import { telHref, yandexMapsHref, yandexMapWidgetSrc } from '@/lib/contact-links';
+import { telHref, yandexMapsHref } from '@/lib/contact-links';
 import { typo } from '@/shared/lib/typography';
 import {
   FOOTER_CATALOG_LINKS,
@@ -13,20 +13,23 @@ import {
 } from '@/components/footer-constants';
 
 const footerLinkClass =
-  'inline-flex min-h-[38px] items-center text-sm text-primary-foreground/70 transition-colors hover:text-primary-foreground';
+  'inline-flex min-h-[40px] items-center text-sm leading-snug text-primary-foreground/70 transition-colors hover:text-primary-foreground lg:min-h-[32px]';
 
 const FooterNavColumn = ({
   title,
   links,
+  wrapOnMobile = false,
 }: {
   title: string;
   links: readonly { label: string; to: string }[];
+  /** На телефоне — строкой с переносом, а не столбиком: длинные подписи документов не растягивают подвал */
+  wrapOnMobile?: boolean;
 }) => (
   <div>
     <h3 className="mb-1 text-[13px] font-semibold text-primary-foreground/50">
       {title}
     </h3>
-    <ul className="flex flex-col">
+    <ul className={wrapOnMobile ? 'flex flex-wrap gap-x-5 lg:flex-col lg:gap-x-0' : 'flex flex-col'}>
       {links.map((l) => (
         <li key={l.label}>
           <Link to={l.to} className={footerLinkClass}>
@@ -80,17 +83,16 @@ const FooterSection = React.forwardRef<HTMLElement, FooterProps>(({ reserveMobil
 
   const copyrightYear = settingOptional(s, 'copyright_year') ?? '2026';
 
-  // Виджет карты — только по реальному адресу или координатам офиса из настроек
-  const mapWidgetSrc = yandexMapWidgetSrc({ officeLat, officeLng, address: addressVal ?? '' });
-
   const contactLinkClass =
-    'inline-flex min-h-[38px] items-center gap-2.5 text-sm text-primary-foreground/80 transition-colors hover:text-primary-foreground';
+    'inline-flex min-h-[40px] items-center gap-2.5 text-sm text-primary-foreground/80 transition-colors hover:text-primary-foreground lg:min-h-[32px]';
 
   return (
-    <footer ref={ref} className={cn("bg-foreground bg-footer-gradient text-primary-foreground", reserveMobileNav && "pb-mobile-nav")}>
-      <div className="container-page py-8 sm:py-12 lg:py-16">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-10 lg:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,0.9fr))] lg:gap-8">
-          {/* Бренд и контакты */}
+    /* Фон задаёт сам .bg-footer-gradient (index.css): bg-* классы рядом через cn не ставим —
+       tailwind-merge считает их конфликтующими и выкидывает один из них */
+    <footer ref={ref} className={cn('bg-footer-gradient text-primary-foreground', reserveMobileNav && 'pb-mobile-nav')}>
+      <div className="container-page py-8 lg:py-10">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.25fr)_repeat(3,minmax(0,0.85fr))] lg:gap-x-8">
+          {/* Бренд и соцсети */}
           <div className="col-span-2 lg:col-span-1">
             <Link to="/" className="inline-flex items-center" aria-label={shortName}>
               <img
@@ -98,16 +100,38 @@ const FooterSection = React.forwardRef<HTMLElement, FooterProps>(({ reserveMobil
                 alt={shortName}
                 width={194}
                 height={48}
-                className="h-11 w-auto max-w-[230px] object-contain object-left"
+                className="h-10 w-auto max-w-[220px] object-contain object-left"
               />
             </Link>
             {tagline ? (
-              <p className="mt-3 max-w-[300px] text-sm leading-relaxed text-primary-foreground/60">
+              <p className="mt-2 max-w-[300px] text-sm leading-relaxed text-primary-foreground/60">
                 {typo(tagline)}
               </p>
             ) : null}
 
-            <div className="mt-5 flex flex-col">
+            {SOCIAL_LINKS.length > 0 ? (
+              <div className="mt-4 flex items-center gap-2">
+                {SOCIAL_LINKS.map(({ url, label, Icon }) => (
+                  <a
+                    key={label}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    title={label}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-foreground/10 text-primary-foreground/80 transition-colors hover:bg-primary-foreground/20 hover:text-primary-foreground"
+                  >
+                    <Icon className="h-[18px] w-[18px]" />
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          {/* Контакты: только то, что заполнено в настройках сайта */}
+          <div className="col-span-2 lg:col-span-1">
+            <h3 className="mb-1 text-[13px] font-semibold text-primary-foreground/50">Контакты</h3>
+            <div className="flex flex-col">
               {phoneMain && phoneHref ? (
                 <a href={phoneHref} className={cn(contactLinkClass, 'text-base font-semibold')}>
                   <Phone className="h-4 w-4 shrink-0 text-primary-foreground/50" aria-hidden />
@@ -121,89 +145,52 @@ const FooterSection = React.forwardRef<HTMLElement, FooterProps>(({ reserveMobil
                 </a>
               ) : null}
               {emailVal ? (
-                <a href={`mailto:${emailVal}`} className={contactLinkClass}>
+                <a href={`mailto:${emailVal}`} className={cn(contactLinkClass, 'break-all')}>
                   <Mail className="h-4 w-4 shrink-0 text-primary-foreground/50" aria-hidden />
                   {emailVal}
                 </a>
               ) : null}
               {addressVal ? (
-                mapsUrl ? (
-                  <a
-                    href={mapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(contactLinkClass, 'items-start whitespace-pre-line py-2')}
-                  >
-                    <MapPin className="mt-[3px] h-4 w-4 shrink-0 text-primary-foreground/50" aria-hidden />
-                    <span className="underline-offset-4 hover:underline">{addressVal}</span>
-                  </a>
-                ) : (
-                  <p className={cn(contactLinkClass, 'items-start whitespace-pre-line py-2')}>
-                    <MapPin className="mt-[3px] h-4 w-4 shrink-0 text-primary-foreground/50" aria-hidden />
-                    <span>{addressVal}</span>
-                  </p>
-                )
+                <p className={cn(contactLinkClass, 'items-start py-1.5 hover:text-primary-foreground/80')}>
+                  <MapPin className="mt-[3px] h-4 w-4 shrink-0 text-primary-foreground/50" aria-hidden />
+                  <span className="whitespace-pre-line">
+                    {addressVal}
+                    {mapsUrl ? (
+                      <>
+                        <br />
+                        {/* Вместо тяжёлого iframe с картой — ссылка: подвал не растягивается на экран */}
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary-foreground/60 underline underline-offset-4 transition-colors hover:text-primary-foreground"
+                        >
+                          Открыть в Яндекс Картах
+                        </a>
+                      </>
+                    ) : null}
+                  </span>
+                </p>
               ) : null}
               {hourLines.length > 0 ? (
-                <p className={contactLinkClass}>
+                <p className={cn(contactLinkClass, 'hover:text-primary-foreground/80')}>
                   <Clock className="h-4 w-4 shrink-0 text-primary-foreground/50" aria-hidden />
                   <span>{hourLines.join(' · ')}</span>
                 </p>
               ) : null}
             </div>
-
-            {SOCIAL_LINKS.length > 0 ? (
-              <div className="mt-5 flex items-center gap-2">
-                {SOCIAL_LINKS.map(({ url, label, Icon }) => (
-                  <a
-                    key={label}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={label}
-                    title={label}
-                    className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-foreground/10 text-primary-foreground/80 transition-colors hover:bg-primary-foreground/20 hover:text-primary-foreground"
-                  >
-                    <Icon className="h-[18px] w-[18px]" />
-                  </a>
-                ))}
-              </div>
-            ) : null}
           </div>
 
           <FooterNavColumn title="Недвижимость" links={FOOTER_CATALOG_LINKS} />
           <FooterNavColumn title="Компания" links={FOOTER_COMPANY_LINKS} />
           <div className="col-span-2 lg:col-span-1">
-            <FooterNavColumn title="Документы" links={FOOTER_LEGAL_LINKS} />
+            <FooterNavColumn title="Документы" links={FOOTER_LEGAL_LINKS} wrapOnMobile />
           </div>
         </div>
-
-        {mapWidgetSrc && mapsUrl ? (
-          <div className="mt-6 lg:mt-12">
-            {/* Карта-iframe весит как вся страница: на телефоне только ссылка */}
-            <div className="hidden h-[320px] w-full overflow-hidden rounded-card border border-primary-foreground/10 lg:block">
-              <iframe
-                title={`Офис ${shortName} на Яндекс Картах`}
-                src={mapWidgetSrc}
-                className="h-full w-full border-0"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            </div>
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(footerLinkClass, 'text-xs')}
-            >
-              Открыть в Яндекс Картах
-            </a>
-          </div>
-        ) : null}
       </div>
 
       <div className="border-t border-primary-foreground/10">
-        <div className="container-page flex flex-col gap-3 py-6 text-xs leading-relaxed text-primary-foreground/70 sm:flex-row sm:items-center sm:justify-between">
+        <div className="container-page flex flex-col gap-2 py-4 text-xs leading-relaxed text-primary-foreground/70 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
           <p>
             © {copyrightYear} {shortName}
             {inn ? ` · ИНН ${inn}` : ''}

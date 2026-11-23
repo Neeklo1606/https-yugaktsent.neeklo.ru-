@@ -204,6 +204,7 @@ export class SitemapService {
       '/map',
       '/belgorod',
       '/news',
+      '/mortgage',
       '/contacts',
       '/about',
       '/privacy',

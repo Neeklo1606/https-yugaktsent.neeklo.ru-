@@ -26,7 +26,7 @@ const MapUnavailableNotice = ({ failure, className }: Props) => (
         ? 'Не задан ключ Яндекс.Карт. Его добавляют в админке: Настройки сайта → группа «integrations».'
         : 'Не удалось загрузить Яндекс.Карты. Проверьте соединение и ключ в настройках сайта.'}
     </p>
-    <p className="text-xs text-muted-foreground">Список объектов справа работает без карты.</p>
+    <p className="text-xs text-muted-foreground">Список объектов рядом работает без карты.</p>
   </div>
 );
 

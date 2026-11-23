@@ -360,6 +360,7 @@ function buildSitemapXml(siteUrl, complexPaths, extraPaths = []) {
     // Дома, участки и коммерция пока пустые — пустые разделы в sitemap не отдаём
     '/map',
     '/news',
+    '/mortgage',
     '/about',
     '/contacts',
     '/privacy',
@@ -701,6 +702,7 @@ async function main() {
   // Статические страницы: свой title/description/canonical прямо в HTML, без JS
   const STATIC_PAGES = [
     ['about', `О компании | ${siteBrand}`, `${siteBrand}, агентство недвижимости в Анапе: подбор новостроек ${SERVICE_AREA_GENITIVE}, проверка документов, сопровождение сделки и помощь с ипотекой.`],
+    ['mortgage', `Ипотека на новостройки юга | ${siteBrand}`, `Ипотечный калькулятор и подбор программы: семейная, IT и базовая ипотека на новостройки ${SERVICE_AREA_GENITIVE}. Поможем с одобрением.`],
     ['contacts', `Контакты | ${siteBrand}`, `Офис ${siteBrand} в Анапе: адрес на карте, телефоны, мессенджеры. Консультация по подбору новостроек бесплатная.`],
     ['news', `Новости недвижимости | ${siteBrand}`, `Новости рынка недвижимости ${SERVICE_AREA_GENITIVE}, проектов и застройщиков.`],
     ['map', `Новостройки на карте | ${siteBrand}`, `Жилые комплексы ${SERVICE_AREA_GENITIVE} на карте: цены, сроки сдачи и квартиры в продаже.`],

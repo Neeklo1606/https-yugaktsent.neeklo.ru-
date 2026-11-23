@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useSearchParams, Link } from 'react-router-dom';
 import { AlertCircle, Info, LayoutGrid, List, Map, MapPin, Search, SearchX, SlidersHorizontal } from 'lucide-react';
+import { Columns2, Rows3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,9 +14,18 @@ import ComplexCard from '@/redesign/components/ComplexCard';
 import ListingCard, { type ApiListingCardRow } from '@/redesign/components/ListingCard';
 import FilterSidebar from '@/redesign/components/FilterSidebar';
 import RegionSelector from '@/redesign/components/RegionSelector';
-import MapSearch from '@/redesign/components/MapSearch';
 import CardGridSkeleton from '@/redesign/components/CardGridSkeleton';
 import ListingsMapSearch, { type ListingMapItem } from '@/redesign/components/ListingsMapSearch';
+import CatalogMapPanel, { LazyMapSearch } from '@/redesign/components/catalog/CatalogMapPanel';
+import CatalogHousingTabs from '@/redesign/components/catalog/CatalogHousingTabs';
+import CatalogHousingEmpty from '@/redesign/components/catalog/CatalogHousingEmpty';
+import { useCatalogLayoutPref } from '@/redesign/components/catalog/useCatalogLayoutPref';
+import {
+  HOUSING_COPY,
+  housingFromSearchParams,
+  withHousingParam,
+  type HousingType,
+} from '@/redesign/lib/catalog-housing';
 import { useDefaultRegionId, type RegionRow } from '@/redesign/hooks/useDefaultRegionId';
 import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
 import { mapApiBlockListRowToResidentialComplex, type ApiBlockListRow } from '@/redesign/lib/blocks-from-api';
@@ -71,6 +81,8 @@ const OBJECT_TYPE_TITLE: Record<ObjectType, string> = {
 type ViewMode = 'grid' | 'list' | 'map';
 
 const PER_PAGE = 20;
+/** Точки ЖК для карты рядом со списком: одним запросом, без пагинации списка */
+const MAP_PER_PAGE = 200;
 
 const CATALOG_SORT_VALUES = [
   'name_asc',
@@ -146,6 +158,9 @@ const RedesignCatalog = () => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [mapActive, setMapActive] = useState<string | null>(null);
   const [mapActiveListing, setMapActiveListing] = useState<number | null>(null);
+  /** ЖК под курсором в списке — подсвечиваем его точку на карте */
+  const [hoverSlug, setHoverSlug] = useState<string | null>(null);
+  const { pref: layoutPref, setPref: setLayoutPref, isWide } = useCatalogLayoutPref();
   const { data: defaultRegionId, rows: regionRows, setStoredRegionId } = useDefaultRegionId();
   const { shortName } = useSiteBrand();
   const urlRegionIdRaw = searchParams.get('region_id');
@@ -181,6 +196,8 @@ const RedesignCatalog = () => {
   const geoLat = searchParams.get('geo_lat');
   const geoLng = searchParams.get('geo_lng');
   const geoRadius = searchParams.get('geo_radius_m');
+  /** Тип жилья ЖК (квартиры / апартаменты / коттеджи) — отдельный параметр, не `type` */
+  const housing = housingFromSearchParams(searchParams);
 
   const catalogUrlSig = useMemo(
     () => catalogFilterUrlSignature(new URLSearchParams(searchParams)),
@@ -255,7 +272,9 @@ const RedesignCatalog = () => {
   const pageTitle =
     catalogLanding.kind === 'district' || catalogLanding.kind === 'subway'
       ? catalogSeo.title.replace(regionName ? `${regionName} · ` : '', '')
-      : OBJECT_TYPE_TITLE[filters.objectType] ?? OBJECT_TYPE_TITLE.apartments;
+      : housing && isApartmentMode && !flatsMode
+        ? HOUSING_COPY[housing].title
+        : OBJECT_TYPE_TITLE[filters.objectType] ?? OBJECT_TYPE_TITLE.apartments;
 
   const listingsInfinite = useInfiniteQuery({
     queryKey: [
@@ -355,6 +374,7 @@ const RedesignCatalog = () => {
       filterKeyPart(filters.commercialTypes),
       filterKeyPart(filters.houseMaterials),
       geoPreset, geoPolygon, geoLat, geoLng, geoRadius,
+      housing,
     ],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
@@ -365,6 +385,7 @@ const RedesignCatalog = () => {
         perPage: PER_PAGE,
         sort: catalogSort,
         geo: { geoPreset, geoPolygon, geoLat, geoLng, geoRadius },
+        housing,
       });
       return apiGet<{
         data: ApiBlockListRow[];
@@ -479,6 +500,40 @@ const RedesignCatalog = () => {
 
   const filtered = rows;
 
+  // Карта ЖК: рядом со списком на широком экране или вместо списка («Карта»)
+  const splitMapWanted = isWide && layoutPref === 'split' && view !== 'map';
+  const blocksMapQuery = useQuery({
+    queryKey: [
+      'blocks', 'catalog', 'map-points', regionId, debouncedSearch,
+      filters.priceMin, filters.priceMax, filters.areaMin, filters.areaMax,
+      filters.floorMin, filters.floorMax,
+      filterKeyPart(filters.deadline), filterKeyPart(filters.status),
+      filters.marketType, filterKeyPart(filters.district), filterKeyPart(filters.subway),
+      filterKeyPart(filters.builder), filterKeyPart(filters.rooms),
+      geoPreset, geoPolygon, geoLat, geoLng, geoRadius,
+      housing,
+    ],
+    queryFn: async () => {
+      const sp = buildBlocksSearchParams({
+        filters: smartFilters,
+        regionId,
+        page: 1,
+        perPage: MAP_PER_PAGE,
+        sort: catalogSort,
+        geo: { geoPreset, geoPolygon, geoLat, geoLng, geoRadius },
+        housing,
+      });
+      return apiGet<{ data: ApiBlockListRow[]; meta: { total: number } }>(`/blocks?${sp}`);
+    },
+    enabled: useBlocksCatalog && regionId != null && (splitMapWanted || view === 'map'),
+    staleTime: 300_000,
+    placeholderData: keepPreviousData,
+  });
+  const mapComplexes = useMemo(
+    () => blocksMapQuery.data?.data.map(mapApiBlockListRowToResidentialComplex) ?? [],
+    [blocksMapQuery.data],
+  );
+
   const handleFiltersChange = useCallback(
     (f: CatalogFilters) => {
       const next = { ...f, search: normalizeSearchQuery(f.search) };
@@ -548,7 +603,10 @@ const RedesignCatalog = () => {
   const blocksTotal = blocksInfinite.data?.pages[0]?.meta.total ?? 0;
   const listingsTotal = listingsInfinite.data?.pages[0]?.meta.total ?? 0;
   // Если выбран режим «Квартиры», но в регионе нет ЖК — показываем standalone APARTMENT-объявления.
-  const apartmentsAsListings = isApartmentMode && (!useBlocksCatalog || (blocksInfinite.isFetched && blocksTotal === 0 && listingsTotal > 0));
+  // С выбранным типом жилья пустая выдача — честное «пока нет», а не подмена квартирами
+  const apartmentsAsListings =
+    isApartmentMode &&
+    (!useBlocksCatalog || (!housing && blocksInfinite.isFetched && blocksTotal === 0 && listingsTotal > 0));
   const showBlocks = useBlocksCatalog && !apartmentsAsListings;
 
   const totalRemote = showBlocks ? blocksTotal : listingsTotal;
@@ -576,14 +634,65 @@ const RedesignCatalog = () => {
   };
 
   const mapHref = useMemo(() => {
-    const params = catalogFiltersIntoSearchParams(new URLSearchParams(), filters);
+    const params = withHousingParam(catalogFiltersIntoSearchParams(new URLSearchParams(), filters), housing);
     if (regionId != null) params.set('region_id', String(regionId));
     return `/map${params.toString() ? `?${params.toString()}` : ''}`;
-  }, [filters, regionId]);
+  }, [filters, regionId, housing]);
+
+  const showHousingTabs = isApartmentMode && filters.marketType !== 'secondary' && !flatsMode;
+  const handleHousingChange = useCallback(
+    (next: HousingType | null) => {
+      setMapActive(null);
+      setSearchParams((prev) => withHousingParam(new URLSearchParams(prev), next), { replace: true });
+    },
+    [setSearchParams],
+  );
+  /** Выбран тип жилья, а ЖК такого типа нет (коттеджи пока) — заявка вместо «ничего не нашлось» */
+  const housingEmpty =
+    housing != null && showBlocks && !loading && !loadError && !blocksInfinite.isPlaceholderData && totalShown === 0;
+  const splitActive = splitMapWanted && showBlocks && !housingEmpty;
+  const mapToggleVisible = !housingEmpty && (view === 'map' || totalShown > 0);
+
+  // Клик по точке на карте рядом со списком — подсвечиваем карточку и докручиваем к ней
+  useEffect(() => {
+    if (!splitActive || !mapActive) return;
+    const el = document.querySelector<HTMLElement>(`[data-complex-slug="${CSS.escape(mapActive)}"]`);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top >= 88 && r.bottom <= window.innerHeight) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+  }, [mapActive, splitActive]);
+
+  /** Последний вид списка (плитка/список) — куда возвращает «Списком» с карты */
+  const lastListViewRef = useRef<'grid' | 'list'>('grid');
+  useEffect(() => {
+    if (view !== 'map') lastListViewRef.current = view;
+  }, [view]);
+
+  const renderComplex = (c: (typeof filtered)[number], index: number, variant: 'grid' | 'list') => {
+    const slug = c.slug;
+    const active = splitActive && slug === mapActive;
+    return (
+      <div
+        key={c.id}
+        data-complex-slug={slug}
+        onMouseEnter={splitActive ? () => setHoverSlug(slug) : undefined}
+        onMouseLeave={splitActive ? () => setHoverSlug((cur) => (cur === slug ? null : cur)) : undefined}
+        className={cn(
+          'flex flex-col rounded-card transition-shadow [&>*]:flex-1',
+          active && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
+        )}
+      >
+        <ComplexCard complex={c} variant={variant} priority={variant === 'grid' && index < 2} cityFallback={regionName ?? undefined} />
+      </div>
+    );
+  };
 
   const refreshing = showBlocks ? blocksInfinite.isPlaceholderData : listingsInfinite.isPlaceholderData;
+  const unitForms = HOUSING_COPY[housing ?? 'flat'].forms;
   const unitWord = showBlocks
-    ? pluralRu(totalRemote ?? 0, 'жилой комплекс', 'жилых комплекса', 'жилых комплексов')
+    ? pluralRu(totalRemote ?? 0, unitForms[0], unitForms[1], unitForms[2])
     : pluralRu(totalRemote ?? 0, 'объект', 'объекта', 'объектов');
   const foundLine = loading
     ? 'Ищем…'
@@ -625,7 +734,7 @@ const RedesignCatalog = () => {
       <RedesignHeader />
 
       <div className="border-b border-border bg-card">
-        <div className="container-page py-3">
+        <div className={cn('container-page py-3', splitActive && 'xl:max-w-none')}>
           <div className="flex items-center gap-2">
             <div ref={searchBoxRef} className="relative flex-1 lg:max-w-[640px]">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -682,7 +791,7 @@ const RedesignCatalog = () => {
         </div>
       </div>
 
-      <main id="main" className="container-page py-4 lg:py-6">
+      <main id="main" className={cn('container-page py-4 lg:py-6', splitActive && 'xl:max-w-none')}>
         <SessionResumeBanner className="mb-2" />
         <SavedSearchReminder className="mb-2" />
 
@@ -754,8 +863,38 @@ const RedesignCatalog = () => {
                 </button>
               ))}
             </div>
+            {showBlocks && view !== 'map' && !housingEmpty ? (
+              <div className="hidden items-center gap-0.5 rounded-lg border border-border bg-card p-1 xl:flex" role="group" aria-label="Карта рядом со списком">
+                {(
+                  [
+                    ['list', Rows3, 'Список'],
+                    ['split', Columns2, 'Список + карта'],
+                  ] as const
+                ).map(([mode, Icon, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={layoutPref === mode}
+                    onClick={() => setLayoutPref(mode)}
+                    className={cn(
+                      'inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-[14px] font-medium transition-colors',
+                      layoutPref === mode ? 'bg-surface-soft text-foreground' : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    <Icon className="h-4 w-4" aria-hidden />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
+
+        {showHousingTabs ? (
+          <div className="mb-3">
+            <CatalogHousingTabs value={housing} onChange={handleHousingChange} />
+          </div>
+        ) : null}
 
         {/* «Все / Новостройки» без вторички — выбор без выбора: вкладки только когда вторичка есть */}
         {isApartmentMode && (hasSecondary || filters.marketType === 'secondary') && (
@@ -779,11 +918,11 @@ const RedesignCatalog = () => {
         )}
 
         {isApartmentMode && filters.marketType !== 'secondary' ? (
-          <div className="mb-3 ml-0 inline-flex rounded-lg bg-surface-soft p-1 sm:ml-2" role="group" aria-label="Что показывать">
+          <div className="mb-3 ml-0 flex w-full rounded-lg bg-surface-soft p-1 sm:ml-2 sm:inline-flex sm:w-auto" role="group" aria-label="Что показывать">
             {(
               [
                 [false, 'Жилые комплексы'],
-                [true, 'Квартиры'],
+                [true, 'Квартиры списком'],
               ] as const
             ).map(([flats, label]) => (
               <button
@@ -794,15 +933,18 @@ const RedesignCatalog = () => {
                   setSearchParams(
                     (prev) => {
                       const next = new URLSearchParams(prev);
-                      if (flats) next.set('group', 'flats');
-                      else next.delete('group');
+                      if (flats) {
+                        next.set('group', 'flats');
+                        // Тип жилья — фильтр ЖК; в списке квартир он не применяется
+                        next.delete('housing');
+                      } else next.delete('group');
                       return next;
                     },
                     { replace: true },
                   )
                 }
                 className={cn(
-                  'h-9 rounded-md px-4 text-[14px] font-medium transition-colors',
+                  'h-9 flex-1 whitespace-nowrap rounded-md px-2 text-[13px] font-medium transition-colors min-[400px]:text-[14px] sm:flex-none sm:px-4',
                   flatsMode === flats ? 'bg-card text-foreground shadow-card' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
@@ -848,7 +990,11 @@ const RedesignCatalog = () => {
             </div>
           </aside>
 
-          <div className={cn('min-w-0 flex-1 transition-opacity', refreshing && 'opacity-60')} aria-busy={refreshing || loading}>
+          <div
+            id="catalog-results"
+            className={cn('min-w-0 flex-1 scroll-mt-20 transition-opacity', refreshing && 'opacity-60')}
+            aria-busy={refreshing || loading}
+          >
             <h2 className="sr-only">Результаты поиска</h2>
             {loadError && (
               <div className="mb-4 flex flex-col items-start gap-3 rounded-card border border-destructive/20 bg-destructive/5 p-4 sm:flex-row sm:items-center">
@@ -867,28 +1013,34 @@ const RedesignCatalog = () => {
             )}
             {loading && totalShown === 0 && view !== 'map' && <CardGridSkeleton count={6} variant={view === 'list' ? 'list' : 'grid'} />}
             {view === 'grid' && !(loading && totalShown === 0) && (
-              <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              <div
+                className={cn(
+                  'grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2',
+                  splitActive ? 'xl:grid-cols-1 min-[1680px]:grid-cols-2' : 'xl:grid-cols-3 2xl:grid-cols-4',
+                )}
+              >
                 {showBlocks
-                  ? filtered.map((c, index) => <ComplexCard key={c.id} complex={c} priority={index < 2} cityFallback={regionName ?? undefined} />)
+                  ? filtered.map((c, index) => renderComplex(c, index, 'grid'))
                   : listingRows.map((l) => <ListingCard key={l.id} listing={l} />)}
               </div>
             )}
             {view === 'list' && !(loading && totalShown === 0) && (
               <div className="space-y-3">
                 {showBlocks
-                  ? filtered.map((c) => <ComplexCard key={c.id} complex={c} variant="list" cityFallback={regionName ?? undefined} />)
+                  ? filtered.map((c, index) => renderComplex(c, index, 'list'))
                   : listingRows.map((l) => <ListingCard key={l.id} listing={l} variant="list" />)}
               </div>
             )}
-            {view === 'map' && showBlocks && (
+            {view === 'map' && showBlocks && !housingEmpty && (
               <div className="h-[calc(100dvh-220px)] min-h-[400px]">
-                <MapSearch
-                  complexes={filtered}
+                <LazyMapSearch
+                  complexes={mapComplexes}
                   regionId={regionId}
                   regionCenter={regionCenter}
                   activeSlug={mapActive}
                   onSelect={setMapActive}
                   compact
+                  useViewportApi={false}
                 />
               </div>
             )}
@@ -955,7 +1107,10 @@ const RedesignCatalog = () => {
                 </p>
               </div>
             )}
-            {!loading && totalShown === 0 && view !== 'map' && (
+            {housingEmpty && housing ? (
+              <CatalogHousingEmpty housing={housing} regionName={regionName} onShowAll={() => handleHousingChange(null)} />
+            ) : null}
+            {!housingEmpty && !loading && totalShown === 0 && view !== 'map' && (
               <div className="text-center py-16">
                 <div className="w-14 h-14 rounded-full bg-surface-soft flex items-center justify-center mx-auto mb-3">
                   <SearchX className="w-6 h-6 text-muted-foreground" aria-hidden />
@@ -998,8 +1153,37 @@ const RedesignCatalog = () => {
               landing={catalogLanding}
             />
           </div>
+
+          {splitActive ? (
+            <CatalogMapPanel
+              complexes={mapComplexes}
+              total={blocksMapQuery.data?.meta.total ?? null}
+              regionId={regionId}
+              regionCenter={regionCenter}
+              activeSlug={mapActive}
+              highlightSlug={hoverSlug}
+              onSelect={setMapActive}
+            />
+          ) : null}
         </div>
       </main>
+
+      {/* Телефон и планшет: карта вместо списка одной кнопкой (на широком экране — карта рядом) */}
+      {mapToggleVisible ? (
+        <button
+          type="button"
+          onClick={() => {
+            handleViewChange(view === 'map' ? lastListViewRef.current : 'map');
+            // Над выдачей на телефоне много фильтров — сразу показываем саму карту/список
+            requestAnimationFrame(() => document.getElementById('catalog-results')?.scrollIntoView({ block: 'start' }));
+          }}
+          aria-pressed={view === 'map'}
+          className="fixed bottom-[calc(var(--mobile-nav-h)+env(safe-area-inset-bottom)+12px)] left-1/2 z-40 inline-flex h-11 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-graphite px-5 text-[15px] font-medium text-white shadow-raised transition-colors hover:bg-graphite/90 lg:bottom-6 xl:hidden"
+        >
+          {view === 'map' ? <List className="h-4 w-4" aria-hidden /> : <MapPin className="h-4 w-4" aria-hidden />}
+          {view === 'map' ? 'Показать списком' : 'Показать на карте'}
+        </button>
+      ) : null}
 
       <Sheet open={showMobileFilters} onOpenChange={setShowMobileFilters}>
         <SheetContent side="bottom" className="flex max-h-[92svh] flex-col rounded-t-sheet p-0">
