@@ -25,3 +25,11 @@ describe('apartmentShellHtml', () => {
     expect(html).toContain('href="/catalog"');
   });
 });
+
+describe('routeModulePreloads', () => {
+  it('нет папки или чанка — пустая строка', async () => {
+    // @ts-ignore
+    const { routeModulePreloads } = await import('../../../scripts/prerender-seo.mjs');
+    expect(routeModulePreloads('/nonexistent', 'RedesignApartment', '')).toBe('');
+  });
+});

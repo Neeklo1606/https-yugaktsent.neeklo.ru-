@@ -419,6 +419,37 @@ export function apartmentShellHtml({ title, description, price, complexName, com
   );
 }
 
+/**
+ * modulepreload для чанка страницы и всех его статических импортов (кроме основного бандла из index.html):
+ * браузер качает их параллельно с основным скриптом, а не цепочкой после него.
+ */
+export function routeModulePreloads(assetsDir, chunkPrefix, baseHtml) {
+  let files;
+  try {
+    files = fs.readdirSync(assetsDir);
+  } catch {
+    return '';
+  }
+  const entry = files.find((f) => f.startsWith(`${chunkPrefix}-`) && f.endsWith('.js'));
+  if (!entry) return '';
+  const skip = new Set([...String(baseHtml).matchAll(/\/assets\/([^"']+\.js)/g)].map((m) => m[1]));
+  const seen = new Set();
+  const queue = [entry];
+  while (queue.length && seen.size < 120) {
+    const f = queue.shift();
+    if (seen.has(f) || skip.has(f)) continue;
+    seen.add(f);
+    let code = '';
+    try {
+      code = fs.readFileSync(path.join(assetsDir, f), 'utf8');
+    } catch {
+      continue;
+    }
+    for (const m of code.matchAll(/(?:from|import)\s*"\.\/([^"]+\.js)"/g)) queue.push(m[1]);
+  }
+  return [...seen].map((f) => `<link rel="modulepreload" crossorigin href="/assets/${f}">`).join('\n  ');
+}
+
 /** Тот же адрес планировки, что выберет галерея (ресайзер + srcset), — браузер начинает качать её с HTML */
 const GALLERY_SIZES = '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw';
 function planPreloadTag(mod, image) {
@@ -438,6 +469,7 @@ function planPreloadTag(mod, image) {
  */
 async function writeApartmentPages(apiBase, baseHtml, mod, siteUrl, siteBrand) {
   const shellBase = patchHtmlHead(baseHtml, { title: siteBrand, description: '', canonical: `${siteUrl}/` });
+  const modulePreloads = routeModulePreloads(path.join(distDir, 'assets'), 'RedesignApartment', baseHtml);
   const tmpDir = path.join(distDir, `apartment.tmp-${process.pid}`);
   fs.rmSync(tmpDir, { recursive: true, force: true });
   fs.mkdirSync(tmpDir, { recursive: true });
@@ -483,7 +515,7 @@ async function writeApartmentPages(apiBase, baseHtml, mod, siteUrl, siteBrand) {
             canonical: seo.canonical,
           }),
           image,
-        ).replace(/<div id="root">/, (m) => `${shell}\n    ${m}`).replace('</head>', `${planPreloadTag(mod, image)}<link rel="preload" as="fetch" href="/api/v1/listings/${id}" crossorigin="use-credentials">\n  </head>`);
+        ).replace(/<div id="root">/, (m) => `${shell}\n    ${m}`).replace('</head>', `${planPreloadTag(mod, image)}<link rel="preload" as="fetch" href="/api/v1/listings/${id}" crossorigin="use-credentials">\n  ${modulePreloads}\n  </head>`);
         const dir = path.join(tmpDir, String(id));
         fs.mkdirSync(dir);
         fs.writeFileSync(path.join(dir, 'index.html'), html, 'utf8');
