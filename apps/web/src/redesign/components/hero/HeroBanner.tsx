@@ -231,14 +231,15 @@ const HeroBanner = ({ search }: { search?: ReactNode }) => {
       ))}
       </div>
 
+      {/* Один стабильный H1 страницы для поиска и скринридеров — вне блоков, скрытых на десктопе (lg:hidden) */}
+      <h1 className="sr-only">Новостройки {SERVICE_AREA_GENITIVE} — агентство недвижимости {shortName}</h1>
+
       {/* Скрим: на телефоне снизу (там текст); на десктопе ровное затемнение — по центру поиск и заголовок */}
       <div className={cn('absolute inset-0 bg-gradient-to-t from-graphite/90 via-graphite/45 to-graphite/5', search ? 'lg:bg-none lg:bg-graphite/55' : 'lg:bg-gradient-to-r lg:from-graphite/80 lg:via-graphite/40 lg:to-transparent')} aria-hidden />
 
       <div className={cn('container-page relative z-10 flex h-full flex-col justify-end pb-9 sm:pb-12 lg:justify-center lg:pb-0', search && 'lg:hidden')}>
         <div className="max-w-[680px]">
           {active.tag ? <p className="text-overline mb-1 text-white/75 sm:mb-2 lg:mb-3">{active.tag}</p> : null}
-          {/* Один стабильный H1 страницы для поиска и скринридеров; заголовок слайда меняется каждые несколько секунд */}
-          <h1 className="sr-only">Новостройки {SERVICE_AREA_GENITIVE} — агентство недвижимости {shortName}</h1>
           {active.title ? <p className="text-display line-clamp-2 text-white max-sm:text-[1.625rem]" aria-live="off">{active.title}</p> : null}
           {active.subtitle ? (
             <p className="mt-1 max-w-[560px] text-[15px] leading-snug text-white/85 tabular-nums sm:mt-3 sm:text-lg">{active.subtitle}</p>
