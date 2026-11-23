@@ -41,7 +41,7 @@ export default function ComplexQuickMeta({ complex, districtCatalogUrl, classNam
         <div key={r.label} className="flex gap-2 text-sm min-w-0">
           <r.icon className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
           <div className="min-w-0">
-            <p className="text-[11px] text-muted-foreground leading-none mb-0.5">{r.label}</p>
+            <p className="text-xs text-muted-foreground leading-none mb-0.5">{r.label}</p>
             <p className="text-foreground/90 leading-snug truncate">{r.value}</p>
           </div>
         </div>

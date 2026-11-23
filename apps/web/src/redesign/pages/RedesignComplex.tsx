@@ -55,7 +55,7 @@ import { recordBrowseHistory } from '@/shared/lib/record-browse-history';
 import { blockHref } from '@/shared/lib/browse-history-local';
 import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
 import DOMPurify from 'dompurify';
-import { ObjectPageSkeleton, PageLoadError } from '@/redesign/components/PageLoadState';
+import { ObjectPageSkeleton, PageLoadError, PageNotFound } from '@/redesign/components/PageLoadState';
 
 declare global {
   interface Window { ymaps: any; }
@@ -522,12 +522,7 @@ const RedesignComplex = () => {
     return (
       <div className="min-h-screen bg-background">
         <RedesignHeader mobileTabBar={false} />
-        <div className="max-w-[1400px] mx-auto px-4 py-16 text-center">
-          <p className="text-muted-foreground">Комплекс не найден</p>
-          <Link to="/catalog" className="text-primary text-sm mt-2 inline-block">
-            ← Вернуться в каталог
-          </Link>
-        </div>
+        <PageNotFound title="Комплекс не найден" text="Возможно, ссылка устарела. Все жилые комплексы — в каталоге." />
       </div>
     );
   }

@@ -220,6 +220,7 @@ const LeadForm = ({
         <Input
           placeholder="Имя"
           aria-label="Имя"
+          autoComplete="name"
           maxLength={100}
           value={name}
           onChange={e => setName(e.target.value)}
@@ -229,6 +230,9 @@ const LeadForm = ({
         <Input
           type="tel"
           placeholder="Телефон"
+          aria-label="Телефон"
+          inputMode="tel"
+          autoComplete="tel"
           value={phone}
           onChange={e => setPhone(formatPhoneMask(e.target.value))}
           required
@@ -236,6 +240,7 @@ const LeadForm = ({
         />
         <Textarea
           placeholder="Комментарий (необязательно)"
+          aria-label="Комментарий"
           value={comment}
           onChange={e => setComment(e.target.value)}
           rows={3}

@@ -715,7 +715,8 @@ const RedesignCatalog = () => {
               ) : null}
             </button>
             <Select value={catalogSort} onValueChange={handleSortChange}>
-              <SelectTrigger aria-label="Сортировка" className="h-11 min-w-0 flex-1 text-[14px] sm:w-[230px] sm:flex-none">
+              <SelectTrigger className="h-11 min-w-0 flex-1 text-[14px] sm:w-[230px] sm:flex-none">
+                <span className="sr-only">Сортировка: </span>
                 <SelectValue placeholder="Сортировка" />
               </SelectTrigger>
               <SelectContent>

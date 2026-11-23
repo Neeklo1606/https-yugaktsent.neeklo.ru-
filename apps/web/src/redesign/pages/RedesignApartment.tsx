@@ -43,7 +43,7 @@ import RelatedListingsCarousel from '@/discovery/components/RelatedListingsCarou
 import CompareSessionChip from '@/shared/components/CompareSessionChip';
 import { recordBrowseHistory } from '@/shared/lib/record-browse-history';
 import { listingHref } from '@/shared/lib/browse-history-local';
-import { ObjectPageSkeleton, PageLoadError } from '@/redesign/components/PageLoadState';
+import { ObjectPageSkeleton, PageLoadError, PageNotFound } from '@/redesign/components/PageLoadState';
 import { ApiError } from '@/lib/api';
 
 function parseNumericListingId(id: string | undefined): number | null {
@@ -323,12 +323,7 @@ const RedesignApartment = () => {
     return (
       <div className="min-h-screen bg-background">
         <RedesignHeader mobileTabBar={false} />
-        <div className="max-w-[1400px] mx-auto px-4 py-16 text-center">
-          <p className="text-muted-foreground">Квартира не найдена</p>
-          <Link to="/catalog" className="text-primary text-sm mt-2 inline-block">
-            ← Каталог
-          </Link>
-        </div>
+        <PageNotFound title="Квартира не найдена" text="Возможно, она уже продана или ссылка устарела. Похожие варианты — в каталоге." />
       </div>
     );
   }

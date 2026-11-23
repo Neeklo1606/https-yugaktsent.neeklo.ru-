@@ -32,6 +32,26 @@ export function ObjectPageSkeleton({ label }: { label: string }) {
   );
 }
 
+/** Объекта нет (404): заголовок страницы для скринридеров и поиска + путь дальше. */
+export function PageNotFound({ title, text }: { title: string; text?: string }) {
+  return (
+    <div className="max-w-[1400px] mx-auto px-4 py-16 text-center">
+      <h1 className="text-xl font-semibold">{title}</h1>
+      <p className="text-sm text-muted-foreground mt-1">
+        {text ?? 'Возможно, объект уже продан или ссылка устарела.'}
+      </p>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        <Button asChild className="min-h-11">
+          <Link to="/catalog">Смотреть каталог</Link>
+        </Button>
+        <Button asChild variant="secondary" className="min-h-11">
+          <Link to="/">На главную</Link>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** Сбой сети или сервера — не «не найдено»: даём повторить, не уводя со страницы. */
 export function PageLoadError({ onRetry, retrying }: { onRetry: () => void; retrying?: boolean }) {
   return (

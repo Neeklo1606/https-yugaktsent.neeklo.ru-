@@ -5,7 +5,7 @@ import FavoritesBadgeIcon from '@/redesign/components/FavoritesBadgeIcon';
 import { cn } from '@/lib/utils';
 
 const TAB_CLASS =
-  'flex h-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors';
+  'flex h-full flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors';
 
 /** Разделы нижнего меню; «Избранное» со счётчиком — между картой и контактами (20.11, как у Аякса) */
 const TABS = [

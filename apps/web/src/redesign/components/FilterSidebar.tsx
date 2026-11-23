@@ -419,8 +419,8 @@ const FilterSidebar = ({
         count={filters.areaMin || filters.areaMax ? 1 : 0}
       >
         <div className="flex gap-2">
-          <Input type="number" placeholder="от" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.areaMin ?? ''} onChange={e => update('areaMin', e.target.value ? Number(e.target.value) : undefined)} />
-          <Input type="number" placeholder="до" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.areaMax ?? ''} onChange={e => update('areaMax', e.target.value ? Number(e.target.value) : undefined)} />
+          <Input type="number" placeholder="от" aria-label="Площадь от, м²" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.areaMin ?? ''} onChange={e => update('areaMin', e.target.value ? Number(e.target.value) : undefined)} />
+          <Input type="number" placeholder="до" aria-label="Площадь до, м²" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.areaMax ?? ''} onChange={e => update('areaMax', e.target.value ? Number(e.target.value) : undefined)} />
         </div>
       </FilterSection>
 
@@ -428,16 +428,16 @@ const FilterSidebar = ({
         <>
           <FilterSection title="Площадь участка, сот." defaultOpen={false} count={filters.landAreaMin || filters.landAreaMax ? 1 : 0}>
             <div className="flex gap-2">
-              <Input type="number" placeholder="от" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.landAreaMin ?? ''} onChange={e => update('landAreaMin', e.target.value ? Number(e.target.value) : undefined)} />
-              <Input type="number" placeholder="до" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.landAreaMax ?? ''} onChange={e => update('landAreaMax', e.target.value ? Number(e.target.value) : undefined)} />
+              <Input type="number" placeholder="от" aria-label="Участок от, сот." className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.landAreaMin ?? ''} onChange={e => update('landAreaMin', e.target.value ? Number(e.target.value) : undefined)} />
+              <Input type="number" placeholder="до" aria-label="Участок до, сот." className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.landAreaMax ?? ''} onChange={e => update('landAreaMax', e.target.value ? Number(e.target.value) : undefined)} />
             </div>
           </FilterSection>
 
           {visibility.distance && (
           <FilterSection title="Расстояние до города, км" defaultOpen={false} count={filters.distanceMin || filters.distanceMax ? 1 : 0}>
             <div className="flex gap-2">
-              <Input type="number" placeholder="от" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.distanceMin ?? ''} onChange={e => update('distanceMin', e.target.value ? Number(e.target.value) : undefined)} />
-              <Input type="number" placeholder="до" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.distanceMax ?? ''} onChange={e => update('distanceMax', e.target.value ? Number(e.target.value) : undefined)} />
+              <Input type="number" placeholder="от" aria-label="До города от, км" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.distanceMin ?? ''} onChange={e => update('distanceMin', e.target.value ? Number(e.target.value) : undefined)} />
+              <Input type="number" placeholder="до" aria-label="До города до, км" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.distanceMax ?? ''} onChange={e => update('distanceMax', e.target.value ? Number(e.target.value) : undefined)} />
             </div>
           </FilterSection>
           )}
@@ -528,8 +528,8 @@ const FilterSidebar = ({
       {visibility.floor && (
         <FilterSection title="Этаж" defaultOpen={false} count={filters.floorMin || filters.floorMax ? 1 : 0}>
           <div className="flex gap-2">
-            <Input type="number" placeholder="от" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.floorMin ?? ''} onChange={e => update('floorMin', e.target.value ? Number(e.target.value) : undefined)} />
-            <Input type="number" placeholder="до" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.floorMax ?? ''} onChange={e => update('floorMax', e.target.value ? Number(e.target.value) : undefined)} />
+            <Input type="number" placeholder="от" aria-label="Этаж от" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.floorMin ?? ''} onChange={e => update('floorMin', e.target.value ? Number(e.target.value) : undefined)} />
+            <Input type="number" placeholder="до" aria-label="Этаж до" className="h-8 text-xs focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 focus-visible:border-primary" value={filters.floorMax ?? ''} onChange={e => update('floorMax', e.target.value ? Number(e.target.value) : undefined)} />
           </div>
         </FilterSection>
       )}
