@@ -43,6 +43,8 @@ import RelatedListingsCarousel from '@/discovery/components/RelatedListingsCarou
 import CompareSessionChip from '@/shared/components/CompareSessionChip';
 import { recordBrowseHistory } from '@/shared/lib/record-browse-history';
 import { listingHref } from '@/shared/lib/browse-history-local';
+import { ObjectPageSkeleton, PageLoadError } from '@/redesign/components/PageLoadState';
+import { ApiError } from '@/lib/api';
 
 function parseNumericListingId(id: string | undefined): number | null {
   if (!id) return null;
@@ -300,7 +302,19 @@ const RedesignApartment = () => {
     return (
       <div className="min-h-screen bg-background">
         <RedesignHeader mobileTabBar={false} />
-        <div className="max-w-[1400px] mx-auto px-4 py-16 text-center text-muted-foreground text-sm">Загрузка…</div>
+        <ObjectPageSkeleton label="Загружаем квартиру" />
+      </div>
+    );
+  }
+
+  // Сбой сети/сервера (не 404) — предлагаем повторить, а не «Квартира не найдена»
+  const loadFailed =
+    listingQuery.isError && !(listingQuery.error instanceof ApiError && listingQuery.error.status === 404);
+  if (loadFailed) {
+    return (
+      <div className="min-h-screen bg-background">
+        <RedesignHeader mobileTabBar={false} />
+        <PageLoadError onRetry={() => void listingQuery.refetch()} retrying={listingQuery.isFetching} />
       </div>
     );
   }

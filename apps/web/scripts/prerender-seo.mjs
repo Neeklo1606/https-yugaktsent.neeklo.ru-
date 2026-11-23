@@ -459,6 +459,64 @@ async function writeApartmentPages(apiBase, baseHtml, mod, siteUrl, siteBrand) {
   }
 }
 
+const rub = (n) => (Number(n) > 0 ? `${Math.round(Number(n)).toLocaleString('ru-RU')} ₽` : null);
+
+/**
+ * llms.txt — короткая выжимка для нейропоиска (Алиса, YandexGPT, ChatGPT, Perplexity): кто мы,
+ * как связаться, какие ЖК и по какой цене. Формат — llmstxt.org. Пересобирается вместе с пререндером.
+ */
+export function buildLlmsTxt({ siteUrl, siteBrand, settings = {}, complexes = [], experts = [], hasNews = false }) {
+  const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  const contacts = [
+    str(settings.phone_main) && `Телефон: ${str(settings.phone_main)}`,
+    str(settings.phone_secondary) && `Телефон (мобильный): ${str(settings.phone_secondary)}`,
+    str(settings.email) && `Почта: ${str(settings.email)}`,
+    str(settings.address) && `Офис: ${str(settings.address)}`,
+  ].filter(Boolean);
+  const cities = [...new Set(complexes.map((c) => c.city).filter(Boolean))];
+  const total = complexes.reduce((n, c) => n + (Number(c.count) || 0), 0);
+  const lines = [
+    `# ${siteBrand}`,
+    '',
+    `> Агентство недвижимости: квартиры в новостройках${cities.length ? ` — ${cities.join(', ')}` : ''}. ` +
+      `Цены и наличие приходят из выгрузок застройщиков и обновляются каждые 6 часов. Покупателю услуги агентства бесплатны.`,
+    '',
+    ...contacts.map((c) => `- ${c}`),
+    '',
+    '## Разделы',
+    `- [Каталог квартир](${siteUrl}/catalog): поиск по городу, ЖК, комнатам, цене, площади и сроку сдачи`,
+    `- [Поиск на карте](${siteUrl}/map): ЖК и квартиры на карте`,
+    `- [Жилые комплексы](${siteUrl}/catalog?group=blocks): все ЖК с ценами от и до`,
+    ...(hasNews ? [`- [Новости](${siteUrl}/news)`] : []),
+    '',
+  ];
+  if (complexes.length) {
+    lines.push(`## Жилые комплексы (${complexes.length}${total ? `, квартир в продаже: ${total.toLocaleString('ru-RU')}` : ''})`);
+    for (const c of complexes) {
+      const price = [rub(c.priceFrom), rub(c.priceTo)].filter(Boolean);
+      const facts = [
+        c.city,
+        c.address && c.address !== c.city ? c.address : null,
+        price.length === 2 ? `от ${price[0]} до ${price[1]}` : price.length ? `от ${price[0]}` : null,
+        Number(c.count) > 0 ? `квартир: ${c.count}` : null,
+      ].filter(Boolean);
+      lines.push(`- [ЖК «${c.name}»](${siteUrl}/complex/${encodeURIComponent(c.slug)})${facts.length ? `: ${facts.join(' · ')}` : ''}`);
+    }
+    lines.push('');
+  }
+  if (experts.length) {
+    lines.push('## Специалисты');
+    for (const e of experts) lines.push(`- [${e.title}](${siteUrl}/experts/${e.slug})`);
+    lines.push('');
+  }
+  lines.push('## Правовая информация');
+  lines.push(`- [Политика обработки персональных данных](${siteUrl}/privacy)`);
+  lines.push(`- [Пользовательское соглашение](${siteUrl}/terms)`);
+  lines.push('- Цены на сайте носят информационный характер и не являются публичной офертой.');
+  lines.push('');
+  return lines.join('\n');
+}
+
 async function main() {
   if (process.env.SKIP_PRERENDER === '1') {
     console.log('[prerender-seo] SKIP_PRERENDER=1 — пропуск.');
@@ -714,22 +772,31 @@ async function main() {
   );
   writeAtomic(path.join(distDir, 'sitemap.xml'), sitemap);
 
+  writeAtomic(path.join(distDir, 'llms.txt'), buildLlmsTxt({ siteUrl, siteBrand, settings, complexes, experts, hasNews: newsSlugs.length > 0 }));
+
   const robots = `User-agent: *
 Allow: /
+
+# Служебные разделы: в поиске им делать нечего
 Disallow: /admin
 Disallow: /login
 Disallow: /favorites
+Disallow: /compare
 Disallow: /presentation/
+Disallow: /selections/
 
 Sitemap: ${sitemapIndexUrl}
 Sitemap: ${siteUrl}/sitemap.xml
 `;
   writeAtomic(path.join(distDir, 'robots.txt'), robots);
 
-  console.log('[prerender-seo] Готово: index.html, catalog/, complex/*/, experts/*/, sitemap.xml, robots.txt');
+  console.log('[prerender-seo] Готово: index.html, catalog/, complex/*/, experts/*/, sitemap.xml, robots.txt, llms.txt');
 }
 
-main().catch((e) => {
-  console.error('[prerender-seo]', e);
-  process.exit(1);
-});
+// Запуск только как скрипта: при импорте (тесты) main не выполняется
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((e) => {
+    console.error('[prerender-seo]', e);
+    process.exit(1);
+  });
+}

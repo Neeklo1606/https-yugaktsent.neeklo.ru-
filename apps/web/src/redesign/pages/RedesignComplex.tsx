@@ -55,6 +55,7 @@ import { recordBrowseHistory } from '@/shared/lib/record-browse-history';
 import { blockHref } from '@/shared/lib/browse-history-local';
 import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
 import DOMPurify from 'dompurify';
+import { ObjectPageSkeleton, PageLoadError } from '@/redesign/components/PageLoadState';
 
 declare global {
   interface Window { ymaps: any; }
@@ -506,7 +507,15 @@ const RedesignComplex = () => {
       return (
         <div className="min-h-screen bg-background">
           <RedesignHeader mobileTabBar={false} />
-          <div className="max-w-[1400px] mx-auto px-4 py-16 text-center text-muted-foreground text-sm">Загрузка…</div>
+          <ObjectPageSkeleton label="Загружаем комплекс" />
+        </div>
+      );
+    }
+    if (slug && apiBlockQuery.isError) {
+      return (
+        <div className="min-h-screen bg-background">
+          <RedesignHeader mobileTabBar={false} />
+          <PageLoadError onRetry={() => void apiBlockQuery.refetch()} retrying={apiBlockQuery.isFetching} />
         </div>
       );
     }
