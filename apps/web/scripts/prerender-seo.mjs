@@ -483,7 +483,7 @@ async function writeApartmentPages(apiBase, baseHtml, mod, siteUrl, siteBrand) {
             canonical: seo.canonical,
           }),
           image,
-        ).replace(/<div id="root">/, (m) => `${shell}\n    ${m}`).replace('</head>', `${planPreloadTag(mod, image)}</head>`);
+        ).replace(/<div id="root">/, (m) => `${shell}\n    ${m}`).replace('</head>', `${planPreloadTag(mod, image)}<link rel="preload" as="fetch" href="/api/v1/listings/${id}" crossorigin="use-credentials">\n  </head>`);
         const dir = path.join(tmpDir, String(id));
         fs.mkdirSync(dir);
         fs.writeFileSync(path.join(dir, 'index.html'), html, 'utf8');
