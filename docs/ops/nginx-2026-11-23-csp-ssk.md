@@ -72,3 +72,16 @@ location ~ "^/img/ssk/(upload/.+)$" {
 Встроенная Яндекс Карта грузит iframe с `https://yandex.ru/` (без поддомена) — CSP в режиме отчёта
 считал это нарушением. В `frame-src` во всех трёх HTML-локациях добавлен `https://yandex.ru`.
 Копия конфига до правки: `/root/nginx-yugaktsent.conf.bak-20261123-061424`.
+
+## 5. Кодировка utf-8 для текстовых файлов (23.11, OK заказчика)
+
+В блок `server { listen 443 … }` после `server_name` добавлено:
+
+```nginx
+charset utf-8;
+charset_types text/plain text/xml application/xml text/css application/javascript application/json;
+```
+
+Копия до правки: `/root/nginx-yugaktsent.conf.bak-20261123-085701`. `nginx -t` — ок, reload.
+Проверено: `llms.txt`, `robots.txt` → `text/plain; charset=utf-8`; `sitemap.xml` → `text/xml; charset=utf-8`; HTML, API, JS — 200.
+Откат: `cp -a /root/nginx-yugaktsent.conf.bak-20261123-085701 /etc/nginx/sites-available/… && nginx -t && systemctl reload nginx`.
