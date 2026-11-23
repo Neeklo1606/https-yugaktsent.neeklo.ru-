@@ -24,6 +24,13 @@ describe('proxiedImageUrl', () => {
     expect(proxiedImageUrl('https://yugaktsent.neeklo.ru/uploads/media/a.jpg', 1280)).toBe('/img/1280/local/uploads/media/a.jpg');
   });
 
+  it('планировки ССК идут через наш кэш, остальное с их сайта — нет', () => {
+    vi.stubEnv('VITE_IMAGE_PROXY', '1');
+    expect(proxiedImageUrl('https://bx.sskuban.ru/upload/planers/p/srd_l1.png', 800)).toBe('/img/ssk/upload/planers/p/srd_l1.png');
+    expect(proxiedImageUrl('https://bx.sskuban.ru/bitrix/admin/x.php', 800)).toBeNull();
+    expect(proxiedImageUrl('https://evil.sskuban.ru.example/upload/a.png', 800)).toBeNull();
+  });
+
   it('чужие сайты и не картинки не трогаем', () => {
     vi.stubEnv('VITE_IMAGE_PROXY', '1');
     vi.stubEnv('VITE_IMAGE_PROXY_LOCAL', '1');

@@ -54,6 +54,8 @@ export function imageAltText(context?: string | null, decorative = true): string
 export const IMAGE_PROXY_WIDTHS = [480, 800, 1280] as const;
 
 const PROFITBASE_RE = /^https?:\/\/(pb\d+(?:\.tochno)?)\.profitbase\.ru\/(uploads\/.+)$/i;
+/** Планировки ССК: через наш кэш nginx `/img/ssk/…` (без ресайза — PNG по 50 КБ), свой домен вместо стороннего */
+const SSK_RE = /^https?:\/\/bx\.sskuban\.ru\/(upload\/[^?#]+\.(?:png|jpe?g|webp))$/i;
 /** Файлы с нашего сервера: /uploads/… или полный адрес сайта (так их хранит API обложек) */
 const LOCAL_UPLOAD_RE = /^(?:https?:\/\/[^/]+)?\/(uploads\/.+\.(?:jpe?g|png|webp))$/i;
 
@@ -77,6 +79,8 @@ export function proxiedImageUrl(url: string, width: number): string | null {
   const trimmed = url.trim();
   const m = PROFITBASE_RE.exec(trimmed);
   if (m) return `/img/${width}/${m[1]}/${m[2]}`;
+  const ssk = SSK_RE.exec(trimmed);
+  if (ssk) return `/img/ssk/${ssk[1]}`;
   // Ресайз своих файлов — отдельная настройка nginx (`/img/<w>/local/…`), включается своим флагом
   if (import.meta.env.VITE_IMAGE_PROXY_LOCAL !== '1') return null;
   const local = LOCAL_UPLOAD_RE.exec(trimmed);

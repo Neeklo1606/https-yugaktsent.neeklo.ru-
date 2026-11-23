@@ -1,4 +1,4 @@
-# Правка nginx 23.11.2026 — ждёт разрешения (не применена)
+# Правка nginx 23.11.2026 — ПРИМЕНЕНА 23.11 (OK владельца), копия до правки: /root/nginx-yugaktsent.conf.bak-20261123-031157
 
 Применять только с OK владельца сервера. Файл: `/etc/nginx/sites-enabled/yugaktsent.neeklo.ru.conf`.
 `/etc/nginx/hostcare/*` не трогать. Перед правкой: `cp -a <файл> /root/nginx-yugaktsent.conf.bak-$(date +%Y%m%d-%H%M%S)`,
