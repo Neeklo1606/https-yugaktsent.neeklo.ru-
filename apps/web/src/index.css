@@ -447,3 +447,9 @@
   0% { transform: translateX(-100%); }
   100% { transform: translateX(300%); }
 }
+
+/* Шахматка: проданная квартира — серая штриховка, отличается от «нет в продаже» (пунктир) */
+.chess-sold {
+  background-color: hsl(var(--muted));
+  background-image: repeating-linear-gradient(135deg, transparent 0 5px, hsl(var(--border) / 0.9) 5px 6px);
+}

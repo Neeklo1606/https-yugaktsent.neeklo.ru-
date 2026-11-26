@@ -24,3 +24,4 @@ export type {
 export { minCostAssignment } from './matching.js';
 export { layoutGroupKey, collectMirrorVariants } from './mirror.js';
 export * from './build-grid.js';
+export { buildDeterministicRisers, parsePlanPosition, type RiserLayout, type RiserColumn } from './risers.js';

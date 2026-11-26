@@ -1,4 +1,5 @@
 import { buildArchitecturalMatrixWithTopology } from './matrix.js';
+import { buildDeterministicRisers, type RiserLayout } from './risers.js';
 import type {
   ArchitecturalShaftDto,
   BuildingTopologyDto,
@@ -53,6 +54,58 @@ function toTopologyDto(topology: ReturnType<typeof buildArchitecturalMatrixWithT
   };
 }
 
+const GROUP_PREFIX: Record<string, string> = { k: 'Корпус', s: 'Секция', p: 'Подъезд' };
+
+/** «k1·s2» → «Корпус 1 · секция 2» */
+export function riserGroupLabel(group: string | null | undefined): string | null {
+  if (!group) return null;
+  const parts = group.split('·').map((p, i) => {
+    const word = GROUP_PREFIX[p[0]?.toLowerCase() ?? ''] ?? '';
+    const label = `${word} ${p.slice(1)}`.trim();
+    return i === 0 ? label : label.toLowerCase();
+  });
+  return parts.join(' · ');
+}
+
+function topologyFromRisers(r: RiserLayout): BuildingTopologyDto {
+  const apartmentToShaft: Record<string, string> = {};
+  const shafts: ArchitecturalShaftDto[] = r.columns.map((col, idx) => {
+    const apts = r.cells[idx].filter((a): a is ChessboardApartmentInput => a != null);
+    const first = apts[0];
+    const shaftId = `shaft-${idx + 1}`;
+    for (const a of apts) apartmentToShaft[a.id] = shaftId;
+    const fp = first ? `${first.rooms}|${Math.round(first.area * 10) / 10}` : '—';
+    return {
+      shaftId,
+      shaftIndex: idx + 1,
+      label: first ? `${roomLabel(first.rooms)} ${Math.round(first.area * 10) / 10}м²` : '—',
+      primaryFingerprint: fp,
+      primaryPlanSignature: first?.planImage ?? null,
+      mirroredPlanSignatures: [],
+      layoutGroupKey: fp,
+      floorsPresent: apts.map((a) => a.floor),
+      apartmentIds: apts.map((a) => a.id),
+      group: riserGroupLabel(col.group),
+      position: col.position,
+    };
+  });
+  const groups = new Set(r.columns.map((c) => c.group ?? ''));
+  return {
+    sectionCount: Math.max(1, groups.size),
+    shafts,
+    floorTemplates: r.floors.map((floor, row) => ({
+      floor,
+      slots: r.columns.map((_, c) => ({
+        shaftId: `shaft-${c + 1}`,
+        shaftIndex: c + 1,
+        apartmentId: r.cells[c][row]?.id ?? null,
+        isPlaceholder: !r.cells[c][row],
+      })),
+    })),
+    apartmentToShaft,
+  };
+}
+
 /**
  * Builds the full API contract: topology, shafts, floorTemplates, grid[][].
  *
@@ -63,10 +116,21 @@ export function buildChessboardBuildingMatrix(
   buildingName: string,
   apartments: ChessboardApartmentInput[],
 ): ChessboardBuildingMatrix {
-  const { matrix, topology: topo } = buildArchitecturalMatrixWithTopology(apartments);
-  const { floors, columns } = matrix;
+  const risers = buildDeterministicRisers(apartments);
+  let floors: number[];
+  let columns: Array<Array<ChessboardApartmentInput | null>>;
+  let topology: BuildingTopologyDto;
+  if (risers) {
+    floors = risers.floors;
+    columns = risers.cells;
+    topology = topologyFromRisers(risers);
+  } else {
+    const { matrix, topology: topo } = buildArchitecturalMatrixWithTopology(apartments);
+    floors = matrix.floors;
+    columns = matrix.columns;
+    topology = toTopologyDto(topo);
+  }
   const shaftCount = columns.length;
-  const topology = toTopologyDto(topo);
   const shafts: ArchitecturalShaftDto[] = topology.shafts;
   const floorTemplates: FloorTemplateDto[] = topology.floorTemplates;
 

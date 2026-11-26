@@ -1,7 +1,7 @@
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { MapPin, Heart, Share2, FileText } from 'lucide-react';
+import { MapPin, Heart, Share2, FileText, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ComplexCard from '@/redesign/components/ComplexCard';
 import SnapRail from '@/redesign/components/home/SnapRail';
@@ -14,6 +14,7 @@ import ComplexInlineFilters from '@/redesign/components/ComplexInlineFilters';
 import ComplexQueueTable from '@/redesign/components/ComplexQueueTable';
 import ComplexAnchorNav, { type ComplexSection } from '@/redesign/components/ComplexAnchorNav';
 import Chessboard from '@/redesign/components/Chessboard';
+import { splitBuildingName } from '@/redesign/lib/chessboard-layout';
 import type { ChessboardBlockResponse } from '@/redesign/lib/chessboard-api';
 import ChessDebugOverlay from '@/redesign/components/ChessDebugOverlay';
 import { ComplexFaq, ComplexMasterplan, ComplexVideos } from '@/redesign/components/ComplexContentBlocks';
@@ -154,10 +155,13 @@ const RedesignComplex = () => {
   // Фото, догруженные вручную в админке, — после фото из фида
   const complex = useMemo(() => {
     if (!apiComplex) return null;
-    if (!content.gallery.length) return apiComplex;
-    const seen = new Set(apiComplex.images);
-    return { ...apiComplex, images: [...apiComplex.images, ...content.gallery.filter((u) => !seen.has(u))] };
-  }, [apiComplex, content.gallery]);
+    let c = apiComplex;
+    // Застройщик текстом из наполнения — если в справочнике застройщиков его нет
+    if ((!c.builder?.trim() || c.builder === '—') && content.builderName) c = { ...c, builder: content.builderName };
+    if (!content.gallery.length) return c;
+    const seen = new Set(c.images);
+    return { ...c, images: [...c.images, ...content.gallery.filter((u) => !seen.has(u))] };
+  }, [apiComplex, content.gallery, content.builderName]);
   const fromApi = Boolean(apiComplex);
   const regionId = apiBlockQuery.data?.region?.id ?? null;
 
@@ -277,10 +281,7 @@ const RedesignComplex = () => {
   const activeChessMatrix = useMemo(() => {
     const boards = chessboardQuery.data?.buildings;
     if (!boards?.length) return null;
-    if (activeBuildingId) {
-      return boards.find((b) => b.id === activeBuildingId) ?? boards[0];
-    }
-    return boards[0];
+    return (activeBuildingId ? boards.find((b) => b.id === activeBuildingId) : null) ?? boards[0];
   }, [chessboardQuery.data, activeBuildingId]);
 
   const chessBuildingOptions = useMemo(
@@ -522,8 +523,14 @@ const RedesignComplex = () => {
     ? ([
         ['Адрес', complex.address?.trim()],
         ['Срок сдачи', complex.deadline?.trim()],
-        ['Застройщик', hasDeveloper ? complex.builder.trim() : ''],
-        ['Корпусов', buildings.length > 0 ? String(buildings.length) : ''],
+        // «Литер 15.1, секция 4» — это секция, а не отдельный дом: считаем дома по литеру
+        ...(() => {
+          if (!buildings.length) return [] as [string, string][];
+          const houses = new Set(buildings.map((b) => splitBuildingName(b.name || String(b.id)).group)).size;
+          return houses < buildings.length
+            ? ([['Домов', String(houses)], ['Секций', String(buildings.length)]] as [string, string][])
+            : ([['Корпусов', String(buildings.length)]] as [string, string][]);
+        })(),
         ['Цена', !isPriceHidden(complex.priceFrom) ? formatPriceRangeDisplay(complex.priceFrom, complex.priceTo) : ''],
       ] as [string, string | undefined][]).filter((row): row is [string, string] => Boolean(row[1] && row[1] !== '—'))
     : [];
@@ -584,7 +591,7 @@ const RedesignComplex = () => {
     hasApartments || hasBuildings ? { id: 'list' as const, label: 'Списком' } : null,
     hasLayouts ? { id: 'plans' as const, label: 'Планировки' } : null,
   ].filter((x): x is { id: 'chess' | 'list' | 'plans'; label: string } => x != null);
-  const descLong = (complex.description?.length ?? 0) > 600;
+  const descLong = (complex.description?.length ?? 0) > 1100;
   const mortgagePrice = typeof complex.priceFrom === 'number' && complex.priceFrom > 0 ? complex.priceFrom : undefined;
   const pageActions = [
     {
@@ -832,15 +839,28 @@ const RedesignComplex = () => {
                       ))}
                     </dl>
                   ) : null}
+                  {content.tagline ? (
+                    <p className="text-[17px] font-semibold leading-snug text-foreground">{content.tagline}</p>
+                  ) : null}
                   {hasDescription ? (
-                    <div className={cn('relative', !descOpen && descLong && 'max-h-[220px] overflow-hidden')}>
+                    <div className={cn('relative', !descOpen && descLong && 'max-h-[260px] overflow-hidden')}>
                     {complex.description.includes('<') ? (
                       <div
                         className="text-[15px] text-muted-foreground leading-relaxed prose prose-sm max-w-none"
                         dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(complex.description, { USE_PROFILES: { html: true } }) }}
                       />
                     ) : (
-                      <p className="text-[15px] text-muted-foreground leading-relaxed whitespace-pre-line">{complex.description}</p>
+                      <div className="max-w-[78ch] space-y-3 text-[15px] leading-relaxed text-foreground/80">
+                        {complex.description
+                          .split(/\n\s*\n/)
+                          .map((para) => para.trim())
+                          .filter(Boolean)
+                          .map((para, i) => (
+                            <p key={i} className="whitespace-pre-line">
+                              {para}
+                            </p>
+                          ))}
+                      </div>
                     )}
                     {!descOpen && descLong ? (
                       <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-card to-transparent" aria-hidden />
@@ -851,6 +871,16 @@ const RedesignComplex = () => {
                     <button type="button" onClick={() => setDescOpen((v) => !v)} className="text-[14px] font-medium text-primary hover:underline">
                       {descOpen ? 'Свернуть' : 'Читать полностью'}
                     </button>
+                  ) : null}
+                  {content.highlights.length ? (
+                    <ul className="grid gap-2 sm:grid-cols-2" aria-label="Преимущества">
+                      {content.highlights.map((h, i) => (
+                        <li key={i} className="flex items-start gap-2 rounded-xl bg-primary/[0.06] px-3 py-2.5 text-[14px] leading-snug">
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                          {h}
+                        </li>
+                      ))}
+                    </ul>
                   ) : null}
                   {hasInfra ? (
                     <ul className="flex flex-wrap gap-2 text-sm">
@@ -886,7 +916,6 @@ const RedesignComplex = () => {
           <Reveal as="section" id="mortgage" className="scroll-mt-36">
             {sectionHeading(`Ипотека в «${complex.name}»`, 'Прикиньте платёж — точную ставку подберёт менеджер')}
             <MortgageCalculator
-              compact
               price={mortgagePrice}
               onLead={() => openComplexConsult(`complex:${complex.slug}:mortgage`)}
             />

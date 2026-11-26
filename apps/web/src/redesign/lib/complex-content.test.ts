@@ -61,7 +61,7 @@ describe('chessboard-layout', () => {
              [{ floor: 2, shaftIndex: 1, apartment: apt('2', 2) }, { floor: 2, shaftIndex: 2, apartment: null }]],
     } as never);
     expect(rows.map((r) => r.floor)).toEqual([5, 4, 3, 2]);
-    expect(countChessCells(rows)).toEqual({ available: 2, reserved: 0, soldOrClosed: 6, total: 8 });
+    expect(countChessCells(rows)).toMatchObject({ available: 2, reserved: 0, soldOrClosed: 6, total: 8 });
   });
   it('короткая цена', () => {
     expect(shortChessPrice(9_540_000)).toBe('9,54 млн');

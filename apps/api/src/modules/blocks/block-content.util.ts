@@ -11,6 +11,12 @@ export type BlockContent = {
   masterplan3dUrl?: string;
   gallery?: string[];
   faq?: { q: string; a: string }[];
+  /** Подзаголовок-тезис под названием («Жилой квартал у моря в 10 минутах от центра») */
+  tagline?: string;
+  /** Короткие фактические преимущества для блока «О комплексе» */
+  highlights?: string[];
+  /** Застройщик текстом, если в справочнике застройщиков его нет */
+  builderName?: string;
 };
 
 const MAX_URLS = 30;
@@ -58,5 +64,13 @@ export function sanitizeBlockContent(raw: unknown): BlockContent {
       .slice(0, MAX_FAQ);
     if (faq.length) out.faq = faq;
   }
+  const tagline = cleanText(r.tagline, 160);
+  if (tagline) out.tagline = tagline;
+  if (Array.isArray(r.highlights)) {
+    const hl = r.highlights.map((x) => cleanText(x, 120)).filter(Boolean).slice(0, 8);
+    if (hl.length) out.highlights = hl;
+  }
+  const builderName = cleanText(r.builderName, 200);
+  if (builderName) out.builderName = builderName;
   return out;
 }

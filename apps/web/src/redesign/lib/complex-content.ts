@@ -8,6 +8,9 @@ export type ComplexContent = {
   masterplan3dUrl: string | null;
   gallery: string[];
   faq: { q: string; a: string }[];
+  tagline: string | null;
+  highlights: string[];
+  builderName: string | null;
 };
 
 export const HOUSING_TYPE_LABEL: Record<string, string> = {
@@ -32,6 +35,9 @@ export function parseComplexContent(raw: unknown): ComplexContent {
     masterplan3dUrl: str(r.masterplan3dUrl),
     gallery: strs(r.gallery),
     faq,
+    tagline: str(r.tagline),
+    highlights: strs(r.highlights).map((x) => x.trim()),
+    builderName: str(r.builderName),
   };
 }
 

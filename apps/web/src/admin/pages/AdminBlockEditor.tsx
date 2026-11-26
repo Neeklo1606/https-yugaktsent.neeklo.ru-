@@ -70,6 +70,9 @@ export default function AdminBlockEditor() {
     videos: '',
     gallery: [] as string[],
     faq: [] as { q: string; a: string }[],
+    tagline: '',
+    highlights: '',
+    builderName: '',
   });
   const [newBuilder, setNewBuilder] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -120,6 +123,9 @@ export default function AdminBlockEditor() {
           videos: c.videos.join('\n'),
           gallery: c.gallery,
           faq: c.faq,
+          tagline: c.tagline ?? '',
+          highlights: c.highlights.join('\n'),
+          builderName: c.builderName ?? '',
         };
       })(),
     });
@@ -194,6 +200,9 @@ export default function AdminBlockEditor() {
           videos: form.videos.split(/\s*\n\s*/).map((v) => v.trim()).filter(Boolean),
           gallery: form.gallery,
           faq: form.faq.filter((x) => x.q.trim() && x.a.trim()),
+          tagline: form.tagline.trim() || undefined,
+          highlights: form.highlights.split(/\s*\n\s*/).map((v) => v.trim()).filter(Boolean),
+          builderName: form.builderName.trim() || undefined,
         },
         ...(form.latitude.trim() && form.longitude.trim()
           ? { latitude: Number(form.latitude.replace(',', '.')), longitude: Number(form.longitude.replace(',', '.')) }
@@ -288,9 +297,40 @@ export default function AdminBlockEditor() {
         <div>
           <label className="text-xs text-muted-foreground font-medium">Описание</label>
           <textarea
-            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[120px]"
+            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[180px]"
+            placeholder="2–4 абзаца своими словами, абзацы — через пустую строку. Без цен: цены показывает сайт."
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground font-medium" htmlFor="be-tagline">Подзаголовок (одна строка о главном)</label>
+          <input
+            id="be-tagline"
+            maxLength={160}
+            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+            placeholder="Например: Квартал у моря в 10 минутах от центра"
+            value={form.tagline}
+            onChange={(e) => setForm((f) => ({ ...f, tagline: e.target.value }))}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground font-medium" htmlFor="be-hl">Преимущества (по одному в строке)</label>
+          <textarea
+            id="be-hl"
+            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[90px]"
+            placeholder={'Закрытый двор без машин\nШкола и детский сад в квартале'}
+            value={form.highlights}
+            onChange={(e) => setForm((f) => ({ ...f, highlights: e.target.value }))}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground font-medium" htmlFor="be-builder-name">Застройщик текстом (если нет в списке ниже)</label>
+          <input
+            id="be-builder-name"
+            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+            value={form.builderName}
+            onChange={(e) => setForm((f) => ({ ...f, builderName: e.target.value }))}
           />
         </div>
         <div>

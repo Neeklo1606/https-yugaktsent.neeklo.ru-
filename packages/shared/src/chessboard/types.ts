@@ -54,6 +54,10 @@ export type ArchitecturalShaftDto = {
   layoutGroupKey: string;
   floorsPresent: number[];
   apartmentIds: string[];
+  /** Секция/подъезд столбца («Секция 3»), если дом в выгрузке разбит на секции. */
+  group?: string | null;
+  /** Номер окна на этаже по данным застройщика. */
+  position?: number;
 };
 
 export type FloorTemplateSlotDto = {
