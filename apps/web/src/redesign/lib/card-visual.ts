@@ -276,11 +276,17 @@ export function complexPriceBandRows(complex: ResidentialComplex): ComplexPriceB
     .filter((r) => normalizePriceValue(r.priceMin) != null)
     .sort((a, b) => bandSortKey(a.rooms) - bandSortKey(b.rooms))
     .slice(0, 4)
-    .map((r) => ({
-      rooms: r.rooms,
-      label: complexRoomBandLabel(r.rooms),
-      price: formatPriceFromExact(r.priceMin),
-    }));
+    .map((r) => {
+      // Диапазон «8,1–12,5 млн ₽», как у застройщиков; если верхней цены нет — «от …»
+      const lo = normalizePriceValue(r.priceMin);
+      const hi = normalizePriceValue((r as { priceMax?: number }).priceMax ?? null);
+      const mln = (v: number) => (v / 1_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+      const price =
+        lo != null && hi != null && hi > lo * 1.02 && lo >= 1_000_000
+          ? `${mln(lo)}–${mln(hi)} млн ₽`
+          : formatPriceFromExact(r.priceMin);
+      return { rooms: r.rooms, label: complexRoomBandLabel(r.rooms), price };
+    });
 
   if (fromApi.length > 0) return fromApi;
 

@@ -15,6 +15,21 @@ const OFFER_TO_LISTING = {
  */
 const sharedTokens = new Map();
 
+/**
+ * Вид отделки одним ключом: в фидах и в справочнике она пишется по-разному
+ * («предчистовая отделка», «White box», «Предчистовая»). «Предчистовую»
+ * проверяем раньше «чистовой» — второе слово входит в первое.
+ */
+export function finishingKind(raw) {
+  const s = String(raw ?? "").toLowerCase().replace(/ё/g, "е").trim();
+  if (!s) return null;
+  if (/пред\s*-?\s*чистов|white\s*-?\s*box|вайт\s*бокс|prefine/.test(s)) return "prefine";
+  if (/под\s*ключ|с\s*мебел|дизайнерск|turnkey/.test(s)) return "turnkey";
+  if (/без\s*отделк|без\s*ремонт|чернов|without|rough/.test(s)) return "none";
+  if (/чистов|с\s*отделк|с\s*ремонт|^fine$/.test(s)) return "fine";
+  return null;
+}
+
 export class LiveGridClient {
   constructor(baseUrl, email, password) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
@@ -238,6 +253,46 @@ export class LiveGridClient {
   }
 
   /**
+   * Справочник отделок: только читаем и сопоставляем по смыслу названия.
+   * Записи не заводим — справочник ведёт администратор; если нужного вида
+   * отделки там нет, квартира уходит без отделки, как раньше.
+   */
+  async loadFinishings() {
+    if (this.finishingByKind) return this.finishingByKind;
+    let rows = [];
+    try {
+      rows = (await this.api("/admin/reference/finishings")) ?? [];
+    } catch (err) {
+      console.warn(`[sync] справочник отделок не прочитан: ${err.message}`);
+    }
+    this.setFinishings(Array.isArray(rows) ? rows : []);
+    if (this.finishingByKind.size === 0) {
+      console.warn("[sync] справочник отделок пуст — отделка из фидов не передаётся");
+    }
+    return this.finishingByKind;
+  }
+
+  /** @param {{ id: number, name: string }[]} rows */
+  setFinishings(rows) {
+    this.finishingByName = new Map();
+    this.finishingByKind = new Map();
+    for (const r of rows) {
+      if (!r?.id || !r?.name) continue;
+      this.finishingByName.set(String(r.name).trim().toLowerCase(), r.id);
+      const kind = finishingKind(r.name);
+      if (kind && !this.finishingByKind.has(kind)) this.finishingByKind.set(kind, r.id);
+    }
+  }
+
+  finishingIdFor(raw) {
+    if (!raw || !this.finishingByKind) return undefined;
+    const exact = this.finishingByName.get(String(raw).trim().toLowerCase());
+    if (exact) return exact;
+    const kind = finishingKind(raw);
+    return (kind && this.finishingByKind.get(kind)) || undefined;
+  }
+
+  /**
    * @param {boolean} isUpdate Для существующего объявления площадь
    *   необязательна, для нового — обязательна по контракту API.
    */
@@ -356,7 +411,8 @@ export class LiveGridClient {
 
     // Площадь не выдумываем: раньше здесь стояла единица, и 658 объявлений
     // уехали в базу с площадью 1 м², а карточки показывали это рядом с ценой.
-    const rawArea = offer.area || offer.livingArea || null;
+    // Жилую площадь вместо общей тоже не подставляем — квартира выглядела меньше, чем есть.
+    const rawArea = offer.area || null;
     const areaTotal = rawArea && rawArea >= 10 ? rawArea : null;
     // Без площади новое объявление создать нельзя, а у существующего
     // можно обновить цену и статус, не трогая площадь.
@@ -379,6 +435,7 @@ export class LiveGridClient {
         areaKitchen: offer.kitchenArea ?? undefined,
         floor: offer.floor ?? undefined,
         floorsTotal: offer.floorsTotal ?? undefined,
+        finishingId: this.finishingIdFor(offer.finishing),
         marketSegment: "NEW_BUILDING",
         buildingName: offer.buildingName ?? undefined,
         number: offer.number ?? undefined,

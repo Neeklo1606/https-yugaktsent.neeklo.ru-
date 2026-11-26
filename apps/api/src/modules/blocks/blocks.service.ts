@@ -783,28 +783,31 @@ export class BlocksService {
   }
 
   private aggregateListingPriceRanges(
-    rows: Array<{ block_id: number; room_type_id: number; min_p: unknown }>,
+    rows: Array<{ block_id: number; room_type_id: number; min_p: unknown; max_p?: unknown }>,
     rtToCat: Map<number, number>,
-  ): Map<number, Array<{ rooms: number; priceMin: number }>> {
-    const map = new Map<number, Array<{ rooms: number; priceMin: number }>>();
+  ): Map<number, Array<{ rooms: number; priceMin: number; priceMax?: number }>> {
+    const map = new Map<number, Array<{ rooms: number; priceMin: number; priceMax?: number }>>();
     const minPrice = BlocksService.MIN_REASONABLE_PRICE_RUB;
-    const byBlock = new Map<number, Map<number, number>>();
+    const byBlock = new Map<number, Map<number, { min: number; max: number }>>();
     for (const row of rows) {
       const blockId = Number(row.block_id);
       const rooms = rtToCat.get(Number(row.room_type_id));
       if (rooms == null || row.min_p == null) continue;
       const priceMin = Number(row.min_p);
       if (!Number.isFinite(priceMin) || priceMin < minPrice) continue;
+      const priceMax = Number(row.max_p);
       if (!byBlock.has(blockId)) byBlock.set(blockId, new Map());
       const inner = byBlock.get(blockId)!;
-      const prev = inner.get(rooms);
-      if (prev == null || priceMin < prev) inner.set(rooms, priceMin);
+      const prev = inner.get(rooms) ?? { min: priceMin, max: 0 };
+      prev.min = Math.min(prev.min, priceMin);
+      if (Number.isFinite(priceMax)) prev.max = Math.max(prev.max, priceMax);
+      inner.set(rooms, prev);
     }
     for (const [blockId, inner] of byBlock) {
       map.set(
         blockId,
         Array.from(inner.entries())
-          .map(([rooms, priceMin]) => ({ rooms, priceMin }))
+          .map(([rooms, v]) => ({ rooms, priceMin: v.min, ...(v.max > v.min ? { priceMax: v.max } : {}) }))
           .sort((a, b) => this.roomBandSortKey(a.rooms) - this.roomBandSortKey(b.rooms)),
       );
     }
@@ -823,9 +826,9 @@ export class BlocksService {
     if (await this.isCatalogMvAvailable()) {
       try {
         const rows = await this.prisma.$queryRaw<
-          Array<{ block_id: number; room_type_id: number; min_p: unknown }>
+          Array<{ block_id: number; room_type_id: number; min_p: unknown; max_p?: unknown }>
         >`
-          SELECT block_id, room_type_id, MIN(price) AS min_p
+          SELECT block_id, room_type_id, MIN(price) AS min_p, MAX(price) AS max_p
           FROM catalog_apartment_active_mv
           WHERE block_id IN (${Prisma.join(blockIds)})
             AND price >= ${minPrice}
@@ -847,9 +850,9 @@ export class BlocksService {
 
     try {
       const rows = await this.prisma.$queryRaw<
-        Array<{ block_id: number; room_type_id: number; min_p: unknown }>
+        Array<{ block_id: number; room_type_id: number; min_p: unknown; max_p?: unknown }>
       >`
-        SELECT l.block_id, la.room_type_id, MIN(l.price) AS min_p
+        SELECT l.block_id, la.room_type_id, MIN(l.price) AS min_p, MAX(l.price) AS max_p
         FROM listings l
         INNER JOIN listing_apartments la ON la.listing_id = l.id
         WHERE l.block_id IN (${Prisma.join(missingIds)})

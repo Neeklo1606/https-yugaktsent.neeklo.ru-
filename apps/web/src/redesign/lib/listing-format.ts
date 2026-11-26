@@ -1,7 +1,12 @@
+/** «78.33» → «78,3»: число площади без единицы — для диапазонов «32,5–78,3 м²» */
+export function formatAreaValue(m2: number): string {
+  const rounded = Math.round(m2 * 10) / 10;
+  return String(rounded).replace('.', ',');
+}
+
 /** «78.33» → «78,3 м²»: русская запятая, одна цифра после неё */
 export function formatArea(m2: number): string {
-  const rounded = Math.round(m2 * 10) / 10;
-  return `${String(rounded).replace('.', ',')}\u00a0м²`;
+  return `${formatAreaValue(m2)}\u00a0м²`;
 }
 
 /** «3-комнатная» → «3-к.кв» (формат карточек по ТЗ), «Студия» остаётся студией */

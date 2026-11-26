@@ -373,14 +373,14 @@ const RedesignApartment = () => {
 
 
   return (
-    <div className="min-h-screen bg-background pb-24 lg:pb-8">
+    <div className="min-h-screen bg-background">
       <RedesignHeader mobileTabBar={false} />
 
       <main id="main" className="max-w-[1400px] mx-auto px-4 py-4 sm:py-6">
         <nav aria-label="Хлебные крошки" className="mb-4 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] text-muted-foreground sm:text-sm">
           <Link to="/" className="inline-flex min-h-8 items-center hover:text-foreground">Главная</Link>
           <span>/</span>
-          <Link to={catalogUrl} className="inline-flex min-h-8 items-center hover:text-foreground">Каталог</Link>
+          <Link to={catalogUrl} className="inline-flex min-h-8 items-center hover:text-foreground">Новостройки</Link>
           {districtCatalogUrl ? (
             <>
               <span className="hidden sm:inline">/</span>
@@ -496,9 +496,9 @@ const RedesignApartment = () => {
             <div className={cn('grid gap-4', hasCoords && 'lg:grid-cols-2')}>
               <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
                 <p className="text-[15px] leading-relaxed text-muted-foreground">
-                  {roomLabel} площадью {formatArea(apt.area)}
-                  {apt.floor > 0 ? ` на ${apt.floor} этаже${apt.totalFloors > apt.floor ? ` ${apt.totalFloors}-этажного дома` : ''}` : ''} в ЖК «{complex.name}».
-                  {apt.finishing !== 'без отделки' ? ` Отделка: ${apt.finishing}.` : ' Без отделки.'}
+                  {/* Этаж — в фактах карточки цены, в описании не повторяем */}
+                  {roomLabel} площадью {formatArea(apt.area)} в ЖК «{complex.name}».
+                  {apt.finishing === 'без отделки' ? ' Без отделки.' : apt.finishing ? ` Отделка: ${apt.finishing}.` : ''}
                   {apt.kitchenArea > 0 ? ` Кухня ${formatArea(apt.kitchenArea)}.` : ''}
                 </p>
                 {complex.description?.trim() && complex.description !== `Жилой комплекс «${complex.name}».` ? (
@@ -539,7 +539,7 @@ const RedesignApartment = () => {
             <Reveal as="section" id="similar" className="scroll-mt-36">
               {sectionHeading(`Похожие квартиры в ЖК «${complex.name}»`)}
               {/* Телефон: лента со свайпом (две карточки в кадре); с планшета — ровная сетка */}
-              <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4 [&>*]:w-[64%] [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-auto">
+              <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:scroll-px-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4 [&>*]:w-[64%] [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-auto">
                 {similarApts.map((a) => (
                   <Link
                     key={a.id}
@@ -632,7 +632,7 @@ const RedesignApartment = () => {
 
       <CompareSessionChip />
 
-      <FooterSection />
+      <FooterSection className="pb-24 lg:pb-0" />
     </div>
   );
 };

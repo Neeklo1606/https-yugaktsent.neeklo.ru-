@@ -1,3 +1,4 @@
+import { formatArea, formatAreaValue } from '@/redesign/lib/listing-format';
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -66,7 +67,7 @@ const ApartmentTypeGroups = ({ apartments, sort, onSort }: Props) => {
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {g.count} {g.count === 1 ? 'квартира' : g.count < 5 ? 'квартиры' : 'квартир'}
                   {g.areaMin > 0
-                    ? ` · ${g.areaMin === g.areaMax ? `${g.areaMin} м²` : `${g.areaMin}–${g.areaMax} м²`}`
+                    ? ` · ${g.areaMin === g.areaMax ? formatArea(g.areaMin) : `${formatAreaValue(g.areaMin)}–${formatArea(g.areaMax)}`}`
                     : ''}
                 </p>
               </div>

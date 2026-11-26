@@ -56,7 +56,7 @@ export default function AboutCompany() {
   const team = useExperts().filter((e) => e.published && e.showOnTeamPage);
 
   return (
-    <div className="min-h-screen bg-background pb-16 lg:pb-0">
+    <div className="min-h-screen bg-background">
       <RedesignHeader />
 
       {/* Первый экран: фото под тёмным градиентом, заголовок и показатели */}
@@ -109,13 +109,22 @@ export default function AboutCompany() {
             <h2 id="about-team-title" className="text-section-title">
               Команда
             </h2>
-            <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:mt-8 lg:grid-cols-4">
-              {team.map((e) => (
-                <li key={e.slug}>
-                  <ExpertCard expert={e} />
+            {/* Один эксперт — горизонтальная карточка на всю ширину, а не половина пустой сетки */}
+            {team.length === 1 ? (
+              <ul className="mt-6 lg:mt-8">
+                <li>
+                  <ExpertCard expert={team[0]} variant="wide" />
                 </li>
-              ))}
-            </ul>
+              </ul>
+            ) : (
+              <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:mt-8 lg:grid-cols-4">
+                {team.map((e) => (
+                  <li key={e.slug}>
+                    <ExpertCard expert={e} />
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
       )}
@@ -126,17 +135,18 @@ export default function AboutCompany() {
             Почему нам доверяют
           </h2>
 
-          <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* На телефоне — две колонки и плотнее: четыре карточки не растягиваются на два экрана */}
+          <ul className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4 lg:grid-cols-4">
             {TRUST_CARDS.map(({ icon: Icon, title, text }) => (
               <li
                 key={title}
-                className="surface-card p-6 transition-shadow hover:shadow-raised"
+                className="surface-card p-4 transition-shadow hover:shadow-raised sm:p-6"
               >
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-soft">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-soft sm:h-12 sm:w-12">
                   <Icon className="h-5 w-5 text-primary" aria-hidden />
                 </span>
-                <h3 className="mt-5 text-base font-bold leading-snug">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{text}</p>
+                <h3 className="mt-3 text-[15px] font-bold leading-snug sm:mt-5 sm:text-base">{title}</h3>
+                <p className="mt-1.5 text-[13px] leading-snug text-muted-foreground sm:mt-2 sm:text-sm sm:leading-relaxed">{text}</p>
               </li>
             ))}
           </ul>
@@ -191,7 +201,7 @@ export default function AboutCompany() {
       </section>
 
       <LeadHighlightSection source="about:selection" />
-      <FooterSection />
+      <FooterSection reserveMobileNav />
     </div>
   );
 }

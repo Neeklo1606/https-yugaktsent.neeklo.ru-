@@ -30,6 +30,12 @@ const LG_COLS: Record<number, string> = {
   6: 'lg:grid-cols-6',
 };
 
+const SM_CTA_SPAN: Record<1 | 2 | 3, string> = {
+  1: 'sm:col-span-1',
+  2: 'sm:col-span-2',
+  3: 'sm:col-span-3',
+};
+
 const countLabel = (n: number) => {
   const m10 = n % 10;
   const m100 = n % 100;
@@ -81,6 +87,16 @@ const BuyObjectSection = () => {
   const tiles = TILES.map((t, i) => ({ ...t, ...(results[i].data ?? { total: 0, minPrice: null, planUrl: null }) })).filter((t) => t.total > 0);
   if (!loading && tiles.length === 0) return null;
 
+  /*
+   * Плитка подбора добивает последний ряд: на телефоне (2 колонки) и на планшете (3 колонки)
+   * она растягивается на свободные ячейки — сетка без дыр при любом числе комнатностей.
+   */
+  const tileCount = loading && tiles.length === 0 ? 6 : tiles.length;
+  const ctaSpan = {
+    base: tileCount % 2 === 0 ? 'col-span-2' : 'col-span-1',
+    sm: SM_CTA_SPAN[(3 - (tileCount % 3)) as 1 | 2 | 3],
+  };
+
   const hrefFor = (rooms: number) => {
     const sp = catalogFiltersIntoSearchParams(new URLSearchParams(), { ...defaultFilters, objectType: 'apartments', marketType: 'new', rooms: [rooms] });
     if (regionId != null) sp.set('region_id', String(regionId));
@@ -114,15 +130,18 @@ const BuyObjectSection = () => {
                   to={hrefFor(t.rooms)}
                   className="group flex h-full flex-col overflow-hidden rounded-card border border-border bg-card transition-[box-shadow,border-color] hover:border-primary/30 hover:shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-surface-soft p-3">
+                  <div className="relative aspect-[4/3] overflow-hidden bg-surface-soft">
                     {t.planUrl ? (
+                      // Планировка целиком (contain с отступом), а не случайная обрезка чертежа
                       <StableMediaFrame
                         src={t.planUrl}
                         altContext={`Планировка: ${t.title}`}
                         sizes="(min-width: 1024px) 16vw, (min-width: 640px) 30vw, 46vw"
                         loading="lazy"
+                        fit="contain"
                         fixedHeightClass="h-full w-full"
-                        className="h-full w-full object-contain mix-blend-multiply transition-transform duration-300 group-hover:scale-[1.04] motion-reduce:transition-none"
+                        className="bg-transparent"
+                        imgClassName="mix-blend-multiply transition-[transform,opacity] duration-300 group-hover:scale-[1.04] motion-reduce:transition-none"
                       />
                     ) : (
                       <div className="grid h-full place-items-center text-muted-foreground" aria-hidden>
@@ -142,7 +161,7 @@ const BuyObjectSection = () => {
               </li>
             ))}
 
-        <li className="col-span-2 sm:col-span-1">
+        <li className={cn(ctaSpan.base, ctaSpan.sm, 'lg:col-span-1')}>
           <div className="bg-brand-gradient flex h-full flex-col justify-between rounded-card bg-primary p-4 text-primary-foreground shadow-raised lg:p-5">
             <div>
               <p className="text-[17px] font-semibold leading-snug">Не знаете, что выбрать?</p>

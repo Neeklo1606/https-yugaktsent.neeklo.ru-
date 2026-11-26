@@ -2,6 +2,7 @@ import {
   buildChessboardBuildingMatrix,
   type ChessboardApartmentInput,
   type ChessboardBlockResponse,
+  type ChessboardBuildingMatrix,
 } from '@lg/shared';
 import { ListingKind, ListingStatus } from '@prisma/client';
 
@@ -38,7 +39,7 @@ function roomsFromRoomTypeName(name: string | undefined | null): number {
   const n = (name ?? '').toLowerCase();
   if (n.includes('студ')) return 0;
   const m = n.match(/(\d)/);
-  if (m) return Math.min(4, parseInt(m[1], 10));
+  if (m) return Math.min(9, parseInt(m[1], 10));
   return 1;
 }
 
@@ -75,12 +76,16 @@ export function dedupeChessboardRows(rows: ListingRow[]): ListingRow[] {
   return out;
 }
 
+/** Отделка из данных застройщика; если её нет — «—» (раньше подставлялась «чистовая» всем). */
 function mapFinishing(name: string | undefined | null): string {
-  const n = (name ?? '').toLowerCase();
+  const n = (name ?? '').toLowerCase().trim();
+  if (!n) return '—';
+  if (n.includes('предчист') || n.includes('white')) return 'предчистовая';
   if (n.includes('чернов')) return 'черновая';
   if (n.includes('без отделк')) return 'без отделки';
-  if (n.includes('под ключ')) return 'под ключ';
-  return 'чистовая';
+  if (n.includes('под ключ') || n.includes('дизайн')) return 'под ключ';
+  if (n.includes('чистов')) return 'чистовая';
+  return n;
 }
 
 export function mapListingToChessboardInput(row: ListingRow): ChessboardApartmentInput | null {
@@ -112,8 +117,27 @@ export function mapListingToChessboardInput(row: ListingRow): ChessboardApartmen
   };
 }
 
+/**
+ * Сайт рисует шахматку по grid + shafts; columns, topology и floorTemplates дублируют grid
+ * и раздували ответ до 3,5 МБ. Оставляем пустыми (поля в контракте сохраняются).
+ */
+export function slimChessboardMatrix(m: ChessboardBuildingMatrix): ChessboardBuildingMatrix {
+  return {
+    ...m,
+    columns: [],
+    floorTemplates: [],
+    topology: { sectionCount: m.topology.sectionCount, shafts: [], floorTemplates: [], apartmentToShaft: {} },
+    shafts: m.shafts.map((s) => ({ ...s, mirroredPlanSignatures: [], floorsPresent: [], apartmentIds: [] })),
+  };
+}
+
 export function buildBlockChessboardResponse(
-  block: { id: number; slug: string; name: string; buildings: Array<{ id: number; name: string | null }> },
+  block: {
+    id: number;
+    slug: string;
+    name: string;
+    buildings: Array<{ id: number; name: string | null; deadline?: Date | string | null }>;
+  },
   listings: ListingRow[],
 ): ChessboardBlockResponse {
   const buildings = block.buildings.length
@@ -136,7 +160,10 @@ export function buildBlockChessboardResponse(
     const apts = buckets[idx]
       .map(mapListingToChessboardInput)
       .filter((x): x is ChessboardApartmentInput => x != null);
-    return { count: apts.length, matrix: buildChessboardBuildingMatrix(String(b.id), b.name ?? `Корпус ${idx + 1}`, apts) };
+    const matrix = slimChessboardMatrix(buildChessboardBuildingMatrix(String(b.id), b.name ?? `Корпус ${idx + 1}`, apts));
+    const dl = b.deadline ? new Date(b.deadline) : null;
+    matrix.deadline = dl && !Number.isNaN(dl.getTime()) ? dl.toISOString() : null;
+    return { count: apts.length, matrix };
   });
   // Пустые корпуса и корпуса, где всё продано, не показываем, если есть корпуса с квартирами в продаже
   const withLive = built.filter((x) => x.matrix.statusCounts.available + x.matrix.statusCounts.reserved > 0);

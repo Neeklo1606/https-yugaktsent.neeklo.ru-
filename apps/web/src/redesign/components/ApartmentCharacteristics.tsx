@@ -1,6 +1,6 @@
 import { formatArea } from '@/redesign/lib/listing-format';
 import { Link } from 'react-router-dom';
-import { Building2, Layers, MapPin, Paintbrush, Ruler, ChefHat } from 'lucide-react';
+import { Layers, MapPin, Paintbrush, Ruler, ChefHat } from 'lucide-react';
 import type { Apartment, Building, ResidentialComplex } from '@/redesign/data/types';
 import { cn } from '@/lib/utils';
 
@@ -29,10 +29,8 @@ const ApartmentCharacteristics = ({ apartment, building, complex, roomLabel }: P
     { icon: Layers, label: 'Комнатность', value: roomLabel },
     { icon: Ruler, label: 'Общая площадь', value: formatArea(apartment.area) },
     apartment.kitchenArea > 0 ? { icon: ChefHat, label: 'Кухня', value: formatArea(apartment.kitchenArea) } : null,
-    apartment.floor > 0
-      ? { icon: Building2, label: 'Этаж', value: apartment.totalFloors > apartment.floor ? `${apartment.floor} из ${apartment.totalFloors}` : String(apartment.floor) }
-      : null,
-    { icon: Paintbrush, label: 'Отделка', value: apartment.finishing },
+    // Этаж не повторяем: он уже в фактах карточки цены на первом экране
+    apartment.finishing && apartment.finishing !== '—' ? { icon: Paintbrush, label: 'Отделка', value: apartment.finishing } : null,
   ].filter((x): x is SpecItem => x != null);
 
   const objectRows = [
@@ -58,8 +56,15 @@ const ApartmentCharacteristics = ({ apartment, building, complex, roomLabel }: P
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {primary.map((item) => (
-          <div key={item.label} className="rounded-xl border border-border bg-card p-3 sm:p-4">
+        {primary.map((item, i) => (
+          <div
+            key={item.label}
+            className={cn(
+              'rounded-xl border border-border bg-card p-3 sm:p-4',
+              // Нечётное число карточек в две колонки: последняя — на всю ширину, без дыры
+              primary.length % 2 === 1 && i === primary.length - 1 && 'col-span-2 sm:col-span-1',
+            )}
+          >
             <item.icon className="h-4 w-4 text-muted-foreground mb-2" />
             <p className="text-xs text-muted-foreground">{item.label}</p>
             <p className="text-sm font-semibold mt-0.5 first-letter:uppercase">{item.value}</p>

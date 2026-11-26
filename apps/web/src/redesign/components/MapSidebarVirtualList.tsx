@@ -1,6 +1,7 @@
 import { formatArea } from '@/redesign/lib/listing-format';
 import { memo, useEffect, useMemo, useRef, type KeyboardEvent } from 'react';import { Link } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ResidentialComplex } from '@/redesign/data/types';
 import type { ListingMapItem } from '@/redesign/components/ListingsMapSearch';
@@ -89,13 +90,14 @@ const MapSidebarBlockRow = memo(function MapSidebarBlockRow({
   const focusProps = rowFocusProps(rowIndex, rowCount);
 
   return (
-    <div className="flex min-h-0 min-w-0 gap-0.5" style={{ height: MAP_SIDEBAR_ROW_HEIGHT }} {...focusProps}>
+    <div className="relative flex min-h-0 min-w-0" style={{ height: MAP_SIDEBAR_ROW_HEIGHT }} {...focusProps}>
       <button
         type="button"
         onClick={() => onSelect(isActive ? null : c.slug)}
         className={cn(
           cardVisual.sidebarRow,
-          'h-full min-h-0 flex-1 text-left',
+          // Справа место под стрелку «открыть» — она внутри карточки, а не за её краем
+          'h-full min-h-0 flex-1 pr-9 text-left',
           isActive
             ? 'border-primary bg-primary/5 shadow-sm'
             : 'border-border/60 bg-background hover:bg-muted/50',
@@ -126,11 +128,11 @@ const MapSidebarBlockRow = memo(function MapSidebarBlockRow({
       </button>
       <Link
         to={`/complex/${c.slug}`}
-        className="flex min-w-[28px] shrink-0 items-center justify-center self-stretch px-1 text-[10px] text-muted-foreground hover:text-primary"
+        className="absolute inset-y-1 right-1 flex w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
         aria-label={`Открыть ${c.name}`}
         tabIndex={-1}
       >
-        →
+        <ChevronRight className="h-4 w-4" aria-hidden />
       </Link>
     </div>
   );
@@ -153,13 +155,14 @@ const MapSidebarListingRow = memo(function MapSidebarListingRow({
   const focusProps = rowFocusProps(rowIndex, rowCount);
 
   return (
-    <div className="flex min-h-0 min-w-0 gap-0.5" style={{ height: MAP_SIDEBAR_ROW_HEIGHT }} {...focusProps}>
+    <div className="relative flex min-h-0 min-w-0" style={{ height: MAP_SIDEBAR_ROW_HEIGHT }} {...focusProps}>
       <button
         type="button"
         onClick={() => onSelect(isActive ? null : l.id)}
         className={cn(
           cardVisual.sidebarRow,
-          'h-full min-h-0 flex-1 text-left',
+          // Справа место под стрелку «открыть» — она внутри карточки, а не за её краем
+          'h-full min-h-0 flex-1 pr-9 text-left',
           isActive
             ? 'border-primary bg-primary/5 shadow-sm'
             : 'border-border/60 bg-background hover:bg-muted/50',
@@ -192,11 +195,11 @@ const MapSidebarListingRow = memo(function MapSidebarListingRow({
       </button>
       <Link
         to={`/listing/${l.id}`}
-        className="flex min-w-[28px] shrink-0 items-center justify-center self-stretch px-1 text-[10px] text-muted-foreground hover:text-primary"
+        className="absolute inset-y-1 right-1 flex w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
         aria-label="Открыть объект"
         tabIndex={-1}
       >
-        →
+        <ChevronRight className="h-4 w-4" aria-hidden />
       </Link>
     </div>
   );

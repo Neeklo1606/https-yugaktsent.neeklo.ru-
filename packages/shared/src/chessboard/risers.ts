@@ -25,7 +25,7 @@ export type RiserLayout = {
   columns: RiserColumn[];
   /** columns[colIdx][floorRowIdx] */
   cells: Array<Array<ChessboardApartmentInput | null>>;
-  strategy: 'plan-position' | 'number-suffix';
+  strategy: 'plan-position' | 'number-suffix' | 'number-rank';
 };
 
 const COVERAGE = 0.85;
@@ -36,6 +36,13 @@ type Keyed = { apt: ChessboardApartmentInput; group: string | null; position: nu
 export function parsePlanPosition(url: string | null | undefined): { group: string | null; position: number } | null {
   if (!url) return null;
   const base = decodeURIComponent(url.split(/[?#]/)[0].split('/').pop() ?? '');
+  // Второй формат (ССК, Резиденция морей): room-layout_…_sectionД1_…_room-number08_…
+  const alt = base.match(/room-number(\d{1,3})/i);
+  if (alt) {
+    const position = parseInt(alt[1], 10);
+    const sec = base.match(/section([^_.]+)/i)?.[1];
+    return position > 0 ? { group: sec ? `s${sec}` : null, position } : null;
+  }
   const m = base.match(/_n(\d{1,3})\.[a-z0-9]+$/i);
   if (!m) return null;
   const position = parseInt(m[1], 10);
@@ -81,8 +88,13 @@ function build(keyed: Keyed[], rest: ChessboardApartmentInput[], strategy: Riser
   if (strategy === 'plan-position') {
     const maxByGroup = new Map<string | null, number>();
     for (const c of colMap.values()) maxByGroup.set(c.group, Math.max(maxByGroup.get(c.group) ?? 0, c.position));
+    const realByGroup = new Map<string | null, number>();
+    for (const c of colMap.values()) realByGroup.set(c.group, (realByGroup.get(c.group) ?? 0) + 1);
     for (const [group, max] of maxByGroup) {
-      if (max > 30) continue;
+      const real = realByGroup.get(group) ?? 0;
+      // Секция почти пустая (продано/не выгружено больше половины окон) — пустых окон не рисуем,
+      // иначе сетка раздувается пустыми столбцами
+      if (max > 30 || max - real > Math.max(1, real * 0.5)) continue;
       for (let pos = 1; pos <= max; pos++) {
         const key = `${group ?? ''}|${pos}`;
         if (!colMap.has(key)) colMap.set(key, { key, group, position: pos });
@@ -184,11 +196,31 @@ export function buildDeterministicRisers(apartments: ChessboardApartmentInput[])
     const perFloor = new Map<number, number>();
     for (const k of byNum) perFloor.set(k.apt.floor, (perFloor.get(k.apt.floor) ?? 0) + 1);
     const maxPerFloor = Math.max(...perFloor.values());
-    const distinct = new Set(byNum.map((k) => k.position)).size;
-    if (distinct <= Math.ceil(maxPerFloor * 1.3)) {
+    const positions = byNum.map((k) => k.position);
+    const distinct = new Set(positions).size;
+    const maxPos = Math.max(...positions);
+    // Номер окна должен быть «порядковым на этаже»: позиции укладываются в 1…maxPos, и maxPos разумный.
+    // Проданных окон в выгрузке нет, поэтому сравниваем не с числом квартир на этаже, а с maxPos.
+    if (distinct <= Math.ceil(maxPerFloor * 1.3) || (maxPos <= 60 && distinct <= maxPos)) {
       const res = build(byNum, noNum, 'number-suffix');
       if (res) return res;
     }
+  }
+  // 3. Номера есть, но без схемы «этаж + порядковый» (сквозная нумерация по дому, сдвиги по этажам):
+  // столбец = порядок номера на этаже. Стояки могут не совпасть идеально, зато сетка ровная и
+  // читается слева направо, как нумерация у застройщика.
+  const numeric = valid.filter((a) => /^\d+$/.test((a.number ?? '').trim()));
+  if (numeric.length >= valid.length * COVERAGE) {
+    const byFloor = new Map<number, ChessboardApartmentInput[]>();
+    for (const a of numeric) byFloor.set(a.floor, [...(byFloor.get(a.floor) ?? []), a]);
+    const ranked: Keyed[] = [];
+    for (const list of byFloor.values()) {
+      list.sort((x, y) => Number(x.number) - Number(y.number));
+      list.forEach((apt, i) => ranked.push({ apt, group: null, position: i + 1 }));
+    }
+    const rest = valid.filter((a) => !/^\d+$/.test((a.number ?? '').trim()));
+    const res = build(ranked, rest, 'number-rank');
+    if (res) return res;
   }
   return null;
 }

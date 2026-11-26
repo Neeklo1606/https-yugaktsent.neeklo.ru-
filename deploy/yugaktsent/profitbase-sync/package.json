@@ -7,7 +7,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js --watch-cron",
-    "sync": "node src/index.js --once"
+    "sync": "node src/index.js --once",
+    "test": "node --test src/*.test.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

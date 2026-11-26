@@ -9,6 +9,8 @@ import { XMLParser } from "fast-xml-parser";
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
 
 const QUARTERS = { first: 1, second: 2, third: 3, fourth: 4 };
+/** Отделка в схеме ЦИАН — кодом */
+const CIAN_DECORATION = { without: "Без отделки", rough: "Черновая", preFine: "Предчистовая", fine: "Чистовая" };
 
 const num = (v) => {
   if (v == null || v === "") return null;
@@ -56,7 +58,8 @@ export function normalizeCianObject(obj) {
   return {
     externalId,
     number: text(house?.Flat?.FlatNumber),
-    rooms: obj.FlatRoomsCount === 9 || /studio/i.test(String(obj.FlatRoomsCount)) ? 0 : rooms,
+    // ЦИАН: 9 — студия, 7 — свободная планировка (комнат не знаем), 6 — «6 и больше»
+    rooms: rooms === 9 || /studio/i.test(String(obj.FlatRoomsCount)) ? 0 : rooms === 7 ? null : rooms,
     floor: num(obj.FloorNumber),
     area: num(obj.TotalArea),
     livingArea: num(obj.LivingArea),
@@ -70,6 +73,7 @@ export function normalizeCianObject(obj) {
     buildingSection: text(house?.Flat?.SectionNumber),
     floorsTotal: num(obj.Building?.FloorsCount),
     completionQuarter: deadlineLabel(obj.Building),
+    finishing: CIAN_DECORATION[String(obj.Decoration ?? "")] ?? text(obj.Decoration),
     isApartments: obj.IsApartments === true || obj.IsApartments === "true",
     images: photoList(obj),
     buildingImage: null,

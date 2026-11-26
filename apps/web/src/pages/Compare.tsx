@@ -1,3 +1,4 @@
+import { formatArea } from '@/redesign/lib/listing-format';
 import { Link } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import { useCompare } from '@/shared/hooks/useCompare';
@@ -143,7 +144,7 @@ function listingTitleShort(l: CompareListingPayload): string {
   const t = l.title?.trim();
   if (t) return t;
   if (l.kind === 'APARTMENT' && l.apartment?.roomType?.name) {
-    const a = l.apartment.areaTotal != null && Number(l.apartment.areaTotal) > 0 ? `${Number(l.apartment.areaTotal)} м²` : '';
+    const a = l.apartment.areaTotal != null && Number(l.apartment.areaTotal) > 0 ? formatArea(Number(l.apartment.areaTotal)) : '';
     return [l.apartment.roomType.name, a].filter(Boolean).join(' · ');
   }
   return KIND_LABEL[l.kind] ?? l.kind ?? 'Объект';
@@ -169,11 +170,11 @@ function listingSpecLines(l: CompareListingPayload): { label: string; value: str
   if (l.kind === 'APARTMENT' && l.apartment) {
     const a = l.apartment;
     const area =
-      a.areaTotal != null && Number(a.areaTotal) > 0 ? `${Number(a.areaTotal)} м²` : '—';
+      a.areaTotal != null && Number(a.areaTotal) > 0 ? formatArea(Number(a.areaTotal)) : '—';
     lines.push({ label: 'Площадь', value: area });
   }
   if (l.kind === 'HOUSE' && l.house?.areaTotal != null && Number(l.house.areaTotal) > 0) {
-    lines.push({ label: 'Дом м²', value: `${Number(l.house.areaTotal)} м²` });
+    lines.push({ label: 'Дом м²', value: formatArea(Number(l.house.areaTotal)) });
   }
   if (l.kind === 'LAND' && l.land?.areaSotki != null && Number(l.land.areaSotki) > 0) {
     lines.push({ label: 'Участок сот.', value: `${Number(l.land.areaSotki)}` });

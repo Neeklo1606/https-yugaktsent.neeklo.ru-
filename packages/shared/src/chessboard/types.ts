@@ -94,6 +94,8 @@ export type ChessboardBuildingMatrix = {
   topology: BuildingTopologyDto;
   shafts: ArchitecturalShaftDto[];
   floorTemplates: FloorTemplateDto[];
+  /** Срок сдачи корпуса (ISO), если известен */
+  deadline?: string | null;
 };
 
 export type ChessboardBlockResponse = {

@@ -251,7 +251,7 @@ const Favorites = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24 lg:pb-0 print:pb-0">
+    <div className="min-h-screen bg-background">
       <div className="print:hidden">
         <RedesignHeader />
       </div>
@@ -433,7 +433,7 @@ const Favorites = () => {
         )}
       </div>
       <div className="print:hidden">
-        <FooterSection />
+        <FooterSection reserveMobileNav={rows.length === 0} className={rows.length > 0 ? 'pb-24 lg:pb-0' : undefined} />
       </div>
     </div>
   );

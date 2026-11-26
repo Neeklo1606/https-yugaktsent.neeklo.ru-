@@ -1,11 +1,11 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle } from 'lucide-react';
 import { apiPost, ApiError } from '@/lib/api';
-import PrivacyConsent from '@/shared/components/forms/PrivacyConsent';
+import PrivacyConsent, { ConsentSubmitHint } from '@/shared/components/forms/PrivacyConsent';
 import { consentPayload, validatePrivacyConsent } from '@/shared/lib/privacy-consent';
 import { cleanSourceUrl, readUtm } from '@/shared/lib/utm';
 import {
@@ -109,6 +109,7 @@ const LeadForm = ({
   const [error, setError] = useState('');
   const [duplicateNote, setDuplicateNote] = useState<string | null>(null);
   const [consentAccepted, setConsentAccepted] = useState(false);
+  const consentHintId = `${useId()}-consent-hint`;
   const [honeypot, setHoneypot] = useState('');
   const [consentError, setConsentError] = useState<string | null>(null);
 
@@ -254,9 +255,15 @@ const LeadForm = ({
           error={consentError}
         />
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <Button type="submit" className="w-full h-11" disabled={loading || !consentAccepted}>
+        <Button
+          type="submit"
+          className="w-full h-11"
+          disabled={loading || !consentAccepted}
+          aria-describedby={!consentAccepted ? consentHintId : undefined}
+        >
           {loading ? 'Отправка…' : submitLabel ?? 'Отправить заявку'}
         </Button>
+        <ConsentSubmitHint show={!consentAccepted && !loading} id={consentHintId} className="-mt-1" />
       </form>
     </>,
   );

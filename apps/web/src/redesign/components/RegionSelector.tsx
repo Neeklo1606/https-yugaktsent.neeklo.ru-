@@ -56,7 +56,7 @@ const RegionSelector = ({ regions, selectedRegionId, onSelect, className }: Prop
   // Городов присутствия немного — показываем их сразу кнопками, без окна с поиском
   if (ordered.length <= 4) {
     return (
-      // Телефон: одна строка с прокруткой — 4 города в две строки сдвигали каталог на 50 px вниз (и ломали резерв 34 px под CLS)
+      // Телефон: одна строка с прокруткой — 4 города в две строки сдвигали каталог на 50 px вниз (и ломали резерв под CLS: 44 px на телефоне, 36 px с планшета)
       <div
         className={cn('-mx-4 flex min-w-0 items-center gap-2 overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:max-w-full sm:flex-wrap sm:overflow-visible sm:px-0', className)}
         role="group"
@@ -71,7 +71,8 @@ const RegionSelector = ({ regions, selectedRegionId, onSelect, className }: Prop
               aria-pressed={active}
               onClick={() => onSelect(r.id)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors shrink-0',
+                // Телефон: 44 px — палец не промахивается; с планшета хватает 36 px
+                'inline-flex h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors shrink-0 sm:h-9 sm:px-3.5',
                 active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:border-primary/40 hover:text-primary',
               )}
             >

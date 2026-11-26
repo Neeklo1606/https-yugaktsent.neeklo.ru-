@@ -1,7 +1,7 @@
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { MapPin, Heart, Share2, FileText, Check } from 'lucide-react';
+import { MapPin, Heart, Share2, FileText, Check, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ComplexCard from '@/redesign/components/ComplexCard';
 import SnapRail from '@/redesign/components/home/SnapRail';
@@ -14,7 +14,9 @@ import ComplexInlineFilters from '@/redesign/components/ComplexInlineFilters';
 import ComplexQueueTable from '@/redesign/components/ComplexQueueTable';
 import ComplexAnchorNav, { type ComplexSection } from '@/redesign/components/ComplexAnchorNav';
 import Chessboard from '@/redesign/components/Chessboard';
-import { splitBuildingName } from '@/redesign/lib/chessboard-layout';
+import ComplexFlatsByType from '@/redesign/components/ComplexFlatsByType';
+import { useSiteSettings, settingOptional } from '@/redesign/hooks/useSiteSettings';
+import { chessLiterals, layoutGroupsFromChessboard, shortChessPrice, splitBuildingName } from '@/redesign/lib/chessboard-layout';
 import type { ChessboardBlockResponse } from '@/redesign/lib/chessboard-api';
 import ChessDebugOverlay from '@/redesign/components/ChessDebugOverlay';
 import { ComplexFaq, ComplexMasterplan, ComplexVideos } from '@/redesign/components/ComplexContentBlocks';
@@ -152,6 +154,9 @@ const RedesignComplex = () => {
     [apiBlockQuery.data],
   );
   const housingType = (apiBlockQuery.data as { housingType?: string } | undefined)?.housingType ?? 'flat';
+  const { data: siteSettings } = useSiteSettings();
+  const sitePhone = settingOptional(siteSettings, 'phone_main');
+  const sitePhoneHref = sitePhone ? `tel:${sitePhone.replace(/[^\d+]/g, '')}` : null;
   // Фото, догруженные вручную в админке, — после фото из фида
   const complex = useMemo(() => {
     if (!apiComplex) return null;
@@ -278,22 +283,6 @@ const RedesignComplex = () => {
 
   const buildings = complex?.buildings ?? [];
 
-  const activeChessMatrix = useMemo(() => {
-    const boards = chessboardQuery.data?.buildings;
-    if (!boards?.length) return null;
-    return (activeBuildingId ? boards.find((b) => b.id === activeBuildingId) : null) ?? boards[0];
-  }, [chessboardQuery.data, activeBuildingId]);
-
-  const chessBuildingOptions = useMemo(
-    () =>
-      chessboardQuery.data?.buildings.map((b) => ({
-        id: b.id,
-        name: b.tabLabel,
-        apartmentCount: b.apartmentCount,
-      })),
-    [chessboardQuery.data],
-  );
-
   useEffect(() => {
     if (buildings.length && !activeBuildingId) {
       setActiveBuildingId(buildings[0].id);
@@ -305,9 +294,10 @@ const RedesignComplex = () => {
     if (!boards?.length) return;
     if (!chessAutoPickRef.current || !activeBuildingId || !boards.some((b) => b.id === activeBuildingId)) {
       chessAutoPickRef.current = true;
-      // Открываем дом, где больше всего квартир в продаже, — первая секция бывает почти пустой
-      const best = boards.reduce((a, b) => (b.apartmentCount > a.apartmentCount ? b : a), boards[0]);
-      setActiveBuildingId(best.id);
+      // Открываем литер, где больше всего свободных квартир (литер = все его секции одной сеткой)
+      const lits = chessLiterals(boards);
+      const best = lits.reduce((a, b) => (b.available > a.available ? b : a), lits[0]);
+      setActiveBuildingId(best?.firstId ?? boards[0].id);
     }
   }, [chessboardQuery.data, activeBuildingId]);
 
@@ -330,11 +320,14 @@ const RedesignComplex = () => {
     if (!complex) return [];
     // Планировки — по всему комплексу: выбранный в шахматке дом не должен их прятать
     const apts = complex.buildings.flatMap((b) => b.apartments);
+    // Если шахматка загружена — по всем квартирам ЖК, иначе по загруженной порции
+    const boards = chessboardQuery.data?.buildings;
+    if (boards?.length) return layoutGroupsFromChessboard(complex.id, boards);
     if (fromApi) {
       return buildLayoutGroupsFromApartments(complex.id, apts);
     }
     return [];
-  }, [complex, fromApi]);
+  }, [complex, fromApi, chessboardQuery.data]);
 
   const hasApartments = scopedApartments.length > 0;
   const hasLayouts = layouts.length > 0;
@@ -419,7 +412,7 @@ const RedesignComplex = () => {
       const tab = tabByAnchor[id];
       if (tab) setFlatsTab(tab);
       const sectionId = tab ? 'flats' : id;
-      if (tab === 'chess') setChessboardEnabled(true);
+      setChessboardEnabled(true);
       setActiveSection(sectionId);
       const el = document.getElementById(sectionId);
       if (!el) return;
@@ -433,6 +426,16 @@ const RedesignComplex = () => {
     },
     [initMap],
   );
+
+  // Ссылка вида /complex/slug#chessboard (со страницы квартиры) — открываем нужную вкладку и блок
+  const hashHandledRef = useRef(false);
+  useEffect(() => {
+    if (hashHandledRef.current || !complex) return;
+    const id = decodeURIComponent(location.hash.replace(/^#/, ''));
+    if (!id) return;
+    hashHandledRef.current = true;
+    window.setTimeout(() => scrollToSection(id), 300);
+  }, [complex, location.hash, scrollToSection]);
 
   useEffect(() => {
     if (!navSections.length) return;
@@ -622,7 +625,7 @@ const RedesignComplex = () => {
   const priceFromText = formatPriceFrom(complex.priceFrom);
 
   return (
-    <div className="min-h-screen bg-background pb-28 lg:pb-0">
+    <div className="min-h-screen bg-background">
       <RedesignHeader mobileTabBar={false} />
 
       <main id="main" className="max-w-[1400px] 2xl:max-w-[1560px] mx-auto px-4 pb-10 pt-3 sm:pt-4">
@@ -647,10 +650,11 @@ const RedesignComplex = () => {
 
         {/* Первый экран: галерея + карточка с главным. Раньше — шапка, галерея на всю ширину и колонка 272 px до конца страницы */}
         <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-          <div className="min-w-0">
+          <div className="min-w-0 lg:h-full">
             <ComplexPremiumGallery images={complex.images} title={complex.name} />
           </div>
           <ComplexSummaryCard
+            housingType={housingType}
             complex={complex}
             availableCount={availableCount}
             city={city}
@@ -660,7 +664,8 @@ const RedesignComplex = () => {
           />
         </div>
 
-        <div className="mt-6">
+        {/* Без обёртки: sticky должен прилипать в пределах всей страницы, а не своей обёртки */}
+        <div className="h-6" aria-hidden />
           <ComplexAnchorNav
             sections={navSections}
             activeId={activeSection || navSections[0]?.id || ''}
@@ -674,7 +679,6 @@ const RedesignComplex = () => {
               </>
             }
           />
-        </div>
 
         <div className="space-y-12 sm:space-y-14">
           {hasFlatsBlock ? (
@@ -696,7 +700,7 @@ const RedesignComplex = () => {
                         aria-selected={currentFlatsTab === t.id}
                         onClick={() => {
                           setFlatsTab(t.id);
-                          if (t.id === 'chess') setChessboardEnabled(true);
+                          setChessboardEnabled(true);
                         }}
                         className={cn(
                           'min-h-10 rounded-lg px-4 text-[14px] font-medium transition-colors',
@@ -720,22 +724,31 @@ const RedesignComplex = () => {
                       Повторить
                     </button>
                   </div>
-                ) : activeChessMatrix ? (
+                ) : chessboardQuery.data?.buildings.length ? (
                   <Chessboard
-                    matrix={activeChessMatrix}
-                    buildingName={activeChessMatrix.name}
-                    roomFilter={roomFilter}
-                    onRoomFilter={(k) => setRoomFilter(k as typeof roomFilter)}
-                    buildingOptions={chessBuildingOptions}
+                    boards={chessboardQuery.data.buildings}
                     activeBuildingId={activeBuildingId}
                     onBuildingChange={setActiveBuildingId}
+                    roomFilter={roomFilter}
+                    onRoomFilter={(k) => setRoomFilter(k as typeof roomFilter)}
                     isLoading={chessboardQuery.isFetching}
+                    onApartmentLead={(summary) => {
+                      setConsultContext({
+                        surface: 'complex',
+                        source: `complex:${complex.slug}:chessboard`,
+                        blockId: blockNum ?? undefined,
+                        contextFooter: `ЖК «${complex.name}» · ${summary}`,
+                      });
+                      setConsultOpen(true);
+                    }}
                   />
                 ) : (
                   <div className="rounded-xl border border-border/70 bg-card p-5 text-sm text-muted-foreground">Шахматки по этому ЖК пока нет — посмотрите квартиры списком.</div>
                 )
               ) : currentFlatsTab === 'plans' ? (
                 <LayoutGrid layouts={layouts} complexSlug={complex.slug} />
+              ) : chessboardQuery.data?.buildings.length ? (
+                <ComplexFlatsByType boards={chessboardQuery.data.buildings} roomFilter={roomFilter} housingType={housingType} />
               ) : (
               <>
               {listingsQuery.isError && listingRows.length === 0 ? (
@@ -931,7 +944,7 @@ const RedesignComplex = () => {
           <Reveal as="section" id="lead" className="scroll-mt-36">
             <div className="grid gap-6 overflow-hidden rounded-2xl bg-brand-soft p-5 ring-1 ring-primary/15 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)] lg:items-center lg:gap-10">
               <div>
-                <h2 className="text-[22px] font-bold leading-tight tracking-tight sm:text-[26px]">Подберём квартиру в «{complex.name}»</h2>
+                <h2 className="text-[22px] font-bold leading-tight tracking-tight sm:text-[26px]">{housingType === 'aparthotel' ? 'Подберём апартаменты' : 'Подберём квартиру'} в «{complex.name}»</h2>
                 <p className="mt-2 max-w-md text-[15px] text-muted-foreground">
                   Расскажем о свободных квартирах и условиях покупки, запишем на просмотр. Консультация бесплатная.
                 </p>
@@ -968,11 +981,22 @@ const RedesignComplex = () => {
       <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-sm px-3 py-2.5 lg:hidden safe-area-pb">
         <div className="flex items-center gap-3 max-w-[1400px] mx-auto">
           <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-[15px] font-bold tabular-nums">{priceFromText}</p>
+            <p className="whitespace-nowrap text-[15px] font-bold tabular-nums">
+              {complex.priceFrom > 0 ? `от ${shortChessPrice(complex.priceFrom)} ₽` : priceFromText}
+            </p>
             {availableCount > 0 ? (
-              <p className="truncate text-[12px] text-muted-foreground">{availableCount.toLocaleString('ru-RU')} {flatsWord(availableCount)}</p>
+              <p className="truncate text-[12px] text-muted-foreground">{availableCount.toLocaleString('ru-RU')} в продаже</p>
             ) : null}
           </div>
+          {sitePhoneHref ? (
+            <a
+              href={sitePhoneHref}
+              aria-label="Позвонить"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-foreground"
+            >
+              <Phone className="h-5 w-5" aria-hidden />
+            </a>
+          ) : null}
           <Button
             variant="primary"
             className="shrink-0 px-5"
@@ -989,7 +1013,8 @@ const RedesignComplex = () => {
       <ConsultationFlow open={consultOpen} onOpenChange={setConsultOpen} context={consultContext} />
       <ChessDebugOverlay />
       <ConversionDebugOverlay />
-      <FooterSection />
+      {/* Отступ под нижнюю панель «Записаться» — внутри подвала, чтобы не было светлой полосы */}
+      <FooterSection className="pb-28 lg:pb-0" />
     </div>
   );
 };

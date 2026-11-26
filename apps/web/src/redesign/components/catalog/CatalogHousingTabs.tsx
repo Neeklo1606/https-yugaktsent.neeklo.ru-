@@ -14,14 +14,15 @@ const TABS: ReadonlyArray<{ value: HousingType | null; label: string; hint: stri
 
 /**
  * Тип жилья над выдачей: квартиры в ЖК / апартаменты / коттеджи.
- * Сегментный переключатель как у «Рынок» — те же токены и размеры.
+ * Компактные табы с подчёркиванием — главный выбор над выдачей, визуально отличается
+ * от сегмента «ЖК / Квартиры списком». Высота 44 px — палец не промахивается.
  */
 const CatalogHousingTabs = ({ value, onChange, className }: Props) => (
   <div
     role="tablist"
     aria-label="Тип жилья"
     className={cn(
-      'flex w-full max-w-full overflow-x-auto rounded-lg bg-surface-soft p-1 [scrollbar-width:none] sm:inline-flex sm:w-auto',
+      '-mx-4 flex max-w-[calc(100%+2rem)] gap-5 overflow-x-auto border-b border-border px-4 [scrollbar-width:none] sm:mx-0 sm:max-w-full sm:px-0',
       className,
     )}
   >
@@ -38,8 +39,8 @@ const CatalogHousingTabs = ({ value, onChange, className }: Props) => (
             if (!selected) onChange(tab.value);
           }}
           className={cn(
-            'h-9 flex-1 shrink-0 whitespace-nowrap rounded-md px-1 text-[13px] font-medium transition-colors min-[400px]:px-3 min-[400px]:text-[14px] sm:flex-none sm:px-4',
-            selected ? 'bg-card text-foreground shadow-card' : 'text-muted-foreground hover:text-foreground',
+            '-mb-px h-11 shrink-0 whitespace-nowrap border-b-2 text-[15px] font-medium transition-colors',
+            selected ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
           )}
         >
           {tab.label}

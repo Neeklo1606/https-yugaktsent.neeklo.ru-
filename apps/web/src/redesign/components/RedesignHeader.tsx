@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Menu, MessageCircle, Phone, Send, Users, X, Youtube } from 'lucide-react';
+import { Menu, MessageCircle, Phone, Send, X, Youtube } from 'lucide-react';
+import VkIcon from '@/shared/components/icons/VkIcon';
 import { cn } from '@/lib/utils';
 import { useSiteSettings, settingOptional } from '@/redesign/hooks/useSiteSettings';
 import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
@@ -11,6 +12,7 @@ import HeaderCitySwitch from '@/redesign/components/HeaderCitySwitch';
 import { btnClass } from '@/redesign/lib/button-styles';
 import FavoritesBadgeIcon from '@/redesign/components/FavoritesBadgeIcon';
 import { useFavorites } from '@/shared/hooks/useFavorites';
+import { useHasPublishedNews } from '@/shared/hooks/useHasPublishedNews';
 
 /**
  * Пять пунктов меню. «Каталог недвижимости» убран (созвон 24.11): дублировал «Новостройки» —
@@ -42,6 +44,9 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
   const { data: siteSettings } = useSiteSettings();
   const { shortName, logoUrl } = useSiteBrand();
   const location = useLocation();
+  // «Новости» в меню — только когда в разделе есть публикации: пустой раздел хуже отсутствующего
+  const hasNews = useHasPublishedNews();
+  const navItems = hasNews ? NAV_ITEMS : NAV_ITEMS.filter((i) => i.href !== '/news');
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [leadOpen, setLeadOpen] = useState(false);
@@ -73,10 +78,10 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
    * Каналы связи: рисуем только те, у которых в настройках заполнен адрес.
    * Иконка, ведущая в никуда, хуже отсутствующей.
    */
-  const SOCIALS: { url?: string; label: string; icon: typeof Send }[] = [
+  const SOCIALS: { url?: string; label: string; icon: typeof Send | typeof VkIcon }[] = [
     { url: telegramUrl, label: 'Telegram', icon: Send },
     { url: maxUrl, label: 'MAX', icon: MessageCircle },
-    { url: vkUrl, label: 'ВКонтакте', icon: Users },
+    { url: vkUrl, label: 'ВКонтакте', icon: VkIcon },
     { url: youtubeUrl, label: 'YouTube', icon: Youtube },
   ];
 
@@ -121,7 +126,7 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
           </div>
 
           <nav className="mx-auto hidden items-center gap-1 lg:flex" aria-label="Основное меню">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
@@ -200,7 +205,7 @@ const RedesignHeader = ({ mobileTabBar = true }: HeaderProps) => {
           >
             <HeaderCitySwitch variant="mobile" />
             <div className="flex flex-col">
-              {[...NAV_ITEMS, ...MOBILE_EXTRA_ITEMS].map((item) => (
+              {[...navItems, ...MOBILE_EXTRA_ITEMS].map((item) => (
                 <Link
                   key={item.href}
                   to={item.href}

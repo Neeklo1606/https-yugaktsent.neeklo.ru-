@@ -138,6 +138,17 @@ export function staleListings(listings, liveIds) {
   );
 }
 
+/**
+ * Отделку из фида ставим только туда, где её ещё нет: поле не входит в ручные
+ * правки API (manual_fields), и отделку, выбранную менеджером в админке,
+ * фид иначе перезаписал бы при каждом прогоне.
+ */
+export function keepExistingFinishing(apartmentPatch, current) {
+  const has = current?.apartment?.finishingId ?? current?.apartment?.finishing?.id;
+  if (has != null && apartmentPatch) delete apartmentPatch.finishingId;
+  return apartmentPatch;
+}
+
 /** Доля снимаемых, выше которой считаем, что фид отдал неполные данные, и ничего не снимаем */
 const MAX_HIDE_SHARE = Number(process.env.SYNC_MAX_HIDE_SHARE || 0.6);
 
@@ -285,8 +296,11 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
     cover: coverState,
     bound: bound.size,
     hidden: 0,
+    skippedNoArea: 0,
     errors: [],
   };
+  const listingById = new Map(blockListings.map((l) => [l.id, l]));
+  const noAreaSample = [];
   const liveIds = new Set();
 
   for (let i = 0; i < offers.length; i++) {
@@ -298,6 +312,10 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
       const payload = lg.buildApartmentPayload(offer, block.id, isUpdate);
       if (!payload) {
         result.skipped += 1;
+        if (offer.price > 0 && !(offer.area >= 10)) {
+          result.skippedNoArea += 1;
+          if (noAreaSample.length < 5) noAreaSample.push(offer.externalId);
+        }
         continue;
       }
 
@@ -344,6 +362,7 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
         };
         result.created += 1;
       } else {
+        keepExistingFinishing(payload.apartment, listingById.get(existing.listingId));
         await lg.updateListing(existing.listingId, {
           price: payload.price,
           status: payload.status,
@@ -371,6 +390,12 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
       const id = bucket[offer.externalId]?.listingId;
       if (id) liveIds.add(id);
     }
+  }
+
+  if (result.skippedNoArea > 0) {
+    console.warn(
+      `[profitbase-sync] ${feedKey}: ${result.skippedNoArea} новых лотов без общей площади не созданы (например ${noAreaSample.join(", ")})`,
+    );
   }
 
   // Пропущенные лоты (без цены, без площади) тоже есть в фиде — их не снимаем
@@ -596,6 +621,8 @@ async function runSyncUnlocked({ persist, only } = {}) {
   // Справочник типов комнат нужен до разбора лотов: без него комнатность
   // некуда записать, и прайс по типам квартир в карточке остаётся пустым.
   await lg.ensureRoomTypes();
+  // Отделка передаётся id справочника: читаем его один раз на прогон
+  await lg.loadFinishings();
 
   const allFeeds = await resolveFeeds(lg);
   const feeds = only?.length ? allFeeds.filter((f) => only.includes(f.id)) : allFeeds;

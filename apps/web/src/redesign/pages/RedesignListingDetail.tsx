@@ -188,12 +188,12 @@ function buildTitle(l: ApiListingDetailUniversal): string {
     case 'COMMERCIAL': {
       const area = num(l.commercial?.area);
       const t = l.commercial?.commercialType?.trim() || 'Коммерция';
-      return area > 0 ? `${t} · ${area} м²` : t;
+      return area > 0 ? `${t} · ${formatArea(area)}` : t;
     }
     case 'PARKING': {
       const area = num(l.parking?.area);
       const t = l.parking?.parkingType?.trim() || 'Машиноместо';
-      return area > 0 ? `${t} · ${area} м²` : t;
+      return area > 0 ? `${t} · ${formatArea(area)}` : t;
     }
     default:
       return 'Объект';
@@ -245,15 +245,15 @@ function buildAttributes(l: ApiListingDetailUniversal): { label: string; value: 
   switch (l.kind) {
     case 'APARTMENT': {
       const a = l.apartment;
-      if (a?.areaTotal != null && num(a.areaTotal) > 0) out.push({ label: 'Общая площадь', value: `${num(a.areaTotal)} м²` });
-      if (a?.areaKitchen != null && num(a.areaKitchen) > 0) out.push({ label: 'Кухня', value: `${num(a.areaKitchen)} м²` });
+      if (a?.areaTotal != null && num(a.areaTotal) > 0) out.push({ label: 'Общая площадь', value: `${formatArea(num(a.areaTotal))}` });
+      if (a?.areaKitchen != null && num(a.areaKitchen) > 0) out.push({ label: 'Кухня', value: `${formatArea(num(a.areaKitchen))}` });
       if (a?.floor != null) out.push({ label: 'Этаж', value: a.floorsTotal && a.floorsTotal >= a.floor ? `${a.floor} из ${a.floorsTotal}` : String(a.floor) });
       if (a?.finishing?.name) out.push({ label: 'Отделка', value: a.finishing.name });
       break;
     }
     case 'HOUSE': {
       const h = l.house;
-      if (h?.areaTotal != null && num(h.areaTotal) > 0) out.push({ label: 'Площадь дома', value: `${num(h.areaTotal)} м²` });
+      if (h?.areaTotal != null && num(h.areaTotal) > 0) out.push({ label: 'Площадь дома', value: `${formatArea(num(h.areaTotal))}` });
       if (h?.areaLand != null && num(h.areaLand) > 0) out.push({ label: 'Участок', value: `${num(h.areaLand)} сот.` });
       if (h?.floorsCount != null) out.push({ label: 'Этажей', value: String(h.floorsCount) });
       if (h?.bedrooms != null) out.push({ label: 'Спален', value: String(h.bedrooms) });
@@ -269,7 +269,7 @@ function buildAttributes(l: ApiListingDetailUniversal): { label: string; value: 
     }
     case 'COMMERCIAL': {
       const c = l.commercial;
-      if (c?.area != null && num(c.area) > 0) out.push({ label: 'Площадь', value: `${num(c.area)} м²` });
+      if (c?.area != null && num(c.area) > 0) out.push({ label: 'Площадь', value: `${formatArea(num(c.area))}` });
       if (c?.commercialType) out.push({ label: 'Тип', value: c.commercialType });
       if (c?.floor != null) out.push({ label: 'Этаж', value: String(c.floor) });
       if (c?.hasSeparateEntrance != null) out.push({ label: 'Отдельный вход', value: c.hasSeparateEntrance ? 'Да' : 'Нет' });
@@ -277,7 +277,7 @@ function buildAttributes(l: ApiListingDetailUniversal): { label: string; value: 
     }
     case 'PARKING': {
       const p = l.parking;
-      if (p?.area != null && num(p.area) > 0) out.push({ label: 'Площадь', value: `${num(p.area)} м²` });
+      if (p?.area != null && num(p.area) > 0) out.push({ label: 'Площадь', value: `${formatArea(num(p.area))}` });
       if (p?.parkingType) out.push({ label: 'Тип', value: p.parkingType });
       if (p?.floor != null) out.push({ label: 'Этаж/Уровень', value: String(p.floor) });
       if (p?.number) out.push({ label: 'Номер', value: p.number });
@@ -400,7 +400,7 @@ const RedesignListingDetail = () => {
 
   if (isPending) {
     return (
-      <div className="min-h-screen bg-background pb-32 lg:pb-0">
+      <div className="min-h-screen bg-background">
         <RedesignHeader />
         <div className="max-w-[1400px] mx-auto px-4 py-6 animate-pulse space-y-4">
           <div className="h-4 w-48 bg-muted rounded" />
@@ -490,7 +490,7 @@ const RedesignListingDetail = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-32 lg:pb-0">
+    <div className="min-h-screen bg-background">
       <RedesignHeader />
 
       <div className="max-w-[1400px] mx-auto px-4 py-6">
@@ -748,7 +748,7 @@ const RedesignListingDetail = () => {
                       <Ruler className="w-4 h-4" />
                       Площадь
                     </span>
-                    <span className="font-medium">{num(data.apartment.areaTotal)} м²</span>
+                    <span className="font-medium">{formatArea(num(data.apartment.areaTotal))}</span>
                   </div>
                 ) : null}
                 {data.kind === 'APARTMENT' && data.apartment?.floor ? (
@@ -887,7 +887,7 @@ const RedesignListingDetail = () => {
       </div>
 
       <ConsultationFlow open={consultOpen} onOpenChange={setConsultOpen} context={consultContext} />
-      <FooterSection />
+      <FooterSection className="pb-32 lg:pb-0" />
     </div>
   );
 };

@@ -57,8 +57,8 @@ export default function RelatedListingsCarousel({
   if (query.isLoading) {
     return (
       <section className={cn('space-y-3', className)}>
-        <h2 className="text-lg font-bold px-1">{title}</h2>
-        <div className="flex gap-3 overflow-hidden px-1">
+        <h2 className="text-lg font-bold">{title}</h2>
+        <div className="flex gap-3 overflow-hidden">
           {[0, 1, 2].map((i) => (
             <SkeletonCard key={i} />
           ))}
@@ -71,7 +71,7 @@ export default function RelatedListingsCarousel({
 
   return (
     <section className={cn('space-y-3 relative', className)}>
-      <div className="flex items-center justify-between gap-2 px-1">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-bold">{title}</h2>
         <div className="hidden sm:flex gap-1">
           <button
@@ -94,7 +94,8 @@ export default function RelatedListingsCarousel({
       </div>
       <div
         ref={scrollerRef}
-        className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-1 px-1 scroll-smooth touch-pan-x"
+        /* Телефон: лента до краёв экрана, первая карточка — по линии отступа страницы (как «Похожие в ЖК») */
+        className="-mx-4 flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-px-4 px-4 pb-2 scroll-smooth touch-pan-x sm:mx-0 sm:scroll-px-0 sm:px-0"
         style={{ scrollbarWidth: 'none' }}
       >
         {rows.map((listing) => {

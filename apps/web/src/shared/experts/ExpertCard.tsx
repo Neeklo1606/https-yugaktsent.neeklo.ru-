@@ -7,8 +7,11 @@ import { expertPath, type ExpertProfile } from './expert-profile';
 
 type Props = {
   expert: ExpertProfile;
-  /** row — строка для блока «О компании» на главной; card — карточка в сетке «Команда» */
-  variant?: 'row' | 'card';
+  /**
+   * row — строка для блока «О компании» на главной; card — карточка в сетке «Команда»;
+   * wide — единственный эксперт в «Команде»: горизонтальная карточка на всю ширину
+   */
+  variant?: 'row' | 'card' | 'wide';
   className?: string;
 };
 
@@ -19,14 +22,24 @@ const ExpertCard = ({ expert, variant = 'card', className }: Props) => (
     {...prefetchHandlers('/experts/')}
     className={cn(
       'surface-card group flex gap-4 p-4 transition-[box-shadow,border-color] hover:border-primary/30 hover:shadow-raised sm:p-5',
-      variant === 'card' ? 'flex-row items-center sm:flex-col sm:items-start' : 'flex-row items-center',
+      variant === 'card'
+        ? 'flex-row items-center sm:flex-col sm:items-start'
+        : variant === 'wide'
+          ? 'flex-row items-center sm:gap-6 sm:p-6'
+          : 'flex-row items-center',
       className,
     )}
   >
     <ExpertAvatar
       name={expert.fullName}
       photoUrl={expert.photoUrl}
-      className={variant === 'card' ? 'h-20 w-20 sm:h-auto sm:w-full sm:aspect-[4/5]' : 'h-16 w-16'}
+      className={
+        variant === 'card'
+          ? 'h-20 w-20 sm:h-auto sm:w-full sm:aspect-[4/5]'
+          : variant === 'wide'
+            ? 'h-20 w-20 shrink-0 sm:h-auto sm:w-40 sm:aspect-[4/5] lg:w-48'
+            : 'h-16 w-16'
+      }
     />
     <div className="min-w-0 flex-1">
       <p className="text-[17px] font-semibold leading-snug text-foreground">{expert.fullName}</p>

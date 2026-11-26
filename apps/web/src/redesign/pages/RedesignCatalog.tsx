@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useSearchParams, Link } from 'react-router-dom';
 import { AlertCircle, Info, LayoutGrid, List, Map, MapPin, Search, SearchX, SlidersHorizontal } from 'lucide-react';
-import { Columns2, Rows3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -146,6 +145,21 @@ function pluralRu(n: number, one: string, few: string, many: string): string {
   return many;
 }
 
+/** Открыт ли cookie-баннер (сам баннер не трогаем — смотрим, есть ли он в DOM) */
+const COOKIE_BANNER_SELECTOR = '[aria-label="Уведомление о cookie"]';
+function useCookieBannerOpen(): boolean {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return;
+    const check = () => setOpen(document.querySelector(COOKIE_BANNER_SELECTOR) != null);
+    check();
+    const mo = new MutationObserver(check);
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, []);
+  return open;
+}
+
 const RedesignCatalog = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -161,6 +175,7 @@ const RedesignCatalog = () => {
   /** ЖК под курсором в списке — подсвечиваем его точку на карте */
   const [hoverSlug, setHoverSlug] = useState<string | null>(null);
   const { pref: layoutPref, setPref: setLayoutPref, isWide } = useCatalogLayoutPref();
+  const cookieBannerOpen = useCookieBannerOpen();
   const { data: defaultRegionId, rows: regionRows, setStoredRegionId } = useDefaultRegionId();
   const { shortName } = useSiteBrand();
   const urlRegionIdRaw = searchParams.get('region_id');
@@ -425,7 +440,10 @@ const RedesignCatalog = () => {
     if (withCounts.every((x) => x.count === 0)) return withCounts;
     return withCounts.filter((x) => x.count > 0 || x.type === filters.objectType);
   }, [kindCounts, filters.objectType]);
-  const showKindSwitcher = objectKindLinks.length > 1;
+  // Агентство продаёт новостройки: если других типов с объектами нет, ряд «Квартиры 0 · Дома 0…»
+  // только занимает экран. Не на квартирах (старая ссылка) — показываем, чтобы было куда вернуться.
+  const kindsWithObjects = objectKindLinks.filter((x) => x.count > 0).length;
+  const showKindSwitcher = objectKindLinks.length > 1 && (kindsWithObjects > 1 || filters.objectType !== 'apartments');
   /** Таб «Вторичка» показываем только там, где она есть в данных. */
   const secondaryCountQuery = useQuery({
     queryKey: ['listings', 'secondary-availability', regionId],
@@ -500,8 +518,13 @@ const RedesignCatalog = () => {
 
   const filtered = rows;
 
-  // Карта ЖК: рядом со списком на широком экране или вместо списка («Карта»)
-  const splitMapWanted = isWide && layoutPref === 'split' && view !== 'map';
+  // Карта ЖК: рядом со списком на широком экране или вместо списка («Карта»).
+  // Пока человек сам не выбирал раскладку, карту рядом включаем только если на ней будет
+  // что показать: у большинства найденных ЖК есть координаты. Иначе — обычная сетка карточек.
+  const plottableRows = useMemo(() => rows.filter((c) => c.hasCoords !== false).length, [rows]);
+  const autoSplit = rows.length > 0 && plottableRows * 2 >= rows.length;
+  const effectiveLayout = layoutPref ?? (autoSplit ? 'split' : 'list');
+  const splitMapWanted = isWide && effectiveLayout === 'split' && view !== 'map';
   const blocksMapQuery = useQuery({
     queryKey: [
       'blocks', 'catalog', 'map-points', regionId, debouncedSearch,
@@ -729,6 +752,96 @@ const RedesignCatalog = () => {
     hasBlocks: showBlocks,
   };
 
+  const setGroupFlats = (flats: boolean) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (flats) {
+          next.set('group', 'flats');
+          // Тип жилья — фильтр ЖК; в списке квартир он не применяется
+          next.delete('housing');
+        } else next.delete('group');
+        return next;
+      },
+      { replace: true },
+    );
+  const showGroupSwitch = isApartmentMode && filters.marketType !== 'secondary';
+  /** «ЖК / Квартиры списком» — вторичный выбор: маленький сегмент, не отдельная строка */
+  const groupSwitch = (className: string) =>
+    showGroupSwitch ? (
+      <div className={cn('shrink-0 rounded-lg bg-surface-soft p-0.5', className)} role="group" aria-label="Что показывать">
+        {(
+          [
+            [false, 'ЖК', 'Жилые комплексы'],
+            [true, 'Квартиры', 'Квартиры списком'],
+          ] as const
+        ).map(([flats, short, full]) => (
+          <button
+            key={full}
+            type="button"
+            aria-pressed={flatsMode === flats}
+            aria-label={full}
+            onClick={() => setGroupFlats(flats)}
+            className={cn(
+              'h-9 whitespace-nowrap rounded-md px-2.5 text-[13px] font-medium transition-colors sm:h-8 sm:px-3',
+              flatsMode === flats ? 'bg-card text-foreground shadow-card' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <span className="sm:hidden">{short}</span>
+            <span className="hidden sm:inline">{full}</span>
+          </button>
+        ))}
+      </div>
+    ) : null;
+
+  /**
+   * Один переключатель вида: плитка / список / карта. На ≥1280 px «Карта» у ЖК — это карта
+   * рядом со списком (раскладка запоминается), ниже — карта вместо списка.
+   */
+  const splitCapable = isWide && showBlocks && !housingEmpty;
+  const viewSwitch = (
+    <div className="hidden items-center gap-0.5 rounded-lg border border-border bg-card p-1 sm:flex" role="group" aria-label="Вид">
+      {(
+        [
+          ['grid', LayoutGrid, 'Плитка'],
+          ['list', List, 'Список'],
+          ['map', Map, splitCapable ? 'Список + карта' : 'Карта'],
+        ] as const
+      ).map(([mode, Icon, title]) => {
+        const pressed = splitCapable
+          ? mode === 'map'
+            ? splitActive || view === 'map'
+            : !splitActive && view === mode
+          : view === mode;
+        return (
+          <button
+            key={mode}
+            title={title}
+            aria-label={title}
+            aria-pressed={pressed}
+            type="button"
+            onClick={() => {
+              if (!splitCapable) {
+                handleViewChange(mode);
+                return;
+              }
+              if (mode === 'map') {
+                setLayoutPref('split');
+                if (view === 'map') handleViewChange(lastListViewRef.current);
+              } else {
+                setLayoutPref('list');
+                handleViewChange(mode);
+              }
+            }}
+            className={cn('flex h-9 w-9 items-center justify-center rounded-md transition-colors', pressed ? 'bg-surface-soft text-foreground' : 'text-muted-foreground hover:text-foreground')}
+          >
+            <Icon className="h-4 w-4" />
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <RedesignHeader />
@@ -776,7 +889,8 @@ const RedesignCatalog = () => {
                 />
               ) : null}
             </div>
-            <Link to={mapHref} className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[14px] font-medium hover:bg-surface-soft sm:px-4">
+            {/* С 1024 px вход в карту один — переключатель вида над выдачей (плюс «Карта» в шапке) */}
+            <Link to={mapHref} className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[14px] font-medium hover:bg-surface-soft sm:px-4 lg:hidden">
               <MapPin className="h-4 w-4 text-primary" aria-hidden />
               <span className="hidden sm:inline">На карте</span>
               <span className="sr-only sm:hidden">На карте</span>
@@ -785,20 +899,44 @@ const RedesignCatalog = () => {
           {(regionRows?.length ?? 0) > 1 ? (
             <RegionSelector regions={regionRows} selectedRegionId={regionId} onSelect={handleRegionSelect} className="mt-3 max-w-[900px]" />
           ) : regionRows === undefined ? (
-            // Список городов ещё грузится: держим место под переключатель (34 px), иначе каталог прыгает вниз (CLS)
-            <div className="mt-3 h-[34px]" aria-hidden />
+            // Список городов ещё грузится: держим место под переключатель (44 px на телефоне, 36 px дальше), иначе каталог прыгает вниз (CLS)
+            <div className="mt-3 h-11 sm:h-9" aria-hidden />
           ) : null}
         </div>
       </div>
 
-      <main id="main" className={cn('container-page py-4 lg:py-6', splitActive && 'xl:max-w-none')}>
+      <main
+        id="main"
+        className={cn(
+          'container-page pt-4 lg:py-6',
+          // Телефон/планшет: под плавающей кнопкой карты остаётся место — последняя карточка не прячется
+          mapToggleVisible ? 'pb-24' : 'pb-4',
+          splitActive && 'xl:max-w-none',
+        )}
+      >
         <SessionResumeBanner className="mb-2" />
         <SavedSearchReminder className="mb-2" />
 
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-3 flex flex-col gap-3 lg:mb-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <h1 className="text-[26px] font-semibold leading-tight tracking-tight lg:text-[32px]">{heading}</h1>
-            {foundLine ? <p className="mt-1 text-[14px] text-muted-foreground tabular-nums" aria-live="polite">{foundLine}</p> : null}
+            <h1 className="text-[22px] font-semibold leading-tight tracking-tight sm:text-[26px] lg:text-[32px]">{heading}</h1>
+            <div className="mt-1 flex min-h-5 items-center justify-between gap-2">
+              {foundLine ? (
+                <p className="min-w-0 truncate text-[14px] text-muted-foreground tabular-nums" aria-live="polite">
+                  {/* На телефоне без «Найдено» — строка делит место с сегментом «ЖК / Квартиры» */}
+                  {foundLine.startsWith('Найдено ') ? (
+                    <>
+                      <span className="hidden sm:inline">Найдено </span>
+                      {foundLine.slice('Найдено '.length)}
+                    </>
+                  ) : (
+                    foundLine
+                  )}
+                </p>
+              ) : <span />}
+              {/* Телефон: «ЖК / Квартиры» — маленький сегмент в строке «Найдено», без отдельного ряда */}
+              {groupSwitch('sm:hidden')}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <SaveSearchButton
@@ -842,57 +980,17 @@ const RedesignCatalog = () => {
                 <SelectItem value="name_asc">По названию</SelectItem>
               </SelectContent>
             </Select>
-            <div className="hidden items-center gap-0.5 rounded-lg border border-border bg-card p-1 sm:flex" role="group" aria-label="Вид">
-              {(
-                [
-                  ['grid', LayoutGrid, 'Плитка'],
-                  ['list', List, 'Список'],
-                  ['map', Map, 'Карта'],
-                ] as const
-              ).map(([mode, Icon, title]) => (
-                <button
-                  key={mode}
-                  title={title}
-                  aria-label={title}
-                  aria-pressed={view === mode}
-                  type="button"
-                  onClick={() => handleViewChange(mode)}
-                  className={cn('flex h-9 w-9 items-center justify-center rounded-md transition-colors', view === mode ? 'bg-surface-soft text-foreground' : 'text-muted-foreground hover:text-foreground')}
-                >
-                  <Icon className="h-4 w-4" />
-                </button>
-              ))}
-            </div>
-            {showBlocks && view !== 'map' && !housingEmpty ? (
-              <div className="hidden items-center gap-0.5 rounded-lg border border-border bg-card p-1 xl:flex" role="group" aria-label="Карта рядом со списком">
-                {(
-                  [
-                    ['list', Rows3, 'Список'],
-                    ['split', Columns2, 'Список + карта'],
-                  ] as const
-                ).map(([mode, Icon, label]) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    aria-pressed={layoutPref === mode}
-                    onClick={() => setLayoutPref(mode)}
-                    className={cn(
-                      'inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-[14px] font-medium transition-colors',
-                      layoutPref === mode ? 'bg-surface-soft text-foreground' : 'text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    <Icon className="h-4 w-4" aria-hidden />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
+            {viewSwitch}
           </div>
         </div>
 
-        {showHousingTabs ? (
-          <div className="mb-3">
-            <CatalogHousingTabs value={housing} onChange={handleHousingChange} />
+        {showHousingTabs || showGroupSwitch ? (
+          // Без табов типа на телефоне ряд пустой (сегмент «ЖК / Квартиры» стоит в строке «Найдено»)
+          <div className={cn('mb-3 items-end justify-between gap-4', showHousingTabs ? 'flex' : 'hidden sm:flex')}>
+            {showHousingTabs ? (
+              <CatalogHousingTabs value={housing} onChange={handleHousingChange} className="min-w-0 flex-1 sm:flex-none" />
+            ) : <span />}
+            {groupSwitch('hidden sm:inline-flex')}
           </div>
         ) : null}
 
@@ -917,43 +1015,6 @@ const RedesignCatalog = () => {
           </div>
         )}
 
-        {isApartmentMode && filters.marketType !== 'secondary' ? (
-          <div className="mb-3 ml-0 flex w-full rounded-lg bg-surface-soft p-1 sm:ml-2 sm:inline-flex sm:w-auto" role="group" aria-label="Что показывать">
-            {(
-              [
-                [false, 'Жилые комплексы'],
-                [true, 'Квартиры списком'],
-              ] as const
-            ).map(([flats, label]) => (
-              <button
-                key={label}
-                type="button"
-                aria-pressed={flatsMode === flats}
-                onClick={() =>
-                  setSearchParams(
-                    (prev) => {
-                      const next = new URLSearchParams(prev);
-                      if (flats) {
-                        next.set('group', 'flats');
-                        // Тип жилья — фильтр ЖК; в списке квартир он не применяется
-                        next.delete('housing');
-                      } else next.delete('group');
-                      return next;
-                    },
-                    { replace: true },
-                  )
-                }
-                className={cn(
-                  'h-9 flex-1 whitespace-nowrap rounded-md px-2 text-[13px] font-medium transition-colors min-[400px]:text-[14px] sm:flex-none sm:px-4',
-                  flatsMode === flats ? 'bg-card text-foreground shadow-card' : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
         {showKindSwitcher && (
           <div className="mb-3 flex flex-wrap items-center gap-1.5" aria-label="Тип объекта">
             {objectKindLinks.map((x) => (
@@ -977,8 +1038,18 @@ const RedesignCatalog = () => {
           </div>
         )}
 
-        <CatalogRoomCountChips filters={filters} regionId={regionId} onChange={handleFiltersChange} className="mb-2" />
-        <CatalogFilterPresets filters={filters} onChange={handleFiltersChange} showNewBuildPresets={showBlocks} className="mb-2" />
+        {/* Комнаты и подборки на телефоне — в панели «Фильтры»: первая карточка видна без прокрутки */}
+        <div className="hidden sm:block">
+          <CatalogRoomCountChips
+            filters={filters}
+            regionId={regionId}
+            onChange={handleFiltersChange}
+            // API объявлений не знает тип жилья — числа по комнатам с ним были бы неправдой
+            showCounts={!housing}
+            className="mb-2"
+          />
+          <CatalogFilterPresets filters={filters} onChange={handleFiltersChange} showNewBuildPresets={showBlocks} className="mb-2" />
+        </div>
         <CatalogActiveFilterChips filters={filters} onChange={handleFiltersChange} className="mb-3" />
 
         {!regionId && !regionLoading && <p className="mb-4 text-sm text-muted-foreground">Каталог временно недоступен.</p>}
@@ -1039,6 +1110,7 @@ const RedesignCatalog = () => {
                   regionCenter={regionCenter}
                   activeSlug={mapActive}
                   onSelect={setMapActive}
+                  onShowList={() => handleViewChange(lastListViewRef.current)}
                   compact
                   useViewportApi={false}
                 />
@@ -1163,13 +1235,14 @@ const RedesignCatalog = () => {
               activeSlug={mapActive}
               highlightSlug={hoverSlug}
               onSelect={setMapActive}
+              onShowList={() => setLayoutPref('list')}
             />
           ) : null}
         </div>
       </main>
 
-      {/* Телефон и планшет: карта вместо списка одной кнопкой (на широком экране — карта рядом) */}
-      {mapToggleVisible ? (
+      {/* Телефон и планшет: карта вместо списка одной кнопкой. С 1024 px — переключатель вида; пока открыт cookie-баннер, кнопку прячем */}
+      {mapToggleVisible && !cookieBannerOpen ? (
         <button
           type="button"
           onClick={() => {
@@ -1178,7 +1251,7 @@ const RedesignCatalog = () => {
             requestAnimationFrame(() => document.getElementById('catalog-results')?.scrollIntoView({ block: 'start' }));
           }}
           aria-pressed={view === 'map'}
-          className="fixed bottom-[calc(var(--mobile-nav-h)+env(safe-area-inset-bottom)+12px)] left-1/2 z-40 inline-flex h-11 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-graphite px-5 text-[15px] font-medium text-white shadow-raised transition-colors hover:bg-graphite/90 lg:bottom-6 xl:hidden"
+          className="fixed bottom-[calc(var(--mobile-nav-h)+env(safe-area-inset-bottom)+12px)] left-1/2 z-40 inline-flex h-11 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-graphite px-5 text-[15px] font-medium text-white shadow-raised transition-colors hover:bg-graphite/90 lg:hidden"
         >
           {view === 'map' ? <List className="h-4 w-4" aria-hidden /> : <MapPin className="h-4 w-4" aria-hidden />}
           {view === 'map' ? 'Показать списком' : 'Показать на карте'}
@@ -1193,6 +1266,10 @@ const RedesignCatalog = () => {
             <SheetDescription className="sr-only">Параметры поиска по каталогу</SheetDescription>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
+            {/* Телефон: быстрые подборки живут здесь, а не над выдачей (комнаты — в фильтрах ниже) */}
+            <div className="sm:hidden">
+              <CatalogFilterPresets filters={filters} onChange={handleFiltersChange} showNewBuildPresets={showBlocks} className="mb-1 mt-1" />
+            </div>
             {/* Типы и рынок выбираются над выдачей — там только те, где есть объекты */}
             <FilterSidebar {...sidebarProps} showObjectTypeSwitcher={false} />
           </div>

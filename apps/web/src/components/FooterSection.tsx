@@ -1,11 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Phone, Mail, MapPin, Clock, MessageCircle, Send, Users, Youtube } from 'lucide-react';
+import { Phone, Mail, MapPin, Clock, MessageCircle, Send, Youtube } from 'lucide-react';
+import VkIcon from '@/shared/components/icons/VkIcon';
 import { cn } from '@/lib/utils';
 import { settingOptional, useSiteSettings } from '@/redesign/hooks/useSiteSettings';
 import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
 import { telHref, yandexMapsHref } from '@/lib/contact-links';
 import { typo } from '@/shared/lib/typography';
+import { useHasPublishedNews } from '@/shared/hooks/useHasPublishedNews';
 import {
   FOOTER_CATALOG_LINKS,
   FOOTER_COMPANY_LINKS,
@@ -44,11 +46,15 @@ const FooterNavColumn = ({
 type FooterProps = {
   /** Страница с нижним меню на телефоне: запас под меню — внутри подвала, без белой полосы под ним */
   reserveMobileNav?: boolean;
+  /** Свой нижний запас (например, под нижнее меню и панель кнопок): `pb-32 lg:pb-0` — тоже внутри подвала */
+  className?: string;
 };
 
-const FooterSection = React.forwardRef<HTMLElement, FooterProps>(({ reserveMobileNav = false }, ref) => {
+const FooterSection = React.forwardRef<HTMLElement, FooterProps>(({ reserveMobileNav = false, className }, ref) => {
   const { data: s } = useSiteSettings();
   const { shortName, logoLightUrl, tagline } = useSiteBrand();
+  const hasNews = useHasPublishedNews();
+  const companyLinks = hasNews ? FOOTER_COMPANY_LINKS : FOOTER_COMPANY_LINKS.filter((l) => l.to !== '/news');
 
   const phoneMain = settingOptional(s, 'phone_main');
   const phoneHref = phoneMain ? telHref(phoneMain) : null;
@@ -64,11 +70,11 @@ const FooterSection = React.forwardRef<HTMLElement, FooterProps>(({ reserveMobil
 
   /** Каналы связи: рисуем только заполненные, иконка в никуда хуже отсутствующей */
   const SOCIAL_LINKS = [
-    { url: telegramUrl, label: 'Telegram', Icon: Send },
-    { url: maxUrl, label: 'MAX', Icon: MessageCircle },
-    { url: vkUrl, label: 'ВКонтакте', Icon: Users },
-    { url: youtubeUrl, label: 'YouTube', Icon: Youtube },
-  ].filter((x): x is { url: string; label: string; Icon: typeof Send } => Boolean(x.url));
+    { url: telegramUrl, label: 'Telegram', short: 'Telegram', Icon: Send as typeof Send | typeof VkIcon },
+    { url: maxUrl, label: 'Мессенджер MAX', short: 'MAX', Icon: MessageCircle },
+    { url: vkUrl, label: 'ВКонтакте', short: 'ВКонтакте', Icon: VkIcon },
+    { url: youtubeUrl, label: 'YouTube', short: 'YouTube', Icon: Youtube },
+  ].flatMap((x) => (x.url ? [{ ...x, url: x.url }] : []));
 
   const officeLat = settingOptional(s, 'office_lat');
   const officeLng = settingOptional(s, 'office_lng');
@@ -89,7 +95,7 @@ const FooterSection = React.forwardRef<HTMLElement, FooterProps>(({ reserveMobil
   return (
     /* Фон задаёт сам .bg-footer-gradient (index.css): bg-* классы рядом через cn не ставим —
        tailwind-merge считает их конфликтующими и выкидывает один из них */
-    <footer ref={ref} className={cn('bg-footer-gradient text-primary-foreground', reserveMobileNav && 'pb-mobile-nav')}>
+    <footer ref={ref} className={cn('bg-footer-gradient text-primary-foreground', reserveMobileNav && 'pb-mobile-nav', className)}>
       <div className="container-page py-8 lg:py-10">
         <div className="grid grid-cols-2 gap-x-4 gap-y-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.25fr)_repeat(3,minmax(0,0.85fr))] lg:gap-x-8">
           {/* Бренд и соцсети */}
@@ -110,8 +116,9 @@ const FooterSection = React.forwardRef<HTMLElement, FooterProps>(({ reserveMobil
             ) : null}
 
             {SOCIAL_LINKS.length > 0 ? (
-              <div className="mt-4 flex items-center gap-2">
-                {SOCIAL_LINKS.map(({ url, label, Icon }) => (
+              // Иконка и короткая подпись: одних значков (особенно VK) не узнать
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {SOCIAL_LINKS.map(({ url, label, short, Icon }) => (
                   <a
                     key={label}
                     href={url}
@@ -119,9 +126,10 @@ const FooterSection = React.forwardRef<HTMLElement, FooterProps>(({ reserveMobil
                     rel="noopener noreferrer"
                     aria-label={label}
                     title={label}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-foreground/10 text-primary-foreground/80 transition-colors hover:bg-primary-foreground/20 hover:text-primary-foreground"
+                    className="inline-flex h-10 items-center gap-2 rounded-full bg-primary-foreground/10 pl-3 pr-3.5 text-[13px] font-medium text-primary-foreground/85 transition-colors hover:bg-primary-foreground/20 hover:text-primary-foreground"
                   >
-                    <Icon className="h-[18px] w-[18px]" />
+                    <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
+                    {short}
                   </a>
                 ))}
               </div>
@@ -182,7 +190,7 @@ const FooterSection = React.forwardRef<HTMLElement, FooterProps>(({ reserveMobil
           </div>
 
           <FooterNavColumn title="Недвижимость" links={FOOTER_CATALOG_LINKS} />
-          <FooterNavColumn title="Компания" links={FOOTER_COMPANY_LINKS} />
+          <FooterNavColumn title="Компания" links={companyLinks} />
           <div className="col-span-2 lg:col-span-1">
             <FooterNavColumn title="Документы" links={FOOTER_LEGAL_LINKS} wrapOnMobile />
           </div>

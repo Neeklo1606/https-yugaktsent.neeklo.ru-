@@ -39,10 +39,17 @@ describe('buildDeterministicRisers', () => {
     expect(r.cells[2].map((a) => a?.number)).toEqual(['3003', '2003', '1003']);
   });
 
-  it('без схемы — null (работает общий алгоритм)', () => {
+  it('сквозная нумерация — по порядку номеров на этаже', () => {
     const apts = [1, 2].flatMap((f) => [1, 2].map((n) => apt(`${f}${n}`, f, n, { planImage: null, number: `${n + f * 7}` })));
-    expect(buildDeterministicRisers(apts)).toBeNull();
+    const r = buildDeterministicRisers(apts)!;
+    expect(r.strategy).toBe('number-rank');
+    expect(r.columns.length).toBe(2);
     expect(buildChessboardBuildingMatrix('1', 'Дом', apts).grid.length).toBe(2);
+  });
+
+  it('без номеров и схемы — null (работает общий алгоритм)', () => {
+    const apts = [1, 2].flatMap((f) => [1, 2].map((n) => apt(`${f}${n}`, f, n, { planImage: null, number: null })));
+    expect(buildDeterministicRisers(apts)).toBeNull();
   });
 
   it('секции дома идут группами', () => {

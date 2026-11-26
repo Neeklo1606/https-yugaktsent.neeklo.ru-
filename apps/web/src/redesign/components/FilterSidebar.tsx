@@ -1,8 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronDown, Search, X, MapPin } from 'lucide-react';
+import { ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PriceRangeField from '@/redesign/components/PriceRangeField';
 import type { CatalogFilters, ObjectType, MarketType } from '@/redesign/data/types';
@@ -619,15 +618,8 @@ const FilterSidebar = ({
         </FilterSection>
       )}
 
-      {/* Actions */}
+      {/* Actions. «Показать на карте» убрали: в каталоге карта — в переключателе вида, на /map она уже открыта */}
       <div className="pt-3 space-y-2">
-        <Link
-          to="/map"
-          className="flex items-center justify-center gap-2 w-full h-9 rounded-xl border border-border bg-background text-xs font-medium hover:bg-secondary transition-colors"
-        >
-          <MapPin className="w-3.5 h-3.5 text-primary" />
-          Показать на карте
-        </Link>
         {hasFilters && (
           <button
             onClick={resetAll}

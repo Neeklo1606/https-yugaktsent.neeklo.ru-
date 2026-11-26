@@ -7,7 +7,7 @@ import { formatPriceFrom, isPriceHidden, PRICE_ON_REQUEST } from '@/redesign/lib
 import { buildComplexMarkerDescriptors } from '@/redesign/lib/map-marker-cache';
 import type { MarkerZoomMode } from '@/redesign/lib/map-marker-layout';
 import { panMapToCoords, useMapClusterLayer } from '@/redesign/hooks/useMapClusterLayer';
-import { MapPin, X, Loader2 } from 'lucide-react';
+import { MapPin, MapPinOff, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import StableMediaFrame from '@/redesign/components/StableMediaFrame';
 import MapUnavailableNotice from '@/redesign/components/MapUnavailableNotice';
@@ -51,6 +51,8 @@ interface Props {
   useViewportApi?: boolean;
   /** Подсветка точки без открытия карточки и сдвига карты (наведение на карточку в списке) */
   highlightSlug?: string | null;
+  /** Кнопка «Смотреть списком» в пустом состоянии (ЖК найдены, но координат ни у одного нет) */
+  onShowList?: () => void;
 }
 
 function getAptCount(c: ResidentialComplex) {
@@ -69,6 +71,7 @@ const MapSearch = ({
   filterSearchParams,
   useViewportApi = true,
   highlightSlug = null,
+  onShowList,
 }: Props) => {
   const fillParent = Boolean(compact) || height === '100%';
   const mapRef = useRef<HTMLDivElement>(null);
@@ -199,11 +202,25 @@ const MapSearch = ({
       />
       {!ready && failure ? <MapUnavailableNotice failure={failure} /> : null}
       {ready && complexes.length > 0 && plottableCount === 0 ? (
+        // Честное пустое состояние вместо пустой карты: ЖК есть, но точек поставить нечем
         <div
-          className="pointer-events-none absolute inset-x-4 top-4 z-[6] rounded-xl border border-warning/20 bg-warning-soft/95 px-3 py-2 text-xs text-warning shadow-sm"
+          className="absolute inset-0 z-[6] flex flex-col items-center justify-center gap-3 rounded-xl bg-background/85 p-6 text-center backdrop-blur-[2px]"
           role="status"
         >
-          У найденных ЖК не заполнены координаты, поэтому на карте их пока нет. В списке они есть.
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-soft" aria-hidden>
+            <MapPinOff className="h-6 w-6 text-muted-foreground" />
+          </span>
+          <div className="max-w-[320px] space-y-1">
+            <p className="text-[16px] font-semibold text-foreground">На карте пока пусто</p>
+            <p className="text-[14px] text-muted-foreground">
+              {complexes.length === 1 ? 'Найденный ЖК ещё не отмечен' : 'Найденные ЖК ещё не отмечены'} на карте — все они есть в списке.
+            </p>
+          </div>
+          {onShowList ? (
+            <Button type="button" onClick={onShowList} className="h-11 px-5">
+              Смотреть списком
+            </Button>
+          ) : null}
         </div>
       ) : null}
       {!ready && !failure ? (

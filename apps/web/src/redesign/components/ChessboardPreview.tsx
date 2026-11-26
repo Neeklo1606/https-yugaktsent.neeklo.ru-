@@ -15,6 +15,8 @@ type Props = {
   roomLabel: string;
   compact?: boolean;
   onClose?: () => void;
+  /** Заявка на эту квартиру (запись на просмотр) */
+  onLead?: () => void;
 };
 
 const ChessboardPreview = ({
@@ -24,6 +26,7 @@ const ChessboardPreview = ({
   roomLabel,
   compact = false,
   onClose,
+  onLead,
 }: Props) => {
   const priceDisplay = formatDisplayPrice(apartment.price);
   const canOpen = apartment.status !== 'sold';
@@ -47,8 +50,10 @@ const ChessboardPreview = ({
           <div>
             <p className="font-semibold text-sm">{roomLabel}, {formatArea(apartment.area)}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              № {apartment.number || apartment.id}
-              {apartment.floor > 0 ? ` · ${apartment.floor} этаж` : ''}
+              {/* id из базы не показываем как номер — покупатель примет его за номер квартиры */}
+              {[apartment.number ? `№ ${apartment.number}` : '', apartment.floor > 0 ? `${apartment.floor} этаж` : '']
+                .filter(Boolean)
+                .join(' · ')}
             </p>
           </div>
           <span
@@ -78,7 +83,7 @@ const ChessboardPreview = ({
             {buildingName}
             {section > 0 ? ` · секция ${section}` : ''}
           </p>
-          {apartment.finishing !== 'без отделки' ? (
+          {apartment.finishing && apartment.finishing !== 'без отделки' ? (
             <p className="flex items-center gap-1.5">
               <Layers className="h-3.5 w-3.5 shrink-0" />
               {apartment.finishing}
@@ -100,7 +105,12 @@ const ChessboardPreview = ({
             Продана
           </Button>
         )}
-        {onClose ? (
+        {canOpen && onLead ? (
+          <Button size="sm" variant="outline" className="flex-1 h-9" type="button" onClick={onLead}>
+            Записаться
+          </Button>
+        ) : null}
+        {onClose && !onLead ? (
           <Button size="sm" variant="outline" className="h-9" type="button" onClick={onClose}>
             Закрыть
           </Button>

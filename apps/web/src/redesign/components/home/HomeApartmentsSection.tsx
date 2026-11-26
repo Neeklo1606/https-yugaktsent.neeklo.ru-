@@ -51,7 +51,8 @@ const HomeApartmentsSection = () => {
 
   return (
     <section className="container-page section-y" aria-labelledby="flats-title">
-      <div className="mb-4 flex items-end justify-between gap-4 lg:mb-6">
+      {/* На телефоне ссылка уходит под описание — заголовок не сжимается в две строки */}
+      <div className="mb-4 flex flex-col items-start gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4 lg:mb-6">
         <div>
           <h2 id="flats-title" className="text-section-title">
             Квартиры в продаже

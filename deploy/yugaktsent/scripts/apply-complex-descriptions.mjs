@@ -8,7 +8,8 @@
  *   - описание — только если у ЖК описания нет (правки менеджера не трогаем; --force перезапишет);
  *   - подзаголовок, преимущества, застройщик текстом — в blocks.content, остальное содержимое сохраняется;
  *   - адрес — только если у ЖК адреса нет и надёжность не low.
- * Координаты не ставим: метка не туда хуже, чем пустая карта — их подтверждает менеджер.
+ * Координаты — только если у ЖК их нет и в файле есть точка, проверенная геокодером (дом или короткая
+ * улица в своём городе); длинные трассы и сомнительные адреса в файл не попадают.
  *
  * По умолчанию только показывает план. Запись: --apply.
  *   DOTENV_CONFIG_PATH=/etc/yugaktsent/profitbase-sync.env \
@@ -90,6 +91,11 @@ for (const it of items) {
     plan.push(`застройщик «${it.builder}»`);
   }
   if (contentChanged) patch.content = content;
+  if (it.lat && it.lng && (block.latitude == null || block.longitude == null)) {
+    patch.latitude = it.lat;
+    patch.longitude = it.lng;
+    plan.push(`координаты ${it.lat}, ${it.lng}`);
+  }
   if (it.address && it.confidence !== "low" && !(block.addresses?.length > 0)) {
     patch.address = it.address;
     plan.push(`адрес «${it.address}»`);

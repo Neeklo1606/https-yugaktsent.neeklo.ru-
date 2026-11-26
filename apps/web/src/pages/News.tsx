@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, CalendarDays, Loader2, Search } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, Loader2, Newspaper, Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import Header from '@/redesign/components/RedesignHeader';
@@ -49,7 +49,7 @@ const News = () => {
   const [query, setQuery] = useState('');
   const { data: regionId } = useDefaultRegionId();
 
-  const { data, isLoading } = useQuery({
+  const { data, isPending: isLoading } = useQuery({
     queryKey: ['news', 'public', regionId ?? null],
     queryFn: () =>
       apiGet<PaginatedResult>(
@@ -60,6 +60,7 @@ const News = () => {
   });
 
   const rows = useMemo(() => data?.data ?? [], [data]);
+  const isEmpty = !isLoading && rows.length === 0;
 
   // Рубрики берём из самих публикаций: выдуманных вкладок быть не должно
   const tabs = useMemo(() => {
@@ -82,7 +83,7 @@ const News = () => {
   }, [rows, tab, query]);
 
   return (
-    <div className="min-h-screen bg-background pb-16 lg:pb-0">
+    <div className="min-h-screen bg-background">
       <Header />
 
       <section className="section-y" aria-labelledby="news-title">
@@ -92,6 +93,8 @@ const News = () => {
             Рынок недвижимости Анапы
           </h1>
 
+          {/* Рубрики и поиск — только когда есть что искать */}
+          {isEmpty ? null : (
           <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             {tabs.length > 1 ? (
               <div className="flex flex-wrap gap-2" role="tablist" aria-label="Рубрики">
@@ -129,17 +132,36 @@ const News = () => {
               />
             </div>
           </div>
+          )}
 
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Загрузка" />
             </div>
+          ) : isEmpty ? (
+            <div className="mx-auto mt-10 max-w-md rounded-[20px] border border-border bg-card px-6 py-10 text-center">
+              <Newspaper className="mx-auto h-10 w-10 text-muted-foreground/40" aria-hidden />
+              <h2 className="mt-4 text-lg font-semibold">Новости скоро появятся</h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Пока раздел пополняется, посмотрите актуальные новостройки и квартиры в каталоге или на карте.
+              </p>
+              <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+                <Link
+                  to="/catalog"
+                  className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  Открыть каталог
+                </Link>
+                <Link
+                  to="/map"
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-border px-5 text-sm font-medium hover:bg-muted/50"
+                >
+                  Поиск на карте
+                </Link>
+              </div>
+            </div>
           ) : visible.length === 0 ? (
-            <p className="py-20 text-center text-sm text-muted-foreground">
-              {rows.length === 0
-                ? 'Публикаций пока нет.'
-                : 'По этому запросу ничего не нашлось.'}
-            </p>
+            <p className="py-20 text-center text-sm text-muted-foreground">По этому запросу ничего не нашлось.</p>
           ) : (
             <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {visible.map((n) => (
@@ -194,7 +216,7 @@ const News = () => {
       </section>
 
       <LeadHighlightSection source="news:selection" />
-      <FooterSection />
+      <FooterSection reserveMobileNav />
     </div>
   );
 };

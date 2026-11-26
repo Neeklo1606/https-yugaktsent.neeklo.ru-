@@ -9,7 +9,6 @@ import { useInViewOnce } from '@/shared/hooks/useInViewOnce';
 import { useSiteSettings, settingOptional } from '@/redesign/hooks/useSiteSettings';
 import { useSiteBrand } from '@/redesign/hooks/useSiteBrand';
 import { telHref, yandexMapsHref } from '@/lib/contact-links';
-import officeImage from '@/assets/about-main.jpg';
 
 const Contacts = () => {
   const { data: s } = useSiteSettings();
@@ -22,7 +21,8 @@ const Contacts = () => {
   const address = settingOptional(s, 'address') ?? settingOptional(s, 'contacts_address');
   const workHours = settingOptional(s, 'contacts_work_hours') ?? settingOptional(s, 'work_hours');
   const officeTitle = settingOptional(s, 'office_title') ?? `Офис ${shortName}`;
-  const photo = settingOptional(s, 'contact_block_image') || officeImage;
+  // Своё фото офиса — маленькой миниатюрой; стоковую виллу по умолчанию не показываем
+  const photo = settingOptional(s, 'contact_block_image');
   const lat = settingOptional(s, 'office_lat');
   const lng = settingOptional(s, 'office_lng');
 
@@ -68,69 +68,85 @@ const Contacts = () => {
   ].filter(Boolean) as { icon: typeof MapPin; label: string; value: string; href?: string }[];
 
   return (
-    <div className="min-h-screen bg-background pb-16 lg:pb-0">
+    <div className="min-h-screen bg-background">
       <RedesignHeader />
 
       <section className="section-y" aria-labelledby="contacts-title">
-        <div className="container-page grid grid-cols-1 gap-10 lg:grid-cols-2 lg:items-start lg:gap-14">
-          <div>
-            <p className="text-overline text-muted-foreground">Наш офис</p>
-            <h1 id="contacts-title" className="text-section-title mt-3">
-              Приезжайте на чашку кофе
-            </h1>
-            <p className="mt-4 max-w-[520px] text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Покажем подборку на большом экране, разберём планировки и документы.
-              Консультация и кофе бесплатные, записываться заранее не нужно.
-            </p>
+        <div className="container-page">
+          <p className="text-overline text-muted-foreground">Наш офис</p>
+          <h1 id="contacts-title" className="text-section-title mt-3">
+            Приезжайте на чашку кофе
+          </h1>
+          <p className="mt-4 max-w-[620px] text-sm leading-relaxed text-muted-foreground sm:text-base">
+            Покажем подборку на большом экране, разберём планировки и документы.
+            Консультация и кофе бесплатные, записываться заранее не нужно.
+          </p>
 
-            <div className="mt-8 overflow-hidden rounded-[20px] bg-muted">
-              <img
-                src={photo}
-                alt={officeTitle}
-                className="aspect-[16/10] w-full object-cover"
-                loading="lazy"
-                decoding="async"
-                width={640}
-                height={400}
-              />
+          {/* Контакты и карта — рядом и одной высоты; без большого стокового фото */}
+          <div className="mt-8 grid grid-cols-1 gap-4 lg:mt-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-6">
+            <div className="surface-card flex flex-col p-5 sm:p-6 lg:p-8">
+              <div className="flex items-center gap-4">
+                {photo ? (
+                  <img
+                    src={photo}
+                    alt=""
+                    className="h-16 w-20 shrink-0 rounded-xl object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    width={80}
+                    height={64}
+                  />
+                ) : null}
+                <p className="text-lg font-semibold leading-snug">{officeTitle}</p>
+              </div>
+
+              {rows.length > 0 ? (
+                <ul className="mt-6 space-y-4">
+                  {rows.map(({ icon: Icon, label, value, href }) => (
+                    <li key={label} className="flex items-start gap-4">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-mint">
+                        <Icon className="h-5 w-5 text-primary" aria-hidden />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+                        {href ? (
+                          <a
+                            href={href}
+                            target={href.startsWith('http') ? '_blank' : undefined}
+                            rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                            className="mt-0.5 inline-flex min-h-11 items-center break-words text-base font-medium text-foreground transition-colors hover:text-primary"
+                          >
+                            {value}
+                          </a>
+                        ) : (
+                          <p className="mt-1 text-base font-medium text-foreground">{value}</p>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-6 text-sm text-muted-foreground">
+                  Контакты пока не заполнены в настройках сайта.
+                </p>
+              )}
+
+              {mapsUrl ? (
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-6 inline-flex h-12 items-center justify-center gap-2 self-start rounded-xl border border-border px-5 text-[15px] font-medium transition-colors hover:border-primary/40 hover:text-primary lg:mt-auto"
+                >
+                  <Navigation className="h-4 w-4" />
+                  Открыть в Яндекс Картах
+                </a>
+              ) : null}
             </div>
 
-            {rows.length > 0 ? (
-              <ul className="mt-8 space-y-5">
-                {rows.map(({ icon: Icon, label, value, href }) => (
-                  <li key={label} className="flex items-start gap-4">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-mint">
-                      <Icon className="h-5 w-5 text-primary" aria-hidden />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-                      {href ? (
-                        <a
-                          href={href}
-                          target={href.startsWith('http') ? '_blank' : undefined}
-                          rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                          className="mt-1 inline-flex min-h-11 items-center text-base font-medium text-foreground transition-colors hover:text-primary"
-                        >
-                          {value}
-                        </a>
-                      ) : (
-                        <p className="mt-1 text-base font-medium text-foreground">{value}</p>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-8 text-sm text-muted-foreground">
-                Контакты пока не заполнены в настройках сайта.
-              </p>
-            )}
-          </div>
-
-          <div>
             <div
               ref={mapRef}
-              className="relative h-[320px] w-full overflow-hidden rounded-[20px] border border-border bg-muted sm:h-[420px] lg:h-[480px]"
+              className="relative h-[320px] w-full overflow-hidden rounded-[20px] border border-border bg-muted sm:h-[420px] lg:h-auto lg:min-h-[460px]"
             >
               {!hasCoords ? (
                 <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-2 px-6 text-center">
@@ -150,24 +166,12 @@ const Contacts = () => {
                 </div>
               ) : null}
             </div>
-
-            {mapsUrl ? (
-              <a
-                href={mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 inline-flex h-12 items-center gap-2 rounded-xl border border-border px-5 text-[15px] font-medium transition-colors hover:border-primary/40 hover:text-primary"
-              >
-                <Navigation className="h-4 w-4" />
-                Открыть в Яндекс Картах
-              </a>
-            ) : null}
           </div>
         </div>
       </section>
 
       <LeadHighlightSection source="contacts:selection" />
-      <FooterSection />
+      <FooterSection reserveMobileNav />
     </div>
   );
 };

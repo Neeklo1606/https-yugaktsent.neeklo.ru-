@@ -56,7 +56,7 @@ export default function CatalogLayout<T extends { id: string }>({
   const [sortOpen, setSortOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background pb-16 lg:pb-0">
+    <div className="min-h-screen bg-background">
       <RedesignHeader />
 
       {/* Search bar */}
@@ -189,7 +189,7 @@ export default function CatalogLayout<T extends { id: string }>({
         </div>
       )}
 
-      <FooterSection />
+      <FooterSection reserveMobileNav />
     </div>
   );
 }

@@ -7,14 +7,15 @@ const STORAGE_KEY = 'ugacent.catalog.layout';
 /** С этой ширины карта стоит рядом со списком (Tailwind xl) */
 export const CATALOG_SPLIT_MEDIA = '(min-width: 1280px)';
 
-function readPref(): CatalogLayoutPref {
+/** null — человек ещё не выбирал: раскладку решает каталог (карта рядом только если на ней есть метки) */
+function readPref(): CatalogLayoutPref | null {
   try {
     const v = window.localStorage.getItem(STORAGE_KEY);
     if (v === 'list' || v === 'split') return v;
   } catch {
     /* приватный режим / запрет хранилища — берём умолчание */
   }
-  return 'split';
+  return null;
 }
 
 function writePref(v: CatalogLayoutPref): void {
@@ -43,9 +44,9 @@ export function useMediaQuery(query: string): boolean {
   return value;
 }
 
-/** Выбор раскладки каталога, запомненный в браузере, и факт широкого экрана */
+/** Выбор раскладки каталога, запомненный в браузере (null — не выбирали), и факт широкого экрана */
 export function useCatalogLayoutPref() {
-  const [pref, setPrefState] = useState<CatalogLayoutPref>(() => (typeof window === 'undefined' ? 'split' : readPref()));
+  const [pref, setPrefState] = useState<CatalogLayoutPref | null>(() => (typeof window === 'undefined' ? null : readPref()));
   const isWide = useMediaQuery(CATALOG_SPLIT_MEDIA);
   const setPref = useCallback((next: CatalogLayoutPref) => {
     setPrefState(next);

@@ -85,10 +85,11 @@ export type ChessCounts = {
   total: number;
 };
 
-export function countChessCells(rows: ChessRow[]): ChessCounts {
+export function countChessCells(rows: ChessRow[], isOutside?: (floor: number, col: number) => boolean): ChessCounts {
   const c: ChessCounts = { available: 0, reserved: 0, soldOrClosed: 0, sold: 0, closed: 0, total: 0 };
   for (const r of rows) {
-    for (const cell of r.cells) {
+    for (const [i, cell] of r.cells.entries()) {
+      if (!cell && isOutside?.(r.floor, i)) continue;
       c.total += 1;
       if (!cell) {
         c.closed += 1;
@@ -155,4 +156,211 @@ export function shortRooms(rooms: number): string {
   if (rooms === 0) return 'Ст';
   if (rooms > 0) return `${rooms}к`;
   return '';
+}
+
+/** ISO-дата срока сдачи → «2 кв. 2027» */
+export function deadlineQuarter(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${Math.floor(d.getUTCMonth() / 3) + 1} кв. ${d.getUTCFullYear()}`;
+}
+
+export type ChessSection = {
+  id: string;
+  label: string;
+  /** Индекс первого столбца секции в общей сетке литера */
+  colStart: number;
+  available: number;
+  total: number;
+  deadline: string | null;
+  /** Число столбцов секции и её этажи — выше/ниже секции окна не рисуем */
+  colCount: number;
+  minFloor: number;
+  maxFloor: number;
+};
+
+export type ChessLiteral = {
+  group: string;
+  /** Секция, которая откроется по клику на литер */
+  firstId: string;
+  available: number;
+  total: number;
+  deadline: string | null;
+};
+
+const freeOf = (m: ChessboardBuildingMatrix) => m.statusCounts.available + m.statusCounts.reserved;
+
+/** Литеры ЖК со сроком сдачи и числом свободных квартир — для фильтра «Дом» */
+export function chessLiterals(boards: ChessboardBuildingMatrix[]): ChessLiteral[] {
+  const map = new Map<string, ChessLiteral & { deadlines: string[] }>();
+  for (const b of boards) {
+    const { group } = splitBuildingName(b.name);
+    const cur = map.get(group) ?? { group, firstId: b.id, available: 0, total: 0, deadline: null, deadlines: [] };
+    cur.available += freeOf(b);
+    cur.total += b.apartmentCount;
+    const dl = deadlineQuarter(b.deadline);
+    if (dl && !cur.deadlines.includes(dl)) cur.deadlines.push(dl);
+    map.set(group, cur);
+  }
+  const list = [...map.values()].map(({ deadlines, ...l }) => ({
+    ...l,
+    deadline: deadlines.length === 1 ? deadlines[0] : deadlines.length > 1 ? deadlines.sort()[0] : null,
+  }));
+  return list.sort((a, b) => naturalCompare(a.group, b.group));
+}
+
+/**
+ * Весь литер одной сеткой, как у застройщика: секции рядом слева направо, у каждой своя подпись.
+ * Если в литере одна секция — возвращаем её матрицу как есть.
+ */
+export function mergeLiteralMatrix(
+  boards: ChessboardBuildingMatrix[],
+  activeId: string | null,
+): { matrix: ChessboardBuildingMatrix; group: string; sections: ChessSection[] } | null {
+  if (!boards.length) return null;
+  const active = boards.find((b) => b.id === activeId) ?? boards[0];
+  const { group } = splitBuildingName(active.name);
+  const members = boards
+    .filter((b) => splitBuildingName(b.name).group === group)
+    .sort((a, b) => naturalCompare(splitBuildingName(a.name).section ?? a.name, splitBuildingName(b.name).section ?? b.name));
+  if (members.length === 1) {
+    return {
+      matrix: active,
+      group,
+      sections: [
+        {
+          id: active.id,
+          label: splitBuildingName(active.name).section ?? group,
+          colStart: 0,
+          colCount: active.shaftCount,
+          minFloor: Math.min(...active.floors),
+          maxFloor: Math.max(...active.floors),
+          available: freeOf(active),
+          total: active.apartmentCount,
+          deadline: deadlineQuarter(active.deadline),
+        },
+      ],
+    };
+  }
+  const floors = [...new Set(members.flatMap((m) => m.floors))].sort((a, b) => b - a);
+  const shafts: ChessboardBuildingMatrix['shafts'] = [];
+  const sections: ChessSection[] = [];
+  const cellsByFloor = new Map<number, ChessboardBuildingMatrix['grid'][number]>(floors.map((f) => [f, []]));
+  const statusCounts = { available: 0, reserved: 0, sold: 0 };
+  let apartmentCount = 0;
+  for (const m of members) {
+    const secLabel = splitBuildingName(m.name).section ?? m.name;
+    const inner = new Set(m.shafts.map((s) => s.group ?? ''));
+    sections.push({
+      id: m.id,
+      label: secLabel,
+      colStart: shafts.length,
+      colCount: m.shaftCount,
+      minFloor: m.floors.length ? Math.min(...m.floors) : 0,
+      maxFloor: m.floors.length ? Math.max(...m.floors) : 0,
+      available: freeOf(m),
+      total: m.apartmentCount,
+      deadline: deadlineQuarter(m.deadline),
+    });
+    m.shafts.forEach((s) => {
+      shafts.push({ ...s, group: inner.size > 1 && s.group ? `${secLabel} · ${s.group}` : secLabel, shaftIndex: shafts.length + 1 });
+    });
+    const rowOf = new Map(m.floors.map((f, i) => [f, i]));
+    for (const f of floors) {
+      const r = rowOf.get(f);
+      const row = r === undefined ? [] : m.grid[r] ?? [];
+      for (let c = 0; c < m.shaftCount; c++) {
+        cellsByFloor.get(f)!.push({ floor: f, shaftIndex: 0, apartment: row[c]?.apartment ?? null });
+      }
+    }
+    statusCounts.available += m.statusCounts.available;
+    statusCounts.reserved += m.statusCounts.reserved;
+    statusCounts.sold += m.statusCounts.sold;
+    apartmentCount += m.apartmentCount;
+  }
+  const grid = floors.map((f) => cellsByFloor.get(f)!.map((cell, i) => ({ ...cell, shaftIndex: i + 1 })));
+  const dls = sections.map((s) => s.deadline).filter(Boolean) as string[];
+  return {
+    group,
+    sections,
+    matrix: {
+      ...active,
+      id: `literal:${group}`,
+      name: group,
+      tabLabel: group,
+      apartmentCount,
+      statusCounts,
+      floors,
+      shaftCount: shafts.length,
+      shafts,
+      grid,
+      columns: [],
+      floorTemplates: [],
+      deadline: dls.length ? members.find((m) => deadlineQuarter(m.deadline) === dls.sort()[0])?.deadline ?? null : null,
+    },
+  };
+}
+
+/** Цена за м² → корзина 0…4 внутри литера (подсветка «дешевле → дороже») */
+export function pricePerMeterBuckets(rows: ChessRow[]): (ppm: number) => number | null {
+  const vals = rows
+    .flatMap((r) => r.cells)
+    .filter((c): c is ChessboardApartmentCell => !!c && c.status !== 'sold' && c.price > 0 && c.area > 0)
+    .map((c) => c.price / c.area)
+    .sort((a, b) => a - b);
+  if (vals.length < 5) return () => null;
+  const q = [0.2, 0.4, 0.6, 0.8].map((p) => vals[Math.floor(p * (vals.length - 1))]);
+  return (ppm: number) => (ppm <= 0 ? null : q.filter((t) => ppm > t).length);
+}
+
+/**
+ * Планировки ЖК по всем квартирам из шахматки (а не по первым 48 загруженным): одна карточка
+ * на «комнатность + площадь» — одинаковые квартиры разных этажей и секций не дублируются.
+ */
+export function layoutGroupsFromChessboard(
+  complexId: string,
+  boards: ChessboardBuildingMatrix[],
+): {
+  id: string;
+  complexId: string;
+  apartmentId?: string;
+  rooms: number;
+  area: number;
+  priceFrom: number;
+  priceTo: number;
+  planImage: string;
+  availableCount: number;
+}[] {
+  const map = new Map<string, ReturnType<typeof layoutGroupsFromChessboard>[number]>();
+  for (const b of boards)
+    for (const row of b.grid)
+      for (const cell of row) {
+        const a = cell.apartment;
+        if (!a || a.status === 'sold') continue;
+        const key = `${a.rooms}|${Math.round(a.area * 10) / 10}`;
+        const g =
+          map.get(key) ??
+          {
+            id: key,
+            complexId,
+            apartmentId: a.id,
+            rooms: a.rooms,
+            area: a.area,
+            priceFrom: 0,
+            priceTo: 0,
+            planImage: a.planImage ?? '',
+            availableCount: 0,
+          };
+        g.availableCount += 1;
+        if (!g.planImage && a.planImage) g.planImage = a.planImage;
+        if (a.price > 0 && (g.priceFrom <= 0 || a.price < g.priceFrom)) {
+          g.priceFrom = a.price;
+          g.apartmentId = a.id;
+          if (a.planImage) g.planImage = a.planImage;
+        }
+        if (a.price > g.priceTo) g.priceTo = a.price;
+        map.set(key, g);
+      }
+  return [...map.values()].sort((x, y) => x.rooms - y.rooms || x.area - y.area);
 }

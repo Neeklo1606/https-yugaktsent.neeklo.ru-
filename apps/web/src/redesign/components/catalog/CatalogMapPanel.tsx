@@ -34,14 +34,15 @@ type PanelProps = MapSearchProps & {
  * Родитель монтирует панель только на ≥1280 px — на телефоне скрипт карт не грузится.
  */
 const CatalogMapPanel = ({ total, ...mapProps }: PanelProps) => {
-  const shown = mapProps.complexes.length;
+  // Считаем только ЖК с координатами: «На карте N» не должно обещать метки, которых нет
+  const shown = mapProps.complexes.filter((c) => c.hasCoords !== false).length;
   return (
     <aside aria-label="Жилые комплексы на карте" className="w-[40%] max-w-[880px] shrink-0">
       <div className="sticky top-[88px] h-[calc(100dvh-104px)] min-h-[420px]">
         <LazyMapSearch {...mapProps} compact useViewportApi={false} />
         {total != null && total > shown && shown > 0 ? (
           <p className="pointer-events-none absolute left-3 top-3 z-[6] rounded-lg bg-card/95 px-2.5 py-1 text-[12px] text-muted-foreground shadow-card">
-            На карте {shown.toLocaleString('ru-RU')} из {total.toLocaleString('ru-RU')} — уточните фильтры
+            На карте {shown.toLocaleString('ru-RU')} из {total.toLocaleString('ru-RU')}{mapProps.complexes.length < total ? ' — уточните фильтры' : ''}
           </p>
         ) : null}
       </div>

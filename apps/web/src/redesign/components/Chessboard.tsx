@@ -12,26 +12,24 @@ import {
   buildChessColumns,
   buildChessRows,
   chessColumnGroups,
+  chessLiterals,
   countChessCells,
-  groupChessBuildings,
+  deadlineQuarter,
+  mergeLiteralMatrix,
   shortChessPrice,
   shortRooms,
-  splitBuildingName,
-  type ChessBuildingOption,
 } from '@/redesign/lib/chessboard-layout';
 
-export type ChessboardBuildingOption = ChessBuildingOption;
-
 interface Props {
-  /** Готовая матрица из GET /blocks/:slug/chessboard */
-  matrix: ChessboardBuildingMatrix;
-  buildingName: string;
+  /** Все корпуса/секции из GET /blocks/:slug/chessboard */
+  boards: ChessboardBuildingMatrix[];
+  activeBuildingId: string | null;
+  onBuildingChange: (id: string) => void;
   roomFilter?: number | null;
   onRoomFilter?: (key: number | null) => void;
-  buildingOptions?: ChessBuildingOption[];
-  activeBuildingId?: string | null;
-  onBuildingChange?: (id: string) => void;
   isLoading?: boolean;
+  /** Заявка на квартиру из превью: подпись квартиры для менеджера */
+  onApartmentLead?: (summary: string) => void;
 }
 
 function roomLabel(rooms: number): string {
@@ -52,7 +50,7 @@ function cellToApartment(cell: ChessboardApartmentCell): Apartment {
     totalFloors: 1,
     price: cell.price,
     pricePerMeter: cell.pricePerMeter,
-    finishing: cell.finishing as Apartment['finishing'],
+    finishing: (cell.finishing === '—' ? '' : cell.finishing) as Apartment['finishing'],
     status: cell.status,
     planImage: cell.planImage ?? '',
     section: cell.section,
@@ -74,43 +72,74 @@ function useIsMobileChess(): boolean {
 }
 
 const fmtArea = (v: number) => Number(v || 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+const fmtInt = (v: number) => v.toLocaleString('ru-RU');
+
+/** Цвет бейджа комнатности — как у застройщиков: глазом видно, где студии, где «двушки» */
+const ROOM_BADGE: Record<number, string> = {
+  0: 'bg-violet-100 text-violet-800 dark:bg-violet-500/20 dark:text-violet-200',
+  1: 'bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200',
+  2: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200',
+  3: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200',
+};
+const roomBadge = (rooms: number) => ROOM_BADGE[Math.min(Math.max(rooms, 0), 3)] ?? ROOM_BADGE[3];
+const roomBadgeBig = 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-200';
+
+
+const leadSummary = (a: Apartment, where: string) =>
+  `${roomLabel(a.rooms)} ${fmtArea(a.area)} м², ${a.floor} этаж, ${where}${a.number ? `, № ${a.number}` : ''} (id ${a.id})`;
 
 const chipClass = (active: boolean) =>
   cn(
-    'inline-flex min-h-9 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium transition-colors',
-    active
-      ? 'border-primary bg-primary text-primary-foreground'
-      : 'border-border bg-background text-foreground hover:border-primary/50',
+    'inline-flex min-h-10 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl border px-3 text-[14px] font-medium transition-colors',
+    active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-foreground hover:border-primary/50',
   );
 
+const label = (t: string) => <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">{t}</p>;
+
 /**
- * Шахматка дома: этажи сверху вниз, окна по стоякам. Свободные — белые с ценой,
- * бронь — жёлтые, проданные и окна, которых нет в продаже, — серые.
- * Справа (на телефоне сверху) — выбор литера и секции, комнатности и легенда.
+ * Шахматка литера целиком, как у застройщика: секции рядом слева направо, этажи сверху вниз,
+ * окна по стоякам. Сверху — выбор дома (со сроком сдачи), секции, комнатности и подсветка цены.
+ * Свободные — с ценой, бронь — жёлтые, проданные — серой штриховкой, «нет в продаже» — пунктир.
  */
-const Chessboard = ({
-  matrix,
-  buildingName,
-  roomFilter = null,
-  onRoomFilter,
-  buildingOptions,
-  activeBuildingId,
-  onBuildingChange,
-  isLoading = false,
-}: Props) => {
+const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = null, onRoomFilter, isLoading = false, onApartmentLead }: Props) => {
   const navigate = useNavigate();
   const isMobile = useIsMobileChess();
-  const [hover, setHover] = useState<{ apt: Apartment; rect: DOMRect } | null>(null);
-  const [sheetApt, setSheetApt] = useState<Apartment | null>(null);
+  const [hover, setHover] = useState<{ apt: Apartment; rect: DOMRect; where: string } | null>(null);
+  const [sheetApt, setSheetApt] = useState<{ apt: Apartment; where: string } | null>(null);
+  const [focusSection, setFocusSection] = useState<string | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previewHovered = useRef(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [edge, setEdge] = useState({ left: false, right: false });
+  const updateEdge = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setEdge({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+  }, []);
 
-  const rows = useMemo(() => buildChessRows(matrix), [matrix]);
-  const counts = useMemo(() => countChessCells(rows), [rows]);
-  const groups = useMemo(() => groupChessBuildings(buildingOptions ?? []), [buildingOptions]);
-  const activeId = activeBuildingId ?? buildingOptions?.[0]?.id ?? null;
-  const activeGroup = groups.find((g) => g.items.some((i) => i.id === activeId)) ?? groups[0];
-  const { group: titleGroup, section: titleSection } = splitBuildingName(buildingName);
+  const literals = useMemo(() => chessLiterals(boards), [boards]);
+  const merged = useMemo(() => mergeLiteralMatrix(boards, activeBuildingId), [boards, activeBuildingId]);
+  const matrix = merged?.matrix ?? null;
+  const rows = useMemo(() => (matrix ? buildChessRows(matrix) : []), [matrix]);
+  const columns = useMemo(() => (matrix ? buildChessColumns(matrix) : []), [matrix]);
+  const sectionsList = merged?.sections ?? [];
+  /** Окно вне этажей своей секции (секции литера бывают разной высоты) — рисуем пустоту */
+  const isOutside = useCallback(
+    (floor: number, col: number) => {
+      const s = sectionsList.find((x) => col >= x.colStart && col < x.colStart + x.colCount);
+      return Boolean(s && sectionsList.length > 1 && (floor > s.maxFloor || floor < s.minFloor));
+    },
+    [sectionsList],
+  );
+  const counts = useMemo(() => countChessCells(rows, isOutside), [rows, isOutside]);
+  const groupHeader = useMemo(() => {
+    const g = chessColumnGroups(columns);
+    return g.length > 1 ? g : null;
+  }, [columns]);
+  const hasNumbers = useMemo(() => rows.some((r) => r.cells.some((c) => c?.number)), [rows]);
+  const sections = sectionsList;
+  const literalName = merged?.group ?? '';
+  const activeLiteral = literals.find((l) => l.group === literalName);
 
   const roomCounts = useMemo(() => {
     const m = new Map<RoomCategoryKey, number>();
@@ -124,22 +153,33 @@ const Chessboard = ({
   }, [rows]);
 
   useEffect(() => {
+    if (!matrix) return;
     chessObsRegisterRender({
       apartmentCount: matrix.apartmentCount,
       visibleCellCount: counts.available + counts.reserved,
-      sectionCount: 1,
+      sectionCount: sections.length,
       floorCount: rows.length,
     });
-  }, [matrix.apartmentCount, counts, rows.length]);
+  }, [matrix, counts, rows.length, sections.length]);
+
+  // Смена дома — сетка в начало
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ left: 0 });
+    setFocusSection(null);
+    requestAnimationFrame(updateEdge);
+  }, [literalName, updateEdge, columns.length]);
 
   const aptById = useMemo(() => {
-    const m = new Map<string, Apartment>();
-    for (const r of rows) for (const c of r.cells) if (c) m.set(c.id, cellToApartment(c));
+    const m = new Map<string, { apt: Apartment; where: string }>();
+    for (const r of rows)
+      r.cells.forEach((c, i) => {
+        if (c) m.set(c.id, { apt: cellToApartment(c), where: columns[i]?.group ? `${literalName} · ${columns[i].group}` : literalName });
+      });
     return m;
-  }, [rows]);
+  }, [rows, columns, literalName]);
 
   const isDimmed = useCallback(
-    (apt: Apartment) => roomFilter !== null && roomCategoryFromRooms(apt.rooms) !== roomFilter,
+    (rooms: number) => roomFilter !== null && roomCategoryFromRooms(rooms) !== roomFilter,
     [roomFilter],
   );
 
@@ -155,37 +195,36 @@ const Chessboard = ({
   };
   useEffect(() => () => clearTimer(), []);
 
-  const aptFromEvent = (e: React.SyntheticEvent): { apt: Apartment; el: HTMLElement } | null => {
+  const hitFromEvent = (e: React.SyntheticEvent) => {
     const el = (e.target as HTMLElement).closest('[data-apt-id]') as HTMLElement | null;
-    const apt = el?.dataset.aptId ? aptById.get(el.dataset.aptId) : undefined;
-    if (!el || !apt || apt.status === 'sold') return null;
-    return { apt, el };
+    const hit = el?.dataset.aptId ? aptById.get(el.dataset.aptId) : undefined;
+    if (!el || !hit || hit.apt.status === 'sold') return null;
+    return { ...hit, el };
   };
 
   const onOver = (e: React.MouseEvent) => {
     if (isMobile) return;
-    const hit = aptFromEvent(e);
+    const hit = hitFromEvent(e);
     if (!hit) return scheduleClose();
     clearTimer();
-    setHover({ apt: hit.apt, rect: hit.el.getBoundingClientRect() });
+    setHover({ apt: hit.apt, rect: hit.el.getBoundingClientRect(), where: hit.where });
   };
 
-  const openApt = (apt: Apartment) => {
-    chessObsSelection(apt.id, performance.now());
-    if (isMobile) setSheetApt(apt);
-    else navigate(`/apartment/${apt.id}`);
+  const openApt = (hit: { apt: Apartment; where: string }) => {
+    chessObsSelection(hit.apt.id, performance.now());
+    if (isMobile) setSheetApt(hit);
+    else navigate(`/apartment/${hit.apt.id}`);
   };
-
   const onClick = (e: React.MouseEvent) => {
-    const hit = aptFromEvent(e);
-    if (hit) openApt(hit.apt);
+    const hit = hitFromEvent(e);
+    if (hit) openApt(hit);
   };
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
-    const hit = aptFromEvent(e);
+    const hit = hitFromEvent(e);
     if (!hit) return;
     e.preventDefault();
-    openApt(hit.apt);
+    openApt(hit);
   };
 
   const previewPos = useMemo(() => {
@@ -199,34 +238,43 @@ const Chessboard = ({
     return { left: Math.max(8, left), top: Math.max(8, top) };
   }, [hover]);
 
-  const shaftCount = matrix.shaftCount;
-  const hasGrid = rows.length > 0 && shaftCount > 0;
+  /** Секция в фильтре — прокручиваем сетку к ней и подсвечиваем заголовок */
+  const goSection = (id: string) => {
+    const s = sections.find((x) => x.id === id);
+    const box = scrollRef.current;
+    if (!s || !box) return;
+    setFocusSection(id);
+    const th = box.querySelector<HTMLElement>(`[data-col="${s.colStart}"]`);
+    if (th) box.scrollTo({ left: Math.max(0, th.offsetLeft - 52), behavior: 'smooth' });
+  };
 
-  const columns = useMemo(() => buildChessColumns(matrix), [matrix]);
-  const groupHeader = useMemo(() => {
-    const g = chessColumnGroups(columns);
-    return g.length > 1 ? g : null;
-  }, [columns]);
+  // Ячейка тянется на свободную ширину (мало стояков — не оставляем полкарточки пустой)
+  const CELL = cn('w-full rounded-lg', isMobile ? 'min-w-[72px]' : 'min-w-[84px]', hasNumbers ? 'h-[62px]' : 'h-[52px]');
+  const groupGaps = columns.filter((c) => c.groupStart).length;
+  const tableWidth = `min(100%, ${columns.length * 150 + groupGaps * 16 + 56}px)`;
 
-  const CELL = isMobile ? 'h-[48px] w-[70px] rounded-lg' : 'h-[52px] w-[80px] rounded-lg';
-
-  const renderCell = (cell: ChessboardApartmentCell | null, floor: number) => {
+  const renderCell = (cell: ChessboardApartmentCell | null, floor: number, col: number) => {
+    if (!cell && isOutside(floor, col)) return <div className={CELL} aria-hidden />;
     if (!cell) {
-      return <div className={cn(CELL, 'border border-dashed border-border/80 bg-transparent')} title="Нет в продаже" aria-hidden />;
+      return <div className={cn(CELL, 'border border-dashed border-border/80')} title="Нет в продаже" aria-hidden />;
     }
+    const dim = isDimmed(cell.rooms);
+    const badge = cell.rooms >= 4 ? roomBadgeBig : roomBadge(cell.rooms);
     if (cell.status === 'sold') {
       return (
         <div
-          className={cn(CELL, 'chess-sold flex flex-col items-center justify-center border border-transparent text-[11px] leading-tight text-muted-foreground')}
+          className={cn(CELL, 'chess-sold flex flex-col justify-between border border-transparent px-2 py-1.5 text-[11px] leading-none text-muted-foreground', dim && 'opacity-30')}
           title={`Продана · ${roomLabel(cell.rooms)}, ${fmtArea(cell.area)} м²${cell.number ? ` · № ${cell.number}` : ''}`}
         >
-          <span className="font-medium">{shortRooms(cell.rooms)}</span>
-          <span className="text-[10px]">продана</span>
+          {hasNumbers ? <span className="tabular-nums">{cell.number ? `№${cell.number}` : ''}</span> : null}
+          <span className="flex items-baseline justify-between gap-1">
+            <span className="font-semibold">{shortRooms(cell.rooms)}</span>
+            <span className="tabular-nums">{fmtArea(cell.area)}</span>
+          </span>
+          <span>продана</span>
         </div>
       );
     }
-    const apt = aptById.get(cell.id)!;
-    const dim = isDimmed(apt);
     const reserved = cell.status === 'reserved';
     const price = shortChessPrice(cell.price);
     return (
@@ -237,305 +285,291 @@ const Chessboard = ({
         aria-label={`${roomLabel(cell.rooms)}${cell.number ? ` № ${cell.number}` : ''}, ${fmtArea(cell.area)} м², ${floor} этаж, ${price || 'цена по запросу'}${reserved ? ', бронь' : ''}`}
         className={cn(
           CELL,
-          'group flex cursor-pointer flex-col justify-between border px-2 py-1.5 text-left transition-[transform,border-color,box-shadow,opacity,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+          'flex cursor-pointer flex-col justify-between border px-2 py-1.5 text-left leading-none transition-[transform,border-color,box-shadow,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
           reserved
-            ? 'border-amber-400/60 bg-amber-50 hover:border-amber-500 dark:bg-amber-400/10'
-            : 'border-primary/25 bg-primary/[0.06] hover:-translate-y-px hover:border-primary hover:bg-primary/[0.12] hover:shadow-md',
+            ? 'border-amber-400/70 bg-amber-50 hover:border-amber-500 dark:bg-amber-400/10'
+            : 'border-primary/25 bg-background shadow-[0_1px_0_hsl(var(--border))] hover:-translate-y-px hover:border-primary hover:shadow-md',
           dim && 'opacity-20 hover:translate-y-0',
         )}
       >
-        <span className="flex items-baseline justify-between gap-1 leading-none">
-          <span className={cn('text-[13px] font-bold', reserved ? 'text-amber-700 dark:text-amber-300' : 'text-primary')}>
-            {shortRooms(cell.rooms)}
-          </span>
-          <span className="text-[10px] tabular-nums text-muted-foreground">{fmtArea(cell.area)}</span>
+        {hasNumbers ? (
+          <span className="text-[10px] tabular-nums text-muted-foreground">{cell.number ? `№${cell.number}` : ' '}</span>
+        ) : null}
+        <span className="flex items-center justify-between gap-1">
+          <span className={cn('rounded px-1 py-0.5 text-[11px] font-bold', badge)}>{shortRooms(cell.rooms)}</span>
+          <span className="text-[11px] tabular-nums text-muted-foreground">{fmtArea(cell.area)}</span>
         </span>
-        <span className="truncate text-[11px] font-semibold leading-none tabular-nums text-foreground">
+        <span className="truncate text-[12px] font-semibold tabular-nums text-foreground">
           {reserved ? 'бронь' : price || 'по запросу'}
         </span>
       </div>
     );
   };
 
+  if (!matrix) {
+    return <p className="rounded-2xl border border-border/70 bg-card p-6 text-center text-sm text-muted-foreground">Шахматки по этому ЖК пока нет</p>;
+  }
+
   const selectClass = 'h-11 w-full rounded-xl border border-border bg-background px-3 text-[15px] font-medium';
-  const mobilePanel = (
-    <div className="space-y-3">
-      {groups.length > 1 || (activeGroup && activeGroup.items.length > 1) ? (
-        <div className="grid grid-cols-2 gap-2">
-          {groups.length > 1 ? (
-            <label className="block">
-              <span className="mb-1 block text-[12px] text-muted-foreground">Дом</span>
+  const literalsAsSelect = isMobile || literals.length > 10;
+
+  const roomChips = onRoomFilter ? (
+    <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-hide lg:flex-wrap" role="group" aria-label="Комнатность">
+      <button type="button" aria-pressed={roomFilter === null} className={chipClass(roomFilter === null)} onClick={() => onRoomFilter(null)}>
+        Все
+      </button>
+      {ROOM_CATEGORY_DEFS.filter((r) => roomCounts.has(r.key)).map((r) => (
+        <button
+          key={r.key}
+          type="button"
+          aria-pressed={roomFilter === r.key}
+          className={chipClass(roomFilter === r.key)}
+          onClick={() => onRoomFilter(roomFilter === r.key ? null : r.key)}
+        >
+          {r.label}
+          <span className={cn('tabular-nums', roomFilter === r.key ? 'text-primary-foreground/75' : 'text-muted-foreground')}>{roomCounts.get(r.key)}</span>
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  const legend = (
+    <ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-muted-foreground" aria-label="Обозначения">
+      <li className="flex items-center gap-1.5">
+        <span className="h-3.5 w-3.5 rounded border border-primary/30 bg-background" />
+        Свободна <b className="font-semibold tabular-nums text-foreground">{fmtInt(counts.available)}</b>
+      </li>
+      {counts.reserved > 0 ? (
+        <li className="flex items-center gap-1.5">
+          <span className="h-3.5 w-3.5 rounded border border-amber-400/70 bg-amber-50" />
+          Бронь <b className="font-semibold tabular-nums text-foreground">{counts.reserved}</b>
+        </li>
+      ) : null}
+      {counts.sold > 0 ? (
+        <li className="flex items-center gap-1.5">
+          <span className="chess-sold h-3.5 w-3.5 rounded" />
+          Продана <b className="font-semibold tabular-nums text-foreground">{fmtInt(counts.sold)}</b>
+        </li>
+      ) : null}
+      {counts.closed > 0 ? (
+        <li className="flex items-center gap-1.5">
+          <span className="h-3.5 w-3.5 rounded border border-dashed border-border" />
+          Нет в продаже <b className="font-semibold tabular-nums text-foreground">{fmtInt(counts.closed)}</b>
+        </li>
+      ) : null}
+    </ul>
+  );
+
+  const filters = (
+    <div className="space-y-4 rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+      {literals.length > 1 || sections.length > 1 ? (
+      <div className={cn('grid gap-4', !literalsAsSelect && 'lg:grid-cols-[minmax(0,1fr)_auto]')}>
+        {literals.length > 1 ? (
+          <div className="min-w-0">
+            {label('Дом')}
+            {literalsAsSelect ? (
               <select
+                aria-label="Дом"
                 className={selectClass}
-                value={activeGroup?.group}
+                value={literalName}
                 onChange={(e) => {
-                  const g = groups.find((x) => x.group === e.target.value);
-                  if (g?.items[0]) onBuildingChange?.(g.items[0].id);
+                  const l = literals.find((x) => x.group === e.target.value);
+                  if (l) onBuildingChange(l.firstId);
                 }}
               >
-                {groups.map((g) => (
-                  <option key={g.group} value={g.group}>
-                    {g.group}
+                {literals.map((l) => (
+                  <option key={l.group} value={l.group}>
+                    {l.group}
+                    {l.deadline ? ` · сдача ${l.deadline}` : ''} · {l.available} своб.
                   </option>
                 ))}
               </select>
-            </label>
-          ) : null}
-          {activeGroup && activeGroup.items.length > 1 ? (
-            <label className="block">
-              <span className="mb-1 block text-[12px] text-muted-foreground">Секция</span>
-              <select className={selectClass} value={activeId ?? ''} onChange={(e) => onBuildingChange?.(e.target.value)}>
-                {activeGroup.items.map((it) => (
-                  <option key={it.id} value={it.id}>
-                    {it.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-        </div>
+            ) : (
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Дом">
+                {literals.map((l) => {
+                  const active = l.group === literalName;
+                  return (
+                    <button
+                      key={l.group}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => onBuildingChange(l.firstId)}
+                      className={cn(
+                        'flex min-h-12 flex-col items-start justify-center rounded-xl border px-3 py-1.5 text-left transition-colors',
+                        active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:border-primary/50',
+                      )}
+                    >
+                      <span className="text-[14px] font-semibold leading-tight">{l.group}</span>
+                      <span className={cn('text-[11px] leading-tight', active ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+                        {l.deadline ? `${l.deadline} · ` : ''}
+                        {l.available} своб.
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : null}
+        {sections.length > 1 ? (
+          <div className="min-w-0">
+            {label('Секция / подъезд')}
+            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-hide lg:flex-wrap" role="group" aria-label="Секция">
+              {sections.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-pressed={focusSection === s.id}
+                  title={`${s.label}: ${s.available} свободно из ${s.total}`}
+                  className={cn(chipClass(focusSection === s.id), 'min-w-10')}
+                  onClick={() => goSection(s.id)}
+                >
+                  {s.label.replace(/^(секция|подъезд)\s*/i, '')}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
       ) : null}
-      {onRoomFilter ? (
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-hide" role="group" aria-label="Комнатность">
-          <button type="button" aria-pressed={roomFilter === null} className={chipClass(roomFilter === null)} onClick={() => onRoomFilter(null)}>
-            Все
-          </button>
-          {ROOM_CATEGORY_DEFS.filter((r) => roomCounts.has(r.key)).map((r) => (
-            <button
-              key={r.key}
-              type="button"
-              aria-pressed={roomFilter === r.key}
-              className={chipClass(roomFilter === r.key)}
-              onClick={() => onRoomFilter(roomFilter === r.key ? null : r.key)}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        {roomChips ? (
+          <div className="min-w-0">
+            {label('Комнаты')}
+            {roomChips}
+          </div>
+        ) : null}
+      </div>
+      {legend}
     </div>
   );
 
-  const panel = (
-    <aside className="space-y-3 rounded-2xl border border-border/70 bg-card p-3 sm:p-4 lg:sticky lg:top-24 lg:space-y-4">
-      {groups.length > 1 || (activeGroup && activeGroup.items.length > 1) ? (
-        <div className="space-y-3">
-          {groups.length > 1 ? (
-            <div>
-              <p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-muted-foreground">Дом</p>
-              {groups.length > 8 ? (
-                <select
-                  aria-label="Дом"
-                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
-                  value={activeGroup?.group}
-                  onChange={(e) => {
-                    const g = groups.find((x) => x.group === e.target.value);
-                    if (g?.items[0]) onBuildingChange?.(g.items[0].id);
-                  }}
-                >
-                  {groups.map((g) => (
-                    <option key={g.group} value={g.group}>
-                      {g.group}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-hide lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0" role="group" aria-label="Дом">
-                  {groups.map((g) => (
-                    <button
-                      key={g.group}
-                      type="button"
-                      aria-pressed={g === activeGroup}
-                      className={chipClass(g === activeGroup)}
-                      onClick={() => g.items[0] && onBuildingChange?.(g.items[0].id)}
-                    >
-                      {g.group}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : null}
-          {activeGroup && activeGroup.items.length > 1 ? (
-            <div>
-              <p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-muted-foreground">Секция</p>
-              <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-hide lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0" role="group" aria-label="Секция">
-                {activeGroup.items.map((it) => (
-                  <button
-                    key={it.id}
-                    type="button"
-                    aria-pressed={it.id === activeId}
-                    className={chipClass(it.id === activeId)}
-                    title={`${it.label}: ${it.apartmentCount} в продаже`}
-                    onClick={() => onBuildingChange?.(it.id)}
-                  >
-                    {it.label.replace(/^секция\s*/i, '')}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {onRoomFilter ? (
-        <div>
-          <p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-muted-foreground">Комнаты</p>
-          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-hide lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0" role="group" aria-label="Комнатность">
-            <button type="button" aria-pressed={roomFilter === null} className={chipClass(roomFilter === null)} onClick={() => onRoomFilter(null)}>
-              Все
-            </button>
-            {ROOM_CATEGORY_DEFS.filter((r) => roomCounts.has(r.key)).map((r) => (
-              <button
-                key={r.key}
-                type="button"
-                aria-pressed={roomFilter === r.key}
-                className={chipClass(roomFilter === r.key)}
-                onClick={() => onRoomFilter(roomFilter === r.key ? null : r.key)}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-[13px] lg:block lg:space-y-2" aria-label="Обозначения">
-        <li className="flex items-center gap-2">
-          <span className="h-4 w-4 rounded border border-primary/30 bg-primary/[0.08]" />
-          Свободна <span className="tabular-nums text-muted-foreground lg:ml-auto">{counts.available}</span>
-        </li>
-        {counts.reserved > 0 ? (
-          <li className="flex items-center gap-2">
-            <span className="h-4 w-4 rounded border border-amber-400/60 bg-amber-50" />
-            Бронь <span className="tabular-nums text-muted-foreground lg:ml-auto">{counts.reserved}</span>
-          </li>
-        ) : null}
-        {counts.sold > 0 ? (
-          <li className="flex items-center gap-2">
-            <span className="chess-sold h-4 w-4 rounded" />
-            Продана <span className="tabular-nums text-muted-foreground lg:ml-auto">{counts.sold}</span>
-          </li>
-        ) : null}
-        {counts.closed > 0 ? (
-          <li className="flex items-center gap-2">
-            <span className="h-4 w-4 rounded border border-dashed border-border" />
-            Нет в продаже <span className="tabular-nums text-muted-foreground lg:ml-auto">{counts.closed}</span>
-          </li>
-        ) : null}
-      </ul>
-    </aside>
-  );
+  const dl = deadlineQuarter(matrix.deadline) ?? activeLiteral?.deadline ?? null;
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-      <div className="order-2 min-w-0 lg:order-1">
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <h3 className="text-[16px] font-semibold">
-            {titleGroup}
-            {titleSection ? <span className="text-muted-foreground"> · {titleSection.toLowerCase()}</span> : null}
-          </h3>
-          <p className="text-[13px] text-muted-foreground">
-            <span className="font-semibold text-foreground tabular-nums">{counts.available + counts.reserved}</span> свободно из{' '}
-            <span className="tabular-nums">{counts.total}</span> · {rows.length} {rows.length === 1 ? 'этаж' : rows.length < 5 ? 'этажа' : 'этажей'}
-          </p>
-        </div>
+    <div className="space-y-3">
+      {filters}
 
-        <div
-          role="group"
-          aria-label={`Шахматка: ${buildingName}`}
-          aria-busy={isLoading}
-          onMouseOver={onOver}
-          onMouseLeave={scheduleClose}
-          onClick={onClick}
-          onKeyDown={onKeyDown}
-          className={cn('rounded-2xl border border-border/70 bg-card', isLoading && 'pointer-events-none opacity-60')}
-        >
-          {hasGrid ? (
-            <div className="max-h-[min(76vh,760px)] overflow-auto overscroll-x-contain p-2 sm:p-3">
-              <table className="border-separate border-spacing-[3px]" style={{ minWidth: 'max-content' }}>
-                <thead>
-                  {groupHeader ? (
-                    <tr>
-                      <th className="sticky left-0 top-0 z-[3] bg-card" />
-                      {groupHeader.map((g, gi) => (
-                        <th
-                          key={gi}
-                          colSpan={g.span + (gi > 0 ? 1 : 0)}
-                          className={cn(
-                            'sticky top-0 z-[2] bg-card pb-1 text-left text-[12px] font-semibold text-foreground',
-                            gi > 0 && 'pl-4',
-                          )}
-                        >
-                          <span className="block border-b border-border pb-1">{g.label || '—'}</span>
-                        </th>
-                      ))}
-                    </tr>
-                  ) : null}
-                  <tr>
-                    <th
-                      className={cn(
-                        'sticky left-0 z-[3] bg-card pr-1 text-right text-[11px] font-medium text-muted-foreground',
-                        groupHeader ? 'top-[30px]' : 'top-0',
-                      )}
-                    >
-                      Этаж
-                    </th>
-                    {columns.map((c, i) => (
-                      <Fragment key={i}>
-                        {c.groupStart ? <th aria-hidden className="w-3" /> : null}
-                        <th
-                          className={cn(
-                            'sticky z-[2] bg-card text-center text-[11px] font-normal text-muted-foreground tabular-nums',
-                            groupHeader ? 'top-[30px]' : 'top-0',
-                          )}
-                          title="Номер квартиры на этаже"
-                        >
-                          {c.label}
-                        </th>
-                      </Fragment>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.floor}>
-                      <th
-                        scope="row"
-                        className="sticky left-0 z-[1] w-10 bg-card pr-2 text-right text-[13px] font-semibold text-foreground/70 tabular-nums"
-                      >
-                        {r.floor}
-                      </th>
-                      {r.cells.map((cell, i) => (
-                        <Fragment key={i}>
-                          {columns[i]?.groupStart ? <td aria-hidden className="w-3" /> : null}
-                          <td className="p-0">{renderCell(cell, r.floor)}</td>
-                        </Fragment>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="p-6 text-center text-sm text-muted-foreground">В этом доме нет данных о квартирах</p>
-          )}
-        </div>
-        {isMobile ? (
-          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground" aria-label="Обозначения">
-            <li className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border border-primary/30 bg-primary/[0.08]" />Свободна {counts.available}</li>
-            {counts.reserved > 0 ? <li className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border border-amber-400/60 bg-amber-50" />Бронь {counts.reserved}</li> : null}
-            {counts.sold > 0 ? <li className="flex items-center gap-1.5"><span className="chess-sold h-3 w-3 rounded" />Продана {counts.sold}</li> : null}
-            {counts.closed > 0 ? <li className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border border-dashed border-border" />Нет в продаже {counts.closed}</li> : null}
-          </ul>
-        ) : null}
-        <p className="mt-2 text-[12px] text-muted-foreground">
-          {isMobile ? 'Нажмите на свободную квартиру, чтобы посмотреть планировку.' : 'Наведите на квартиру — покажем планировку, нажмите — откроем её страницу.'}{' '}
-          Данные застройщика, обновляются несколько раз в день.
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pt-1">
+        <h3 className="text-[17px] font-semibold">
+          {literalName}
+          {dl ? <span className="font-normal text-muted-foreground"> — сдача {dl}</span> : null}
+        </h3>
+        <p className="text-[14px] text-muted-foreground">
+          <b className="font-semibold text-foreground tabular-nums">{fmtInt(counts.available + counts.reserved)}</b> свободно из{' '}
+          <span className="tabular-nums">{fmtInt(counts.total)}</span> · {rows.length}{' '}
+          {rows.length === 1 ? 'этаж' : rows.length % 10 >= 2 && rows.length % 10 <= 4 && (rows.length < 12 || rows.length > 14) ? 'этажа' : 'этажей'}
         </p>
       </div>
 
-      <div className="order-1 lg:order-2">{isMobile ? mobilePanel : panel}</div>
+      <div
+        role="group"
+        aria-label={`Шахматка: ${literalName}`}
+        aria-busy={isLoading}
+        onMouseOver={onOver}
+        onMouseLeave={scheduleClose}
+        onClick={onClick}
+        onKeyDown={onKeyDown}
+        className={cn('rounded-2xl border border-border/70 bg-card', isLoading && 'pointer-events-none opacity-60')}
+      >
+        {rows.length && columns.length ? (
+          <div className="relative">
+          {edge.left || edge.right ? (
+            <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-[5] hidden lg:block">
+              {edge.left ? (
+                <button
+                  type="button"
+                  aria-label="Прокрутить влево"
+                  onClick={() => scrollRef.current?.scrollBy({ left: -480, behavior: 'smooth' })}
+                  className="pointer-events-auto absolute left-12 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/95 text-lg shadow-md hover:border-primary"
+                >
+                  ‹
+                </button>
+              ) : null}
+              {edge.right ? (
+                <button
+                  type="button"
+                  aria-label="Прокрутить вправо"
+                  onClick={() => scrollRef.current?.scrollBy({ left: 480, behavior: 'smooth' })}
+                  className="pointer-events-auto absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/95 text-lg shadow-md hover:border-primary"
+                >
+                  ›
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          <div ref={scrollRef} onScroll={updateEdge} className="max-h-[min(78vh,820px)] overflow-auto overscroll-x-contain p-2 sm:p-3">
+            <table className="border-separate border-spacing-[3px]" style={{ minWidth: 'max-content', width: tableWidth }}>
+              <thead>
+                {groupHeader ? (
+                  <tr>
+                    <th className="sticky left-0 top-0 z-[3] bg-card" />
+                    {groupHeader.map((g, gi) => {
+                      const sec = sections.find((s) => s.label === g.label || g.label.startsWith(`${s.label} ·`));
+                      const focused = sec && focusSection === sec.id;
+                      return (
+                        <th
+                          key={gi}
+                          colSpan={g.span + (gi > 0 ? 1 : 0)}
+                          className={cn('sticky top-0 z-[2] bg-card pb-1 text-left align-bottom', gi > 0 && 'pl-4')}
+                        >
+                          <span
+                            className={cn(
+                              'block rounded-t-lg border-b-4 px-1 pb-1 text-[12px] font-semibold uppercase tracking-wide transition-colors',
+                              focused ? 'border-primary text-primary' : 'border-muted-foreground/25 text-muted-foreground',
+                            )}
+                          >
+                            {g.label || '—'}
+                          </span>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                ) : null}
+                <tr>
+                  <th className={cn('sticky left-0 z-[3] bg-card pr-1 text-right text-[11px] font-medium text-muted-foreground', groupHeader ? 'top-[30px]' : 'top-0')}>
+                    Этаж
+                  </th>
+                  {columns.map((c, i) => (
+                    <Fragment key={i}>
+                      {c.groupStart ? <th aria-hidden className="w-3" /> : null}
+                      <th
+                        data-col={i}
+                        className={cn('sticky z-[2] bg-card text-center text-[11px] font-normal text-muted-foreground tabular-nums', groupHeader ? 'top-[30px]' : 'top-0')}
+                        title="Номер окна на этаже"
+                      >
+                        {c.label}
+                      </th>
+                    </Fragment>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.floor}>
+                    <th scope="row" className="sticky left-0 z-[1] w-10 bg-card pr-2 text-right text-[13px] font-semibold text-foreground/70 tabular-nums">
+                      {r.floor}
+                    </th>
+                    {r.cells.map((cell, i) => (
+                      <Fragment key={i}>
+                        {columns[i]?.groupStart ? <td aria-hidden className="w-3" /> : null}
+                        <td className="p-0">{renderCell(cell, r.floor, i)}</td>
+                      </Fragment>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          </div>
+        ) : (
+          <p className="p-6 text-center text-sm text-muted-foreground">В этом доме нет данных о квартирах</p>
+        )}
+      </div>
+      <p className="text-[12px] text-muted-foreground">
+        {isMobile ? 'Нажмите на свободную квартиру — покажем планировку.' : 'Наведите на квартиру — покажем планировку, нажмите — откроем её страницу.'}{' '}
+        {columns.length > 12 ? 'Сетку можно прокручивать вбок. ' : ''}Данные застройщика, обновляются несколько раз в день.
+      </p>
 
       {!isMobile && hover && previewPos
         ? createPortal(
@@ -553,7 +587,13 @@ const Chessboard = ({
                 scheduleClose();
               }}
             >
-              <ChessboardPreview apartment={hover.apt} buildingName={buildingName} section={0} roomLabel={roomLabel(hover.apt.rooms)} />
+              <ChessboardPreview
+                apartment={hover.apt}
+                buildingName={hover.where}
+                section={0}
+                roomLabel={roomLabel(hover.apt.rooms)}
+                onLead={onApartmentLead ? () => onApartmentLead(leadSummary(hover.apt, hover.where)) : undefined}
+              />
             </div>,
             document.body,
           )
@@ -566,11 +606,20 @@ const Chessboard = ({
           </SheetHeader>
           {sheetApt ? (
             <ChessboardPreview
-              apartment={sheetApt}
-              buildingName={buildingName}
+              apartment={sheetApt.apt}
+              buildingName={sheetApt.where}
               section={0}
-              roomLabel={roomLabel(sheetApt.rooms)}
+              roomLabel={roomLabel(sheetApt.apt.rooms)}
               onClose={() => setSheetApt(null)}
+              onLead={
+                onApartmentLead
+                  ? () => {
+                      const s = leadSummary(sheetApt.apt, sheetApt.where);
+                      setSheetApt(null);
+                      onApartmentLead(s);
+                    }
+                  : undefined
+              }
             />
           ) : null}
         </SheetContent>

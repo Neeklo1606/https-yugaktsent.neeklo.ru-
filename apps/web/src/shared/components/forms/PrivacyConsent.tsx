@@ -31,8 +31,8 @@ const PrivacyConsent = ({
           id={id}
           checked={checked}
           onCheckedChange={(value) => onCheckedChange(value === true)}
-          // Квадрат 16 px, а зона нажатия на телефоне — 40 px
-          className="relative mt-0.5 after:absolute after:-inset-3 after:content-['']"
+          // Квадрат 18 px (не круг — не путать с радиокнопкой), зона нажатия на телефоне — 42 px
+          className="relative mt-0.5 h-[18px] w-[18px] rounded-[4px] after:absolute after:-inset-3 after:content-['']"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
         />
@@ -70,5 +70,21 @@ const PrivacyConsent = ({
     </div>
   );
 };
+
+/** Подсказка под неактивной кнопкой отправки: почему её нельзя нажать */
+export const ConsentSubmitHint = ({
+  show,
+  id,
+  className,
+}: {
+  show: boolean;
+  id?: string;
+  className?: string;
+}) =>
+  show ? (
+    <p id={id} className={cn('text-center text-xs text-muted-foreground', className)}>
+      Отметьте согласие на обработку данных
+    </p>
+  ) : null;
 
 export default PrivacyConsent;

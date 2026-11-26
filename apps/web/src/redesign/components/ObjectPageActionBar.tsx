@@ -19,16 +19,19 @@ type Props = {
   className?: string;
 };
 
+/** На телефоне — 44×44 (минимальная зона касания), с мыши хватает 36×36 */
+const SIZE = 'h-11 w-11 lg:h-9 lg:w-9';
+
 export default function ObjectPageActionBar({ actions, className }: Props) {
   return (
     <TooltipProvider delayDuration={300}>
-      <div className={cn('flex items-center gap-0.5 shrink-0', className)}>
+      <div className={cn('flex items-center gap-1 shrink-0 lg:gap-0.5', className)}>
         {actions.map((a) => (
           <Tooltip key={a.key}>
             <TooltipTrigger asChild>
               {a.href ? (
-                <Button variant="outline" size="sm" className="h-9 w-9 p-0 rounded-lg border-border/80" asChild>
-                  <Link to={a.href} title={a.label}>
+                <Button variant="outline" size="sm" className={cn(SIZE, 'p-0 rounded-lg border-border/80')} asChild>
+                  <Link to={a.href} title={a.label} aria-label={a.label}>
                     {a.icon}
                   </Link>
                 </Button>
@@ -38,7 +41,8 @@ export default function ObjectPageActionBar({ actions, className }: Props) {
                   variant="outline"
                   size="sm"
                   className={cn(
-                    'h-9 w-9 p-0 rounded-lg border-border/80 transition-colors hover:border-primary/40 hover:bg-primary/5',
+                    SIZE,
+                    'p-0 rounded-lg border-border/80 transition-colors hover:border-primary/40 hover:bg-primary/5',
                     a.active && 'border-primary/50 bg-primary/10 text-primary',
                   )}
                   disabled={a.disabled}

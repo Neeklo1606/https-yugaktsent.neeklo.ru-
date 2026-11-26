@@ -117,13 +117,13 @@ export default function ComplexPremiumGallery({ images, title }: Props) {
     <>
       <section
         id="gallery"
-        className="scroll-mt-28 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm lg:border-0 lg:bg-transparent lg:shadow-none"
+        className="scroll-mt-28 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm lg:h-full lg:border-0 lg:bg-transparent lg:shadow-none"
       >
         {/* Десктоп: коллаж — большое фото слева, превью справа */}
         {hasImages ? (
           <div
             className={cn(
-              'relative hidden lg:grid lg:gap-2',
+              'relative hidden lg:grid lg:h-full lg:gap-2',
               // одно фото — коллаж не собрать, показываем его на всю ширину
               images.length > 1 ? 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]' : 'lg:grid-cols-1',
             )}
@@ -131,7 +131,7 @@ export default function ComplexPremiumGallery({ images, title }: Props) {
             <button
               type="button"
               onClick={() => setLightbox(true)}
-              className="group/hero relative block h-[460px] w-full overflow-hidden rounded-2xl bg-muted"
+              className="group/hero relative block h-full min-h-[460px] w-full overflow-hidden rounded-2xl bg-muted"
               aria-label="Открыть фото на весь экран"
             >
               <StableMediaFrame
@@ -149,7 +149,7 @@ export default function ComplexPremiumGallery({ images, title }: Props) {
             </button>
 
             {images.length > 1 ? (
-            <div className="grid h-[460px] grid-rows-2 gap-2">
+            <div className="grid h-full min-h-[460px] grid-rows-2 gap-2">
               {[1, 2].map((row) => {
                 const src = images[row];
                 const isLastTile = row === 2;

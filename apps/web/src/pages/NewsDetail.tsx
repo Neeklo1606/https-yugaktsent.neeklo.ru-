@@ -67,7 +67,7 @@ const NewsDetail = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background pb-16 lg:pb-0">
+      <div className="min-h-screen bg-background">
         <Header />
         <div className="flex items-center justify-center py-32">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -78,14 +78,14 @@ const NewsDetail = () => {
 
   if (!article) {
     return (
-      <div className="min-h-screen bg-background pb-16 lg:pb-0">
+      <div className="min-h-screen bg-background">
         <Header />
         <div className="max-w-[1400px] mx-auto px-4 py-20 text-center">
           <h1 className="text-2xl font-bold mb-2">Статья не найдена</h1>
           <p className="text-muted-foreground mb-4">Возможно, она была удалена или ещё не опубликована.</p>
           <Link to="/news" className="text-primary hover:underline text-sm font-medium">Все новости</Link>
         </div>
-        <FooterSection />
+        <FooterSection reserveMobileNav />
       </div>
     );
   }
@@ -94,7 +94,7 @@ const NewsDetail = () => {
   const heroSrc = article.imageUrl || complex1;
 
   return (
-    <div className="min-h-screen bg-background pb-16 lg:pb-0">
+    <div className="min-h-screen bg-background">
       <Header />
 
       <div className="max-w-[1400px] mx-auto px-4 pt-4 pb-2">
@@ -140,7 +140,7 @@ const NewsDetail = () => {
       </article>
 
       <ContactsSection />
-      <FooterSection />
+      <FooterSection reserveMobileNav />
     </div>
   );
 };

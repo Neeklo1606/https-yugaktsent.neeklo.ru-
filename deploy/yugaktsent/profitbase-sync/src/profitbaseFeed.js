@@ -107,12 +107,15 @@ export function normalizeOffer(offer) {
   if (!externalId) return null;
 
   const custom = customFields(offer);
-  const area = num(offer.area?.value ?? offer.area) ?? num(offer["living-space"]?.value);
+  // Только общая площадь: жилая вместо неё показывала квартиру меньше, чем она есть
+  const area = num(offer.area?.value ?? offer.area);
 
   const images = offerImages(offer);
   return {
     externalId: String(externalId),
-    number: text(offer.number),
+    // JCAT (ССК): номер квартиры в <location><apartment>. <FlatNumber> у ССК — позиция
+    // на поэтажном плане (n02 в имени файла планировки), а не номер квартиры
+    number: text(offer.number) ?? text(offer.location?.apartment),
     // JCAT (ССК) пишет <studio>да</studio>, Profitbase — "true": без этого 408 студий ССК шли без комнатности
     rooms: num(offer.rooms) ?? (/^(true|1|да|yes)$/i.test(String(offer.studio ?? "").trim()) ? 0 : null),
     floor: num(offer.floor),
@@ -134,10 +137,13 @@ export function normalizeOffer(offer) {
       custom.Корпус ??
       (/литер|корпус|дом/i.test(text(offer["building-section"]) ?? "") ? text(offer["building-section"]) : null),
     buildingSection: text(offer["building-section"]) ?? custom.Секция,
-    floorsTotal: num(offer.house?.["floors-total"]),
+    // Profitbase кладёт этажность и год в <house>, JCAT/Яндекс — прямо в лот
+    floorsTotal: num(offer.house?.["floors-total"]) ?? num(offer["floors-total"]),
     completionQuarter: completionLabel(offer.house, offer) ?? custom["Срок сдачи"],
-    builtYear: num(offer.house?.["built-year"]),
-    buildingState: text(offer.house?.["building-state"]),
+    builtYear: num(offer.house?.["built-year"]) ?? num(offer["built-year"]),
+    buildingState: text(offer.house?.["building-state"]) ?? text(offer["building-state"]),
+    // Яндекс/JCAT: <renovation>предчистовая отделка</renovation>; Profitbase — custom «Отделка»
+    finishing: text(offer.renovation) ?? custom.Отделка ?? null,
     layoutType: custom["Тип планировки"],
     features: custom.Особенности,
     custom,

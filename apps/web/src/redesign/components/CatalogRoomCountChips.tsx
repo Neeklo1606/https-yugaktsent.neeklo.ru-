@@ -17,6 +17,11 @@ type Props = {
   regionId: number | null | undefined;
   onChange: (f: CatalogFilters) => void;
   className?: string;
+  /**
+   * false — счётчики не отражают текущую выдачу (например, выбран тип жилья, а API объявлений
+   * его не фильтрует): числа не показываем, варианты не прячем.
+   */
+  showCounts?: boolean;
 };
 
 /**
@@ -24,8 +29,9 @@ type Props = {
  * Счётчик — сколько квартир будет при этой комнатности с остальными текущими фильтрами.
  * Пять лёгких запросов per_page=1; пустые варианты скрываем, выбранный — всегда виден.
  */
-export default function CatalogRoomCountChips({ filters, regionId, onChange, className }: Props) {
+export default function CatalogRoomCountChips({ filters, regionId, onChange, className, showCounts = true }: Props) {
   const enabled = regionId != null && (filters.objectType === 'apartments' || filters.objectType === 'rooms');
+  const countsEnabled = enabled && showCounts;
   const base: CatalogFilters = { ...filters, rooms: [] };
   const results = useQueries({
     queries: ROOMS.map(({ room }) => {
@@ -33,7 +39,7 @@ export default function CatalogRoomCountChips({ filters, regionId, onChange, cla
       return {
         queryKey: ['catalog', 'room-count', qs],
         queryFn: async () => (await apiGet<{ meta?: { total?: number } }>(`/listings?${qs}`)).meta?.total ?? 0,
-        enabled,
+        enabled: countsEnabled,
         staleTime: 60_000,
         placeholderData: (prev: number | undefined) => prev,
       };
@@ -44,7 +50,7 @@ export default function CatalogRoomCountChips({ filters, regionId, onChange, cla
   const toggle = (room: number) =>
     onChange({ ...filters, rooms: filters.rooms.includes(room) ? filters.rooms.filter((r) => r !== room) : [...filters.rooms, room] });
 
-  const chips = ROOMS.map((r, i) => ({ ...r, count: results[i]?.data, on: filters.rooms.includes(r.room) })).filter(
+  const chips = ROOMS.map((r, i) => ({ ...r, count: countsEnabled ? results[i]?.data : undefined, on: filters.rooms.includes(r.room) })).filter(
     (c) => c.on || c.count == null || c.count > 0,
   );
   if (chips.length === 0) return null;

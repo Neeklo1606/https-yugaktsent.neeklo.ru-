@@ -15,7 +15,7 @@ const Terms = () => {
   const contactParts = [email, phone].filter(Boolean).join(', ');
 
   return (
-    <div className="min-h-screen bg-background pb-16 lg:pb-0">
+    <div className="min-h-screen bg-background">
       <RedesignHeader />
       <div className="mx-auto max-w-[800px] px-4 py-8 sm:py-12">
         <h1 className="mb-3 text-2xl font-bold sm:text-3xl">Пользовательское соглашение</h1>
@@ -107,7 +107,7 @@ const Terms = () => {
           </section>
         </div>
       </div>
-      <FooterSection />
+      <FooterSection reserveMobileNav />
     </div>
   );
 };

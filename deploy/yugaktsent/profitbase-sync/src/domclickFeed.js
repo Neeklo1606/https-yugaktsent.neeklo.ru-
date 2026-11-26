@@ -112,6 +112,7 @@ export function normalizeDomclickFlat(flat, building, complex) {
     buildingState: text(building?.building_type),
     layoutType: null,
     features: text(flat?.renovation),
+    finishing: text(flat?.renovation),
     custom: {
       Адрес: text(complex?.address),
       Отделка: text(flat?.renovation),

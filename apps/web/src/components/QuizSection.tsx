@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import PrivacyConsent from '@/shared/components/forms/PrivacyConsent';
+import PrivacyConsent, { ConsentSubmitHint } from '@/shared/components/forms/PrivacyConsent';
 import { consentPayload, validatePrivacyConsent } from '@/shared/lib/privacy-consent';
 import { cleanSourceUrl, readUtm } from '@/shared/lib/utm';
 import { cn } from '@/lib/utils';
@@ -309,6 +309,10 @@ const QuizSection = () => {
                 {submitting ? 'Отправка…' : step === 2 ? 'Получить подборку' : 'Далее'}
               </Button>
             </div>
+            <ConsentSubmitHint
+              show={step === 2 && !consentAccepted}
+              className="mt-3 text-right"
+            />
           </div>
         </div>
       </div>

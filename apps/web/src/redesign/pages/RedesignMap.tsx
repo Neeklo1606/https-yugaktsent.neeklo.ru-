@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import RedesignHeader from '@/redesign/components/RedesignHeader';
 import MapSearch from '@/redesign/components/MapSearch';
 import ListingsMapSearch, { type ListingMapItem } from '@/redesign/components/ListingsMapSearch';
@@ -52,9 +52,24 @@ type CatalogListResponse<T> = {
   meta: CatalogPageMeta;
 };
 
-function formatMapSubtitle(loaded: number, total: number, refetching: boolean): string {
-  const base =
-    loaded < total ? `Показано ${loaded} из ${total} объектов` : `${total} объектов на карте`;
+function pluralObjects(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return 'объект';
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'объекта';
+  return 'объектов';
+}
+
+/**
+ * Подпись над картой. «N на карте» — только про метки, которые реально стоят:
+ * у ЖК без координат метки нет, и обещать её нельзя.
+ */
+function formatMapSubtitle(loaded: number, total: number, plotted: number, refetching: boolean): string {
+  let base: string;
+  if (loaded > 0 && plotted === 0) base = `Найдено ${total} ${pluralObjects(total)} · на карте пока нет`;
+  else if (plotted < loaded) base = `${plotted} из ${total} на карте`;
+  else if (loaded < total) base = `Показано ${loaded} из ${total} ${pluralObjects(total)}`;
+  else base = `${total} ${pluralObjects(total)} на карте`;
   return refetching ? `${base} · обновление…` : base;
 }
 
@@ -117,6 +132,7 @@ function fallbackCoords(center: [number, number] | null, index: number): [number
 
 const RedesignMap = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   // То же, что в каталоге: фильтры из адреса нужны уже на первом рендере.
   const [filters, setFilters] = useState<CatalogFilters>(() =>
     catalogFiltersFromSearchParams(new URLSearchParams(window.location.search)),
@@ -386,6 +402,7 @@ const RedesignMap = () => {
     ? (blocksQuery.data?.meta.total ?? blocks.length)
     : (listingsQuery.data?.meta.total ?? listingItems.length);
   const loadedCount = displayBlocks ? blocks.length : listingItems.length;
+  const plottedCount = displayBlocks ? blocks.filter((c) => c.hasCoords !== false).length : listingItems.length;
   const hasPaginationGap = loadedCount < catalogTotal;
 
   const catalogInitialLoading =
@@ -419,7 +436,7 @@ const RedesignMap = () => {
       ? 'Не удалось загрузить объекты'
       : catalogInitialLoading && loadedCount === 0
         ? 'Загрузка…'
-        : formatMapSubtitle(loadedCount, catalogTotal, isCatalogRefetching);
+        : formatMapSubtitle(loadedCount, catalogTotal, plottedCount, isCatalogRefetching);
 
   const searchSuggestions = useMemo(() => {
     const q = filters.search.trim().toLowerCase();
@@ -456,6 +473,12 @@ const RedesignMap = () => {
     () => objectKindLinks.map((x) => x.type),
     [objectKindLinks],
   );
+  /**
+   * Агентство продаёт новостройки: «Комнаты / Дома / Участки / Дачи / Коммерция» и «Вторичка»
+   * вели в пустую выдачу. Переключатель типа показываем, только если человек пришёл
+   * по старой ссылке на другой тип — чтобы мог вернуться к квартирам.
+   */
+  const showTypeSwitcher = objectType !== 'apartments' || filters.marketType === 'secondary';
 
   const handleFiltersChange = useCallback(
     (next: CatalogFilters) => {
@@ -506,8 +529,8 @@ const RedesignMap = () => {
         <SessionResumeBanner />
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-        {/* Sidebar filters */}
-        <aside className="hidden min-h-0 w-[280px] shrink-0 overflow-y-auto border-r border-border bg-background p-4 lg:block">
+        {/* Колонка фильтров — только с 1280 px; на 1024 фильтры в выезжающей панели, карте больше места */}
+        <aside className="hidden min-h-0 w-[280px] shrink-0 overflow-y-auto border-r border-border bg-background p-4 xl:block">
           <FilterSidebar
             filters={filters}
             onChange={handleFiltersChange}
@@ -517,6 +540,7 @@ const RedesignMap = () => {
             builderOptions={buildersQuery.data}
             deadlineOptions={deadlinesQuery.data}
             objectTypeOptions={objectTypeOptions.length > 0 ? objectTypeOptions : undefined}
+            showObjectTypeSwitcher={showTypeSwitcher}
             showMetro={moscowMetro}
             hasBlocks={useBlocksMap}
           />
@@ -525,8 +549,8 @@ const RedesignMap = () => {
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
           {/* Map */}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4 lg:min-w-0">
-            <div className="mb-2 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between lg:mb-3">
-              <div className="relative w-full sm:max-w-md">
+            <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-between lg:mb-3">
+              <div className="relative w-full sm:min-w-0 sm:max-w-md sm:flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={filters.search}
@@ -559,8 +583,9 @@ const RedesignMap = () => {
                   </div>
                 ) : null}
               </div>
-              <span className="text-sm font-semibold sm:ml-auto">{subtitle}</span>
-              <Button variant="outline" size="sm" className="h-9 lg:hidden" onClick={() => setShowFilters(true)}>
+              {/* Подпись в одну строку: на телефоне — рядом с «Фильтрами», при нехватке места обрезается */}
+              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[13px] font-semibold sm:ml-auto sm:flex-none sm:overflow-visible sm:text-sm" title={subtitle}>{subtitle}</span>
+              <Button variant="outline" size="sm" className="h-11 shrink-0 sm:h-9 xl:hidden" onClick={() => setShowFilters(true)}>
                 <SlidersHorizontal className="w-4 h-4 mr-1.5" /> Фильтры
               </Button>
             </div>
@@ -581,6 +606,7 @@ const RedesignMap = () => {
                   height="100%"
                   compact
                   filterSearchParams={blocksFilterSearchParams}
+                  onShowList={() => navigate(`/catalog${searchParams.toString() ? `?${searchParams.toString()}` : ''}`)}
                 />
               ) : (
                 <ListingsMapSearch
@@ -606,7 +632,7 @@ const RedesignMap = () => {
               'transition-[height] duration-200',
               sheetExpanded ? 'h-[82%]' : 'h-[38%]',
               // десктоп: обычная колонка справа
-              'lg:static lg:z-auto lg:h-auto lg:max-h-none lg:w-[360px] lg:rounded-none lg:border-l lg:border-t-0 lg:bg-muted/20 lg:shadow-none',
+              'lg:static lg:z-auto lg:h-auto lg:max-h-none lg:w-[320px] lg:rounded-none xl:w-[360px] lg:border-l lg:border-t-0 lg:bg-muted/20 lg:shadow-none',
             )}
           >
             <button
@@ -705,6 +731,7 @@ const RedesignMap = () => {
               builderOptions={buildersQuery.data}
               deadlineOptions={deadlinesQuery.data}
               objectTypeOptions={objectTypeOptions.length > 0 ? objectTypeOptions : undefined}
+              showObjectTypeSwitcher={showTypeSwitcher}
               showMetro={moscowMetro}
               hasBlocks={useBlocksMap}
             />

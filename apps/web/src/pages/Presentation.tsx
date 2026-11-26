@@ -31,12 +31,12 @@ const money = (v: number) =>
   `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v)} ₽`;
 
 const Shell = ({ children }: { children: React.ReactNode }) => (
-  <div className="min-h-screen bg-background pb-16 lg:pb-0">
+  <div className="min-h-screen bg-background">
     <RedesignHeader />
     <div className="mx-auto max-w-[760px] px-4 py-16 text-center text-sm text-muted-foreground">
       {children}
     </div>
-    <FooterSection />
+    <FooterSection reserveMobileNav />
   </div>
 );
 
@@ -86,7 +86,7 @@ const Presentation = () => {
       : null;
 
   return (
-    <div className="min-h-screen bg-background pb-16 print:pb-0 lg:pb-0">
+    <div className="min-h-screen bg-background">
       <div className="print:hidden">
         <RedesignHeader />
       </div>
@@ -222,7 +222,7 @@ const Presentation = () => {
       </article>
 
       <div className="print:hidden">
-        <FooterSection />
+        <FooterSection reserveMobileNav />
       </div>
     </div>
   );

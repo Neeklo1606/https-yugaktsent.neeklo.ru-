@@ -231,11 +231,12 @@ function extractInfrastructureLabels(raw: unknown): string[] {
 function mapFinishing(name: string | undefined): Apartment['finishing'] {
   const n = (name ?? '').toLowerCase();
   if (n.includes('чернов')) return 'черновая';
-  if (n.includes('предчист') || n.includes('подчист')) return 'чистовая';
-  if (n.includes('чистов') || n.includes('white box')) return 'чистовая';
-  if (n.includes('под ключ') || n.includes('whitebox')) return 'под ключ';
+  if (n.includes('предчист') || n.includes('подчист') || n.includes('white')) return 'предчистовая';
+  if (n.includes('чистов')) return 'чистовая';
+  if (n.includes('под ключ') || n.includes('дизайн')) return 'под ключ';
   if (n.includes('без отделк')) return 'без отделки';
-  return 'чистовая';
+  // Нет данных — пусто, а не «чистовая»: покупатель не должен видеть выдуманную отделку
+  return '';
 }
 
 function roomsFromRoomTypeName(name: string | undefined, fallback?: unknown): number {

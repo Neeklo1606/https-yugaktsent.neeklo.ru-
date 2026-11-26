@@ -107,10 +107,14 @@ export function ComplexVideos({ name, videos }: { name: string; videos: string[]
   );
 }
 
+const FAQ_VISIBLE = 6;
+
 /** Частые вопросы — раскрывающиеся строки, первые открыты не все, чтобы блок не был простынёй */
 export function ComplexFaq({ items }: { items: { q: string; a: string }[] }) {
   const [showAll, setShowAll] = useState(false);
-  const visible = showAll ? items : items.slice(0, 6);
+  // Прятать меньше трёх вопросов за кнопкой «Ещё (1)» нет смысла — показываем всё сразу
+  const collapsible = items.length - FAQ_VISIBLE >= 3;
+  const visible = showAll || !collapsible ? items : items.slice(0, FAQ_VISIBLE);
   return (
     <div className="space-y-3">
       <div className="divide-y divide-border/70 rounded-2xl border border-border/70 bg-card">

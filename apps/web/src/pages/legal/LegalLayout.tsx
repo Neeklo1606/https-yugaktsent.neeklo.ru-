@@ -61,7 +61,7 @@ export function OperatorRequisites() {
 
 export default function LegalLayout({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-background pb-16 lg:pb-0">
+    <div className="min-h-screen bg-background">
       <RedesignHeader />
       <main className="mx-auto max-w-[800px] px-4 py-8 sm:py-12">
         <h1 className="mb-2 text-2xl font-bold sm:text-3xl">{title}</h1>
@@ -79,7 +79,7 @@ export default function LegalLayout({ title, children }: { title: string; childr
           </ul>
         </nav>
       </main>
-      <FooterSection />
+      <FooterSection reserveMobileNav />
     </div>
   );
 }

@@ -33,7 +33,7 @@ export interface ResidentialComplex {
   /** Видовые квартиры в продаже (если API отдаёт). */
   scenicCount?: number | null;
   /** Минимальные цены по комнатности (если API отдаёт `price_ranges`). */
-  priceRanges?: { rooms: number; priceMin: number }[];
+  priceRanges?: { rooms: number; priceMin: number; priceMax?: number }[];
   /** Доходность / yield (если API отдаёт). */
   yieldMin?: number | null;
   yieldMax?: number | null;
@@ -60,7 +60,8 @@ export interface Apartment {
   totalFloors: number;
   price: number;
   pricePerMeter: number;
-  finishing: 'без отделки' | 'черновая' | 'чистовая' | 'под ключ';
+  /** '' — застройщик не указал отделку (не подставляем «чистовую» наугад) */
+  finishing: 'без отделки' | 'черновая' | 'предчистовая' | 'чистовая' | 'под ключ' | '';
   status: 'available' | 'reserved' | 'sold';
   planImage: string;
   /** Фото отделки (URL из медиатеки или внешний). */
@@ -83,6 +84,8 @@ export interface LayoutGroup {
   rooms: number;
   area: number;
   priceFrom: number;
+  /** Самая дорогая квартира этой планировки (для «от … до …») */
+  priceTo?: number;
   planImage: string;
   availableCount: number;
 }

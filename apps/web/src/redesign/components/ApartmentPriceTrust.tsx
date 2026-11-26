@@ -93,9 +93,10 @@ const ApartmentPriceTrust = ({
       aria-label="Коротко о квартире"
       className={cn('flex h-full scroll-mt-32 flex-col rounded-2xl border border-border/70 bg-card p-5 shadow-card sm:p-6', className)}
     >
-      <div className="flex items-start justify-between gap-3">
+      {/* На телефоне кнопки 44×44 стоят в строке статуса, а заголовок занимает всю ширину карточки */}
+      <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[12px] font-medium">
+          <div className={cn('mb-2 flex flex-wrap items-center gap-1.5 text-[12px] font-medium', actions && 'min-h-11 pr-[148px] sm:min-h-0 sm:pr-0')}>
             <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1', STATUS_CLASS[apartment.status])}>
               <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[apartment.status])} aria-hidden />
               {STATUS_LABEL[apartment.status]}
@@ -115,6 +116,10 @@ const ApartmentPriceTrust = ({
               ЖК «{complexName}»
             </Link>
             {realValue(buildingName) ? ` · ${buildingName}` : ''}
+            {' · '}
+            <Link to={`/complex/${complexSlug}#chessboard`} className="font-medium text-primary hover:underline">
+              в шахматке
+            </Link>
           </p>
           {addr ? (
             <p className="mt-1 flex min-w-0 items-start gap-1.5 text-[14px] text-muted-foreground">
@@ -123,7 +128,7 @@ const ApartmentPriceTrust = ({
             </p>
           ) : null}
         </div>
-        {actions ? <ObjectPageActionBar actions={actions} /> : null}
+        {actions ? <ObjectPageActionBar actions={actions} className="absolute right-0 top-0 sm:static" /> : null}
       </div>
 
       <div className="mt-5 border-t border-border/60 pt-4">

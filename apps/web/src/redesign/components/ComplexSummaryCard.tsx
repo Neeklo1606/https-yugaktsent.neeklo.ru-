@@ -24,6 +24,7 @@ type Props = {
   /** Клик по строке «Студии / 1-к.кв …» — фильтр квартир по комнатности */
   onRoomPick?: (rooms: number) => void;
   className?: string;
+  housingType?: string | null;
 };
 
 const realValue = (v?: string | null) => (v && v.trim() && v.trim() !== '—' ? v.trim() : '');
@@ -35,9 +36,15 @@ function statusText(status: ResidentialComplex['status']): string | null {
   return null;
 }
 
-export function flatsWord(n: number): string {
+export function flatsWord(n: number, housingType?: string | null): string {
   const m10 = n % 10;
   const m100 = n % 100;
+  // Апарт-отели продают апартаменты, а не квартиры
+  if (housingType === 'aparthotel') {
+    if (m10 === 1 && m100 !== 11) return 'свободный апартамент';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'свободных апартамента';
+    return 'свободных апартаментов';
+  }
   if (m10 === 1 && m100 !== 11) return 'свободная квартира';
   if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'свободные квартиры';
   return 'свободных квартир';
@@ -56,6 +63,7 @@ export default function ComplexSummaryCard({
   onConsultation,
   onRoomPick,
   className,
+  housingType,
 }: Props) {
   const { data: settings } = useSiteSettings();
   const phone = settingOptional(settings, 'phone_main');
@@ -112,7 +120,7 @@ export default function ComplexSummaryCard({
         <p className="mt-1.5 text-[14px] text-muted-foreground">
           {availableCount > 0 ? (
             <span className="font-medium text-success">
-              {availableCount.toLocaleString('ru-RU')} {flatsWord(availableCount)}
+              {availableCount.toLocaleString('ru-RU')} {flatsWord(availableCount, housingType)}
             </span>
           ) : null}
           {availableCount > 0 && !isPriceHidden(complex.priceTo) && complex.priceTo !== complex.priceFrom ? ' · ' : null}
