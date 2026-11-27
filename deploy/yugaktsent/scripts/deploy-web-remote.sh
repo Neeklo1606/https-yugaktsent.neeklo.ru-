@@ -42,7 +42,8 @@ mv dist "dist.old-$TS" && mv dist.new dist
 mv dist-ssr "dist-ssr.old-$TS" && mv dist-ssr.new dist-ssr
 cp dist/index.html dist/spa-template.html
 chown -R root:root dist dist-ssr
-bash ../../deploy/yugaktsent/scripts/prerender-web.sh | tail -3
+# пререндер ограничен 300 с и может вернуть 124 уже после «Готово» — чистку это не должно останавливать
+bash ../../deploy/yugaktsent/scripts/prerender-web.sh | tail -3 || echo "prerender exit \$?"
 # оставляем 3 последние старые сборки
 ls -dt dist.old-* 2>/dev/null | tail -n +4 | xargs -r rm -rf
 ls -dt dist-ssr.old-* 2>/dev/null | tail -n +4 | xargs -r rm -rf
