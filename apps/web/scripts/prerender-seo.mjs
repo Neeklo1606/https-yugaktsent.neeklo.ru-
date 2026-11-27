@@ -1007,8 +1007,12 @@ Sitemap: ${siteUrl}/sitemap.xml
 
 // Запуск только как скрипта: при импорте (тесты) main не выполняется
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((e) => {
-    console.error('[prerender-seo]', e);
-    process.exit(1);
-  });
+  // SSR-модуль оставляет открытые таймеры (react-query) — без явного выхода процесс висел до таймаута 300 с
+  main().then(
+    () => process.exit(0),
+    (e) => {
+      console.error('[prerender-seo]', e);
+      process.exit(1);
+    },
+  );
 }
