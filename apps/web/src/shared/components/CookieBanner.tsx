@@ -112,25 +112,34 @@ const CookieBanner = () => {
       aria-label="Уведомление о cookie"
       {...{ [BANNER_ATTR]: '' }}
       style={stackH != null && (stackH > 0 || window.innerWidth < 1024) ? { bottom: stackH + 8 } : undefined}
-      className="fixed inset-x-2 bottom-mobile-nav z-40 mx-auto flex max-w-[640px] flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-border bg-card/95 px-3 py-2 shadow-raised backdrop-blur-sm transition-[bottom] duration-200 sm:flex-nowrap sm:px-4 lg:bottom-6"
+      className="fixed inset-x-2 bottom-mobile-nav z-40 mx-auto flex max-w-[640px] flex-nowrap items-center gap-2 rounded-xl border border-border bg-card/95 py-1.5 pl-3 pr-1.5 shadow-raised backdrop-blur-sm transition-[bottom] duration-200 sm:gap-3 sm:py-2 sm:pl-4 sm:pr-2 lg:bottom-6"
     >
-      <p className="min-w-0 flex-1 basis-full text-[12px] leading-snug text-foreground sm:basis-auto sm:text-[13px]">
-        {analytics
-          ? 'Cookie помнят избранное и город, Метрика считает визиты — с вашего согласия.'
-          : 'Cookie нужны, чтобы помнить избранное и город.'}{' '}
-        <Link to="/cookies" className="text-primary underline underline-offset-2">Подробнее</Link>
+      {/* Одна строка: короткий текст со ссылкой и маленькие кнопки справа (~48 px на телефоне) */}
+      <p className="min-w-0 flex-1 text-[12px] leading-tight text-foreground sm:text-[13px]">
+        {analytics ? (
+          <>
+            <span className="sm:hidden">Cookie и Метрика — с согласия.</span>
+            <span className="hidden sm:inline">Cookie помнят избранное и город, Метрика считает визиты — с вашего согласия.</span>
+          </>
+        ) : (
+          <>
+            <span className="sm:hidden">Используем cookie.</span>
+            <span className="hidden sm:inline">Cookie нужны, чтобы помнить избранное и город.</span>
+          </>
+        )}{' '}
+        <Link to="/cookies" className="whitespace-nowrap text-primary underline underline-offset-2">Подробнее</Link>
       </p>
       {analytics ? (
-        <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          <button type="button" onClick={() => accept('no')} className={btnClass('ghost', { size: 'sm', className: 'h-8 px-3' })}>
+        <div className="flex shrink-0 items-center gap-1">
+          <button type="button" onClick={() => accept('no')} className={btnClass('ghost', { size: 'sm', className: 'h-8 px-2 text-[12px] sm:px-3 sm:text-[13px]' })}>
             Только нужные
           </button>
-          <button type="button" onClick={() => accept('yes')} className={btnClass('primary', { size: 'sm', className: 'h-8 px-4' })}>
+          <button type="button" onClick={() => accept('yes')} className={btnClass('primary', { size: 'sm', className: 'h-8 px-3 text-[12px] sm:px-4 sm:text-[13px]' })}>
             Принять
           </button>
         </div>
       ) : (
-        <button type="button" onClick={() => accept()} className={btnClass('primary', { size: 'sm', className: 'ml-auto h-8 shrink-0 px-4' })}>
+        <button type="button" onClick={() => accept()} className={btnClass('primary', { size: 'sm', className: 'h-8 shrink-0 px-3 text-[12px] sm:px-4 sm:text-[13px]' })}>
           Понятно
         </button>
       )}

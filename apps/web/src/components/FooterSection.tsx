@@ -24,14 +24,15 @@ const FooterNavColumn = ({
 }: {
   title: string;
   links: readonly { label: string; to: string }[];
-  /** На телефоне — строкой с переносом, а не столбиком: длинные подписи документов не растягивают подвал */
+  /** Документы: столбиком и чуть плотнее на телефоне (строкой подписи сливались) */
   wrapOnMobile?: boolean;
 }) => (
   <div>
     <h3 className="mb-1 text-[13px] font-semibold text-primary-foreground/50">
       {title}
     </h3>
-    <ul className={wrapOnMobile ? 'flex flex-wrap gap-x-5 lg:flex-col lg:gap-x-0' : 'flex flex-col'}>
+    {/* Документы на телефоне строкой слипались («Пользовательское соглашение Cookie») — каждый с новой строки, плотнее по высоте */}
+    <ul className={wrapOnMobile ? 'flex flex-col [&_a]:min-h-[36px] lg:[&_a]:min-h-[32px]' : 'flex flex-col'}>
       {links.map((l) => (
         <li key={l.label}>
           <Link to={l.to} className={footerLinkClass}>

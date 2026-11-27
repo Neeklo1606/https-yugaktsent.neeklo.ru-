@@ -117,7 +117,7 @@ const ApartmentPriceTrust = ({
             </Link>
             {realValue(buildingName) ? ` · ${buildingName}` : ''}
             {' · '}
-            <Link to={`/complex/${complexSlug}#chessboard`} className="font-medium text-primary hover:underline">
+            <Link to={`/complex/${complexSlug}?apt=${encodeURIComponent(apartment.id)}#chessboard`} className="font-medium text-primary hover:underline">
               в шахматке
             </Link>
           </p>

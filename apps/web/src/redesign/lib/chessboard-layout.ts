@@ -105,8 +105,10 @@ export function countChessCells(rows: ChessRow[], isOutside?: (floor: number, co
 }
 
 export type ChessColumn = {
-  /** Номер окна на этаже (по данным застройщика или по порядку) */
+  /** Номер стояка по порядку внутри секции: 1…N */
   label: string;
+  /** Номер окна на этаже по данным застройщика (для подсказки) */
+  origin: string;
   /** Подпись секции/подъезда, если дом в выгрузке разбит на секции */
   group: string | null;
   /** Первый столбец новой группы — перед ним рисуется зазор */
@@ -118,15 +120,16 @@ export function buildChessColumns(matrix: ChessboardBuildingMatrix): ChessColumn
   const shafts = matrix.shafts ?? [];
   const groups = new Set(shafts.map((s) => s.group ?? ''));
   const showGroups = groups.size > 1;
+  let n = 0;
   return Array.from({ length: matrix.shaftCount }, (_, i) => {
     const s = shafts[i];
     const group = showGroups ? s?.group ?? null : null;
     const prev = i > 0 && showGroups ? shafts[i - 1]?.group ?? null : group;
-    return {
-      label: String(s?.position ?? i + 1),
-      group,
-      groupStart: showGroups && i > 0 && prev !== group,
-    };
+    const groupStart = showGroups && i > 0 && prev !== group;
+    // Внутри секции подписываем стояки по порядку: у застройщика номера окон бывают с пропусками (1, 3, 9…)
+    if (i === 0 || groupStart || (s?.group ?? null) !== (shafts[i - 1]?.group ?? null)) n = 0;
+    n += 1;
+    return { label: String(n), origin: String(s?.position ?? i + 1), group, groupStart };
   });
 }
 
@@ -363,4 +366,15 @@ export function layoutGroupsFromChessboard(
         map.set(key, g);
       }
   return [...map.values()].sort((x, y) => x.rooms - y.rooms || x.area - y.area);
+}
+
+/** Диапазон цен одним видом по всему сайту: «8,1–12,5 млн ₽» (до млн — «950 тыс. ₽») */
+export function priceRangeShort(lo: number, hi: number): string {
+  if (!(lo > 0)) return 'по запросу';
+  const mln = (v: number) => (v / 1_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+  if (lo >= 1_000_000) {
+    if (!(hi > lo * 1.02)) return `${mln(lo)} млн ₽`;
+    return `${mln(lo)}–${mln(hi)} млн ₽`;
+  }
+  return hi > lo ? `${shortChessPrice(lo)} – ${shortChessPrice(hi)} ₽` : `${shortChessPrice(lo)} ₽`;
 }

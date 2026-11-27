@@ -4,7 +4,6 @@ import { formatDisplayPrice, isPriceFallbackText, priceAriaLabel } from '@/redes
 import StableMediaFrame from '@/redesign/components/StableMediaFrame';
 import PromotionBadge from '@/redesign/components/PromotionBadge';
 import TrustBadgeRow, { type TrustBadgeView } from '@/redesign/components/TrustBadgeRow';
-import { listingFreshnessBadge } from '@lg/shared';
 import { formatQuarterFromDate } from '@/redesign/lib/card-visual';
 import { formatArea, shortRoomLabel } from '@/redesign/lib/listing-format';
 import { Heart } from 'lucide-react';
@@ -175,7 +174,7 @@ const STATUS_CHIP: Record<string, { label: string; className: string }> = {
 };
 
 /**
- * Карточка объекта (ТЗ v3, 4.4): фото/планировка, чипы «Свободно» и «Актуально», цена,
+ * Карточка объекта (ТЗ v3, 4.4): фото/планировка, чип статуса «Свободно», цена,
  * «3-к.кв · 78,3 м²», ЖК и город, этаж и срок сдачи, сердечко. Кликабельна целиком.
  */
 const ListingCard = ({ listing, variant = 'grid', trustBadges }: Props) => {
@@ -196,11 +195,6 @@ const ListingCard = ({ listing, variant = 'grid', trustBadges }: Props) => {
   const floorsTotal = listing.apartment?.floorsTotal;
   const floorLine = floor ? `${floor}${floorsTotal && floorsTotal >= floor ? ` из ${floorsTotal}` : ''} этаж` : null;
   const facts = [floorLine, completionLine ? `сдача ${completionLine}` : null].filter(Boolean).join(' · ');
-  const freshness = listingFreshnessBadge({
-    dataSource: listing.dataSource,
-    lastActivityAt: listing.lastActivityAt,
-    updatedAt: listing.updatedAt,
-  });
 
   const handleLike = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -230,14 +224,13 @@ const ListingCard = ({ listing, variant = 'grid', trustBadges }: Props) => {
           fit={usesPlan ? 'contain' : 'cover'}
           decorative={false}
           altContext={title}
-          className={cn('absolute inset-0 h-full w-full', usesPlan && 'p-4')}
+          // Планировка — ниже чипа статуса и сердечка, чтобы значки не лежали на чертеже
+          className={usesPlan ? 'absolute inset-x-0 bottom-0 top-11 bg-white' : 'absolute inset-0 h-full w-full'}
           imgClassName={usesPlan ? '' : 'transition-transform duration-300 group-hover:scale-[1.02]'}
         />
+        {/* «Актуально» убрали: в выдаче все объекты актуальны, метка ничего не сообщала */}
         <div className="absolute left-2.5 top-2.5 flex flex-wrap gap-1">
           {status ? <span className={cn('rounded-full px-2 py-0.5 text-[12px] font-medium', status.className)}>{status.label}</span> : null}
-          {freshness?.tone === 'recent' ? (
-            <span className="rounded-full bg-card/95 px-2 py-0.5 text-[12px] font-medium text-foreground shadow-card">Актуально</span>
-          ) : null}
         </div>
         <button
           type="button"

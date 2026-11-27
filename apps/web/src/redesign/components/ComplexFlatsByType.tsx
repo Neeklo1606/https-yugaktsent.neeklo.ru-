@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChessboardBuildingMatrix } from '@/redesign/lib/chessboard-api';
-import { deadlineQuarter, shortChessPrice, splitBuildingName } from '@/redesign/lib/chessboard-layout';
+import { deadlineQuarter, priceRangeShort, splitBuildingName } from '@/redesign/lib/chessboard-layout';
 import { cachedImageUrl, getSafeImageUrl } from '@/redesign/lib/image-media';
 
 type Flat = {
@@ -148,7 +148,7 @@ const ComplexFlatsByType = ({
                 {g.areaMin === g.areaMax ? `${fmtArea(g.areaMin)} м²` : `${fmtArea(g.areaMin)}–${fmtArea(g.areaMax)} м²`}
               </span>
               <span className="col-span-2 text-[15px] font-semibold tabular-nums md:col-span-1">
-                {g.priceMin ? (g.priceMin === g.priceMax ? shortChessPrice(g.priceMin) : `${shortChessPrice(g.priceMin)} – ${shortChessPrice(g.priceMax)}`) : 'по запросу'}
+                {priceRangeShort(g.priceMin, g.priceMax)}
               </span>
               <span className="col-span-2 text-[14px] text-muted-foreground md:col-span-1">
                 {g.list.length.toLocaleString('ru-RU')} {offersWord(g.list.length)}
@@ -156,7 +156,7 @@ const ComplexFlatsByType = ({
             </button>
             {isOpen ? (
               <div className="border-t border-border/50 bg-background px-2 pb-3 pt-2 sm:px-4">
-                <div className="mb-2 flex flex-wrap items-center gap-1.5 px-2 text-[13px] text-muted-foreground">
+                <div className="mb-2 flex items-center gap-1 overflow-x-auto whitespace-nowrap px-2 text-[13px] text-muted-foreground scrollbar-hide">
                   Сортировка:
                   {(
                     [
@@ -181,29 +181,38 @@ const ComplexFlatsByType = ({
                     <li key={f.id}>
                       <Link
                         to={`/apartment/${f.id}`}
-                        className="grid grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-muted/50"
+                        className="grid grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-muted/50 md:grid-cols-[56px_minmax(0,1.3fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] md:gap-4"
                       >
                         <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/40">
                           {f.planImage ? (
                             <img src={cachedImageUrl(getSafeImageUrl(f.planImage))} alt="" loading="lazy" className="max-h-full max-w-full object-contain p-1" />
-                          ) : null}
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">план</span>
+                          )}
                         </span>
                         <span className="min-w-0">
                           <span className="block text-[15px] font-medium">
                             {fmtArea(f.area)} м² · {f.floor} этаж
                             {f.reserved ? <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">бронь</span> : null}
                           </span>
-                          <span className="block truncate text-[13px] text-muted-foreground">
-                            {f.house}
-                            {f.number ? ` · № ${f.number}` : ''}
-                            {f.deadline ? ` · сдача ${f.deadline}` : ''}
+                          {/* На телефоне дом и номер — второй и третьей строкой, на десктопе — своей колонкой */}
+                          <span className="block text-[13px] text-muted-foreground md:hidden">{f.house}</span>
+                          <span className="block text-[13px] text-muted-foreground md:hidden">
+                            {[f.number ? `№ ${f.number}` : '', f.deadline ? `сдача ${f.deadline}` : ''].filter(Boolean).join(' · ')}
                           </span>
                         </span>
-                        <span className="text-right">
+                        <span className="hidden min-w-0 text-[14px] text-muted-foreground md:block">
+                          <span className="block truncate">{f.house}</span>
+                          <span className="block">{[f.number ? `№ ${f.number}` : '', f.deadline ? `сдача ${f.deadline}` : ''].filter(Boolean).join(' · ')}</span>
+                        </span>
+                        <span className="text-right md:text-left">
                           <span className="block text-[15px] font-semibold tabular-nums">{f.price ? fmtRub(f.price) : 'по запросу'}</span>
                           {f.price && f.area ? (
-                            <span className="block text-[12px] tabular-nums text-muted-foreground">{fmtRub(f.price / f.area)}/м²</span>
+                            <span className="block text-[12px] tabular-nums text-muted-foreground md:hidden">{fmtRub(f.price / f.area)}/м²</span>
                           ) : null}
+                        </span>
+                        <span className="hidden text-[14px] tabular-nums text-muted-foreground md:block">
+                          {f.price && f.area ? `${fmtRub(f.price / f.area)}/м²` : ''}
                         </span>
                       </Link>
                     </li>

@@ -21,7 +21,7 @@ import ApartmentMediaGallery from '@/redesign/components/ApartmentMediaGallery';
 import ApartmentPriceTrust from '@/redesign/components/ApartmentPriceTrust';
 import ApartmentCharacteristics from '@/redesign/components/ApartmentCharacteristics';
 import ComplexAnchorNav, { type ComplexSection } from '@/redesign/components/ComplexAnchorNav';
-import StableMediaFrame from '@/redesign/components/StableMediaFrame';
+import ListingCard from '@/redesign/components/ListingCard';
 import { apiGet } from '@/lib/api';
 import { mapListingRowToApartment, type ApiListingRow } from '@/redesign/lib/blocks-from-api';
 import { mapListingDetailToApartmentPage, type ApiListingDetail } from '@/redesign/lib/listing-page-from-api';
@@ -111,15 +111,17 @@ const RedesignApartment = () => {
         `/listings?block_id=${blockId}&kind=APARTMENT&status=ACTIVE&per_page=12&sort=price_asc&rooms=${apiPage?.apartment.rooms ?? ''}`,
       ),
     enabled: Boolean(apiPage && blockId != null && listingId != null),
+    // Строки API как есть: «Похожие» рисуются той же карточкой ListingCard, что и «Похожие по цене»
     select: (res) => {
       if (blockId == null || listingId == null) return [];
       const rooms = apiPage?.apartment.rooms;
       if (rooms === undefined) return [];
       return res.data
         .filter((l) => l.id !== listingId)
-        .map((l) => mapListingRowToApartment(l, String(blockId), String(l.buildingId ?? `${blockId}-main`)))
-        .filter((a): a is NonNullable<typeof a> => a != null)
-        .filter((a) => a.rooms === rooms && a.status === 'available')
+        .filter((l) => {
+          const a = mapListingRowToApartment(l, String(blockId), String(l.buildingId ?? `${blockId}-main`));
+          return a != null && a.rooms === rooms && a.status === 'available';
+        })
         .slice(0, 4);
     },
   });
@@ -169,20 +171,7 @@ const RedesignApartment = () => {
   }, [apt, complex, listingId, listingQuery.data, location.pathname, mediaImages, shortName]);
   useEntitySeoMeta(entitySeo);
 
-  const similarApts = useMemo(() => {
-    if (mockResult?.complex && mockResult.apartment) {
-      return mockResult.complex.buildings
-        .flatMap((b) => b.apartments)
-        .filter(
-          (a) =>
-            a.id !== mockResult.apartment!.id &&
-            a.status === 'available' &&
-            a.rooms === mockResult.apartment!.rooms,
-        )
-        .slice(0, 4);
-    }
-    return similarApiQuery.data ?? [];
-  }, [mockResult, similarApiQuery.data]);
+  const similarApts = similarApiQuery.data ?? [];
 
   const loading = listingId != null && listingQuery.isPending;
   const apiFailed = listingId != null && (listingQuery.isError || (listingQuery.isFetched && !apiPage));
@@ -328,7 +317,12 @@ const RedesignApartment = () => {
     );
   }
 
+  /** ЖК — апарт-отель (housingType из блока в ответе /listings/:id): «апартаменты» вместо «квартир» */
+  const isAparthotel = (listingQuery.data?.block as { housingType?: string | null } | null | undefined)?.housingType === 'aparthotel';
   const roomLabel = apt.rooms === 0 ? 'Студия' : `${apt.rooms}-комнатная`;
+  /** Заголовок объекта: у апарт-отеля — «Апартаменты, 41,4 м²»; комнатность остаётся в характеристиках */
+  const titleLabel = isAparthotel ? 'Апартаменты' : roomLabel;
+  const unitsWord = isAparthotel ? 'апартаменты' : 'квартиры';
   /** Без настоящих координат ЖК карту рисовать нечем — прячем и кнопку, и саму карту */
   const hasCoords = complex.hasCoords === true;
   const hasAddress = Boolean(complex.address?.trim() && complex.address !== '—');
@@ -396,7 +390,7 @@ const RedesignApartment = () => {
           {/* Текущая страница — в заголовке карточки; на телефоне крошки в одну строку */}
           <span className="hidden sm:inline">/</span>
           <span className="hidden truncate font-medium text-foreground sm:inline">
-            {roomLabel}, {formatArea(apt.area)}
+            {titleLabel}, {formatArea(apt.area)}
           </span>
         </nav>
 
@@ -420,7 +414,7 @@ const RedesignApartment = () => {
               planSrc={apt.planImage}
               finishingSrc={apt.finishingImage}
               gallerySrcs={mediaImages}
-              title={`${roomLabel}, ${formatArea(apt.area)}`}
+              title={`${titleLabel}, ${formatArea(apt.area)}`}
             />
           </div>
           <ApartmentPriceTrust
@@ -429,7 +423,7 @@ const RedesignApartment = () => {
             complexSlug={complex.slug}
             buildingName={building.name}
             address={complex.address}
-            roomLabel={roomLabel}
+            roomLabel={titleLabel}
             deadline={building.deadline}
             actions={[
               {
@@ -497,7 +491,7 @@ const RedesignApartment = () => {
               <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
                 <p className="text-[15px] leading-relaxed text-muted-foreground">
                   {/* Этаж — в фактах карточки цены, в описании не повторяем */}
-                  {roomLabel} площадью {formatArea(apt.area)} в ЖК «{complex.name}».
+                  {titleLabel} площадью {formatArea(apt.area)} в ЖК «{complex.name}».
                   {apt.finishing === 'без отделки' ? ' Без отделки.' : apt.finishing ? ` Отделка: ${apt.finishing}.` : ''}
                   {apt.kitchenArea > 0 ? ` Кухня ${formatArea(apt.kitchenArea)}.` : ''}
                 </p>
@@ -517,7 +511,7 @@ const RedesignApartment = () => {
                   to={`/complex/${complex.slug}`}
                   className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
                 >
-                  Все квартиры в ЖК «{complex.name}» →
+                  Все {unitsWord} в ЖК «{complex.name}» →
                 </Link>
               </div>
               {/* Без координат карту рисовать нечем — адрес остаётся строкой в описании (ТЗ v3, 4.6) */}
@@ -537,35 +531,11 @@ const RedesignApartment = () => {
 
           {similarApts.length > 0 ? (
             <Reveal as="section" id="similar" className="scroll-mt-36">
-              {sectionHeading(`Похожие квартиры в ЖК «${complex.name}»`)}
+              {sectionHeading(`Похожие ${unitsWord} в ЖК «${complex.name}»`)}
               {/* Телефон: лента со свайпом (две карточки в кадре); с планшета — ровная сетка */}
-              <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:scroll-px-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4 [&>*]:w-[64%] [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-auto">
-                {similarApts.map((a) => (
-                  <Link
-                    key={a.id}
-                    to={`/apartment/${a.id}`}
-                    className="group overflow-hidden rounded-2xl border border-border/70 bg-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card"
-                  >
-                    <StableMediaFrame
-                      src={a.planImage}
-                      altContext={`${a.rooms === 0 ? 'Студия' : `${a.rooms}-комн`}, ${formatArea(a.area)}`}
-                      aspect="4/3"
-                      fallback="branded"
-                      loading="lazy"
-                      imgClassName="object-contain p-4 opacity-90 transition-opacity group-hover:opacity-100"
-                    />
-                    <div className="space-y-1 border-t border-border p-3.5">
-                      <p className="text-[16px] font-bold tabular-nums">{formatDisplayPrice(a.price)}</p>
-                      <h3 className="text-[14px] font-medium">
-                        {a.rooms === 0 ? 'Студия' : `${a.rooms}-комн.`}, {formatArea(a.area)}
-                      </h3>
-                      <p className="text-[13px] text-muted-foreground">
-                        {a.floor > 0 ? `${a.floor} этаж` : ''}
-                        {a.floor > 0 && a.finishing ? ' · ' : ''}
-                        {a.finishing}
-                      </p>
-                    </div>
-                  </Link>
+              <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:scroll-px-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4 [&>*]:w-[260px] [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-auto">
+                {similarApts.map((l) => (
+                  <ListingCard key={l.id} listing={{ ...l, kind: l.kind ?? 'APARTMENT' }} variant="grid" />
                 ))}
               </div>
             </Reveal>

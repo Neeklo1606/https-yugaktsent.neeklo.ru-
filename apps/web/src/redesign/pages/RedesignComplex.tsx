@@ -267,6 +267,8 @@ const RedesignComplex = () => {
   /** Фильтр дома во вкладке «Списком»; null — все дома. Отдельно от дома в шахматке */
   const [listBuildingId, setListBuildingId] = useState<string | null>(null);
   const chessAutoPickRef = useRef(false);
+  const aptPickedRef = useRef(false);
+  const highlightAptId = new URLSearchParams(location.search).get('apt');
   const [consultOpen, setConsultOpen] = useState(false);
   const [consultContext, setConsultContext] = useState<ConsultationContext | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -292,6 +294,17 @@ const RedesignComplex = () => {
   useEffect(() => {
     const boards = chessboardQuery.data?.buildings;
     if (!boards?.length) return;
+    // Пришли со страницы квартиры (?apt=id) — открываем дом этой квартиры
+    const aptParam = new URLSearchParams(location.search).get('apt');
+    if (aptParam && !aptPickedRef.current) {
+      const owner = boards.find((b) => b.grid.some((row) => row.some((c) => c.apartment?.id === aptParam)));
+      if (owner) {
+        aptPickedRef.current = true;
+        chessAutoPickRef.current = true;
+        setActiveBuildingId(owner.id);
+        return;
+      }
+    }
     if (!chessAutoPickRef.current || !activeBuildingId || !boards.some((b) => b.id === activeBuildingId)) {
       chessAutoPickRef.current = true;
       // Открываем литер, где больше всего свободных квартир (литер = все его секции одной сеткой)
@@ -299,7 +312,7 @@ const RedesignComplex = () => {
       const best = lits.reduce((a, b) => (b.available > a.available ? b : a), lits[0]);
       setActiveBuildingId(best?.firstId ?? boards[0].id);
     }
-  }, [chessboardQuery.data, activeBuildingId]);
+  }, [chessboardQuery.data, activeBuildingId, location.search]);
 
   const scopedApartments = useMemo(() => {
     if (!complex) return [];
@@ -369,7 +382,7 @@ const RedesignComplex = () => {
 
   const navSections = useMemo((): ComplexSection[] => {
     const s: ComplexSection[] = [];
-    if (hasFlatsBlock) s.push({ id: 'flats', label: 'Квартиры и цены' });
+    if (hasFlatsBlock) s.push({ id: 'flats', label: housingType === 'aparthotel' ? 'Апартаменты и цены' : 'Квартиры и цены' });
     if (hasMasterplan) s.push({ id: 'masterplan', label: 'Генплан' });
     // Блок «О комплексе» есть почти всегда: в фактах хотя бы цена и срок сдачи
     if (complex) s.push({ id: 'description', label: 'О комплексе' });
@@ -378,7 +391,7 @@ const RedesignComplex = () => {
     if (complex) s.push({ id: 'faq', label: 'Вопросы' });
     if (similarComplexes.length > 0) s.push({ id: 'similar', label: 'Похожие' });
     return s;
-  }, [complex, hasFlatsBlock, hasMasterplan, hasVideo, similarComplexes.length]);
+  }, [complex, hasFlatsBlock, hasMasterplan, hasVideo, similarComplexes.length, housingType]);
 
   const initMap = useCallback(() => {
     if (!ymapsReady || !complex || mapInstanceRef.current || !mapRef.current || !window.ymaps) return;
@@ -685,7 +698,7 @@ const RedesignComplex = () => {
             <section ref={chessboardSectionRef} id="flats" className="scroll-mt-36">
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <h2 className="text-[22px] font-semibold leading-tight tracking-tight lg:text-2xl">Квартиры и цены</h2>
+                  <h2 className="text-[22px] font-semibold leading-tight tracking-tight lg:text-2xl">{housingType === 'aparthotel' ? 'Апартаменты и цены' : 'Квартиры и цены'}</h2>
                   {listingsTotal > 0 ? (
                     <p className="mt-1 text-[14px] text-muted-foreground">{listingsTotal.toLocaleString('ru-RU')} в продаже · цены застройщика</p>
                   ) : null}
@@ -732,11 +745,16 @@ const RedesignComplex = () => {
                     roomFilter={roomFilter}
                     onRoomFilter={(k) => setRoomFilter(k as typeof roomFilter)}
                     isLoading={chessboardQuery.isFetching}
-                    onApartmentLead={(summary) => {
+                    highlightId={highlightAptId}
+                    onApartmentLead={(summary, listingId) => {
+                      const lid = Number(listingId);
                       setConsultContext({
                         surface: 'complex',
                         source: `complex:${complex.slug}:chessboard`,
+                        // Покупатель видит, на какую квартиру записывается; заявка привязана к объявлению
+                        title: `Записаться на просмотр: ${summary}`,
                         blockId: blockNum ?? undefined,
+                        listingId: Number.isFinite(lid) ? lid : undefined,
                         contextFooter: `ЖК «${complex.name}» · ${summary}`,
                       });
                       setConsultOpen(true);
@@ -1004,8 +1022,8 @@ const RedesignComplex = () => {
             onClick={() => openComplexConsult(`complex:${complex.slug}:sticky`)}
           >
             {/* На 320 px полная подпись не помещалась рядом с ценой */}
-            <span className="min-[360px]:hidden">Записаться</span>
-            <span className="hidden min-[360px]:inline">{CONVERSION_CTA.viewing}</span>
+            <span className="min-[430px]:hidden">Записаться</span>
+            <span className="hidden min-[430px]:inline">{CONVERSION_CTA.viewing}</span>
           </Button>
         </div>
       </div>

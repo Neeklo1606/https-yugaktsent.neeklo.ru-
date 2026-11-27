@@ -104,12 +104,14 @@ function CoverCarousel({
   );
 }
 
-function flatsInSale(n: number): string {
+/** «квартир» / «апартаментов» — у апарт-отеля (housingType = aparthotel) в продаже апартаменты */
+export function flatsInSale(n: number, housingType?: string | null): string {
   const m10 = n % 10;
   const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return 'квартира';
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'квартиры';
-  return 'квартир';
+  const [one, few, many] = housingType === 'aparthotel' ? ['апартамент', 'апартамента', 'апартаментов'] : ['квартира', 'квартиры', 'квартир'];
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
 }
 
 export default function ComplexOfferCard({
@@ -203,7 +205,7 @@ export default function ComplexOfferCard({
 
         {units ? (
           <p className="mt-auto pt-3 text-[13px] text-muted-foreground">
-            {units.toLocaleString('ru-RU')} {flatsInSale(units)} в продаже
+            {units.toLocaleString('ru-RU')} {flatsInSale(units, complex.housingType)} в продаже
           </p>
         ) : null}
       </div>

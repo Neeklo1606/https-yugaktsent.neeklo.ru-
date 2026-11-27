@@ -46,20 +46,23 @@ const LayoutCard = ({ layout }: { layout: LayoutGroup }) => {
         </h3>
         <div className="flex items-center justify-between gap-2">
           <p className={cardVisual.metaMuted}>{formatArea(layout.area)}</p>
-          <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-semibold text-primary" title="Квартир с этой планировкой в продаже">
-            ×{layout.availableCount}
-          </span>
+          {layout.availableCount > 1 ? (
+            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-semibold text-primary" title="Квартир с этой планировкой в продаже">
+              ×{layout.availableCount}
+            </span>
+          ) : null}
         </div>
-        {layout.priceTo && layout.priceTo > layout.priceFrom * 1.02 ? (
-          <p className={cardVisual.metaMuted}>до {formatPriceFrom(layout.priceTo).replace(/^от\s*/i, '')}</p>
-        ) : null}
+        {/* Строка есть всегда — карточки одной высоты */}
+        <p className={cardVisual.metaMuted}>
+          {layout.priceTo && layout.priceTo > layout.priceFrom * 1.02 ? `до ${formatPriceFrom(layout.priceTo).replace(/^от\s*/i, '')}` : '\u00a0'}
+        </p>
       </div>
     </div>
   );
 };
 
 /** Сколько планировок видно сразу: у «Мореграда» их 48, и на телефоне блок занимал 6 000+ px */
-const INITIAL_VISIBLE = 8;
+const INITIAL_VISIBLE = 10;
 
 const ROOM_TABS: { key: number | null; label: string }[] = [
   { key: null, label: 'Все' },

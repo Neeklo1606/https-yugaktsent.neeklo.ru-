@@ -10,7 +10,8 @@ import { BRAND_PRIMARY_HEX, BRAND_PRIMARY_ACTIVE_HEX } from '@/redesign/lib/butt
 export const MARKER_ACCENT = BRAND_PRIMARY_HEX;
 export const MARKER_ACCENT_ACTIVE = BRAND_PRIMARY_ACTIVE_HEX;
 
-export const ZOOM_DOT_MAX = 12;
+/** С этого масштаба метки — с ценой «от X млн» (раньше с 12: на обзоре города были одни точки) */
+export const ZOOM_DOT_MAX = 9;
 export const ZOOM_NAME_MIN = 14;
 
 export type MarkerZoomMode = 'dot' | 'price' | 'name';
@@ -53,7 +54,7 @@ type MarkerLayoutOptions = {
 /** Yandex templateLayoutFactory HTML for a map marker */
 export function buildMarkerLayoutHtml({ mode, label, isActive }: MarkerLayoutOptions): string {
   const color = isActive ? MARKER_ACCENT_ACTIVE : MARKER_ACCENT;
-  const dotSize = mode === 'dot' ? (isActive ? 14 : 12) : 20;
+  const dotSize = mode === 'dot' ? (isActive ? 18 : 16) : 20;
   const shadow = '0 4px 14px rgba(23, 79, 68, 0.35)';
 
   if (mode === 'dot') {
@@ -92,9 +93,9 @@ export function buildMarkerLayoutHtml({ mode, label, isActive }: MarkerLayoutOpt
       max-width: 120px;
       background: #ffffff;
       color: #0f172a;
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-size: 11px;
+      padding: 4px 9px;
+      border-radius: 8px;
+      font-size: 12px;
       line-height: 1.25;
       font-weight: 600;
       white-space: nowrap;

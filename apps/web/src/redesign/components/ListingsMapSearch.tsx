@@ -138,6 +138,8 @@ const ListingsMapSearch = ({
     defaultZoom: DEFAULT_ZOOM,
     regionCenter,
     clickMode: 'toggle',
+    // Масштаб по меткам (≥1), а не фиксированный зум вокруг центра региона
+    fitToMarkers: true,
   });
 
   const mapBbox = useMapBbox(mapInstance, ready);

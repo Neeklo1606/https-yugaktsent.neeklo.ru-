@@ -56,9 +56,9 @@ const RegionSelector = ({ regions, selectedRegionId, onSelect, className }: Prop
   // Городов присутствия немного — показываем их сразу кнопками, без окна с поиском
   if (ordered.length <= 4) {
     return (
-      // Телефон: одна строка с прокруткой — 4 города в две строки сдвигали каталог на 50 px вниз (и ломали резерв под CLS: 44 px на телефоне, 36 px с планшета)
+      // Телефон: одна строка с прокруткой и затуханием у правого края (видно, что ряд листается) — 4 города в две строки сдвигали каталог на 50 px вниз (и ломали резерв под CLS: 44 px на телефоне, 36 px с планшета)
       <div
-        className={cn('-mx-4 flex min-w-0 items-center gap-2 overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:max-w-full sm:flex-wrap sm:overflow-visible sm:px-0', className)}
+        className={cn('-mx-4 flex min-w-0 items-center gap-2 overflow-x-auto px-4 scrollbar-hide [mask-image:linear-gradient(to_right,#000_calc(100%-40px),transparent)] sm:[mask-image:none] sm:mx-0 sm:max-w-full sm:flex-wrap sm:overflow-visible sm:px-0', className)}
         role="group"
         aria-label="Город"
       >

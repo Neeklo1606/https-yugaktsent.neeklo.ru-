@@ -37,6 +37,8 @@ export interface ResidentialComplex {
   /** Доходность / yield (если API отдаёт). */
   yieldMin?: number | null;
   yieldMax?: number | null;
+  /** Тип жилья ЖК (API `housingType`): 'flat' | 'aparthotel' | 'cottage' — у апарт-отеля «апартаменты» вместо «квартир». */
+  housingType?: string | null;
 }
 
 export interface Building {

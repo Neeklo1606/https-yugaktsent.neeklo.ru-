@@ -33,7 +33,15 @@ type Options = {
   defaultZoom?: number;
   regionCenter?: [number, number] | null;
   clickMode?: 'select' | 'toggle';
+  /**
+   * Подогнать масштаб под метки (bounds), когда они впервые появились и после смены региона.
+   * Дальше карту двигает только пользователь — иначе подгрузка меток по видимой области спорила бы с ним.
+   */
+  fitToMarkers?: boolean;
 };
+
+/** Ближе этого масштаба при подгонке не подходим (одна метка — не до уровня подъезда) */
+const FIT_MAX_ZOOM = 15;
 
 const DEFAULT_ZOOM = 11;
 
@@ -53,7 +61,9 @@ export function useMapClusterLayer({
   defaultZoom = DEFAULT_ZOOM,
   regionCenter,
   clickMode = 'select',
+  fitToMarkers = false,
 }: Options) {
+  const fitDoneRef = useRef(false);
   const mapInstance = useRef<any>(null);
   const clustererRef = useRef<any>(null);
   const placemarksRef = useRef<Map<string, any>>(new Map());
@@ -113,9 +123,16 @@ export function useMapClusterLayer({
   }, [ready, regionCenter, defaultCenter, defaultZoom, mapRef]);
 
   useEffect(() => {
+    // Новый регион — метки другого города: подгоняем масштаб заново
+    fitDoneRef.current = false;
     if (!mapInstance.current || !regionCenter) return;
+    // Метки уже стоят (центр региона пришёл позже) — масштаб по ним, а не по центру
+    if (fitToMarkers && clustererRef.current && placemarksRef.current.size > 0) {
+      fitDoneRef.current = fitMapToClusterer(mapInstance.current, clustererRef.current, placemarksRef.current.size);
+      return;
+    }
     mapInstance.current.setCenter(regionCenter);
-  }, [regionCenter]);
+  }, [regionCenter?.[0], regionCenter?.[1]]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setMapRenderMode(markerMode);
@@ -177,6 +194,10 @@ export function useMapClusterLayer({
     clusterer.add(placemarks);
     map.geoObjects.add(clusterer);
     clustererRef.current = clusterer;
+
+    if (fitToMarkers && !fitDoneRef.current) {
+      fitDoneRef.current = fitMapToClusterer(map, clusterer, descriptors.length);
+    }
     prevSignatureRef.current = layerSignature;
     prevActiveRef.current = prevActive;
 
@@ -190,7 +211,7 @@ export function useMapClusterLayer({
       );
       recordLayoutCacheSize(getMarkerLayoutCacheSize());
     }
-  }, [layerSignature, descriptors, ready, markerMode, layerKind, clusterPreset, clusterExtra]);
+  }, [layerSignature, descriptors, ready, markerMode, layerKind, clusterPreset, clusterExtra, fitToMarkers]);
 
   useEffect(() => {
     if (!ready || !clustererRef.current) return;
@@ -216,6 +237,29 @@ export function useMapClusterLayer({
   }, [activeId, ready, applyPlacemarkActive]);
 
   return { mapInstance, markerMode };
+}
+
+/** Подгонка масштаба под метки кластера; true — подогнали */
+function fitMapToClusterer(map: any, clusterer: any, count: number): boolean {
+  try {
+    if (count === 1) {
+      const pm = clusterer.getGeoObjects?.()[0];
+      const coords = pm?.geometry?.getCoordinates?.();
+      if (!coords) return false;
+      map.setCenter(coords, 14);
+      return true;
+    }
+    const bounds = clusterer.getBounds?.();
+    if (!bounds) return false;
+    void Promise.resolve(map.setBounds(bounds, { checkZoomRange: true, zoomMargin: 48 })).then(() => {
+      const z = map.getZoom?.();
+      if (typeof z === 'number' && z > FIT_MAX_ZOOM) map.setZoom(FIT_MAX_ZOOM);
+    });
+    return true;
+  } catch {
+    // Карта ещё не готова — останется центр региона
+    return false;
+  }
 }
 
 export function panMapToCoords(

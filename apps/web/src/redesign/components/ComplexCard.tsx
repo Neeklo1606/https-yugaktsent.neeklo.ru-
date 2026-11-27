@@ -7,7 +7,7 @@ import StableMediaFrame from '@/redesign/components/StableMediaFrame';
 import { complexMinPrice, complexPopularCompletionLine, complexTotalUnits } from '@/redesign/lib/card-visual';
 import { prefetchHandlers } from '@/shared/lib/route-prefetch';
 import { formatPriceFrom } from '@/redesign/lib/display-price';
-import ComplexOfferCard, { priceRows } from '@/redesign/components/ComplexOfferCard';
+import ComplexOfferCard, { flatsInSale, priceRows } from '@/redesign/components/ComplexOfferCard';
 
 interface Props {
   complex: ResidentialComplex;
@@ -31,11 +31,8 @@ function statusBadge(c: ResidentialComplex): string | null {
   return null;
 }
 
-function flatsLabel(n: number): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  const word = m10 === 1 && m100 !== 11 ? 'квартира' : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? 'квартиры' : 'квартир';
-  return `${n.toLocaleString('ru-RU')} ${word}`;
+function flatsLabel(n: number, housingType?: string | null): string {
+  return `${n.toLocaleString('ru-RU')} ${flatsInSale(n, housingType)}`;
 }
 
 /**
@@ -134,11 +131,11 @@ const ComplexCardRow = ({ complex, variant = 'grid', coverAspect = '4/3', priori
       <div className="mt-auto flex items-end justify-between gap-3 pt-3">
         <div className="min-w-0">
           {minPrice != null ? <p className="text-price text-[17px] text-foreground">{formatPriceFrom(minPrice)}</p> : null}
-          {units != null && units > 0 ? <p className="text-[13px] text-muted-foreground">{flatsLabel(units)} в продаже</p> : null}
+          {units != null && units > 0 ? <p className="text-[13px] text-muted-foreground">{flatsLabel(units, complex.housingType)} в продаже</p> : null}
         </div>
         {!isList ? (
           <span className="inline-flex shrink-0 items-center gap-1 text-[14px] font-medium text-primary">
-            Квартиры
+            {complex.housingType === 'aparthotel' ? 'Апартаменты' : 'Квартиры'}
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
           </span>
         ) : null}

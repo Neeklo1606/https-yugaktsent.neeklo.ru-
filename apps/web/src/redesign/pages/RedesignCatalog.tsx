@@ -160,8 +160,47 @@ function useCookieBannerOpen(): boolean {
   return open;
 }
 
+/**
+ * Плавающая кнопка карты на телефоне: прячется при прокрутке вниз (не закрывает цены карточек),
+ * возвращается при прокрутке вверх и у самого верха страницы.
+ */
+function useHideOnScrollDown(): boolean {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const dy = y - last;
+      if (Math.abs(dy) < 8) return;
+      setHidden(dy > 0 && y > 120);
+      last = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  return hidden;
+}
+
+/** Телефон (<640 px): короткая подсказка в поиске — длинная обрезалась */
+function useNarrowScreen(): boolean {
+  const query = '(max-width: 639px)';
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches);
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia(query);
+    const onChange = () => setNarrow(mq.matches);
+    onChange();
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+  return narrow;
+}
+
 const RedesignCatalog = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const fabHidden = useHideOnScrollDown();
+  const narrowScreen = useNarrowScreen();
 
   const [view, setView] = useState<ViewMode>('grid');
   // Стартуем сразу с фильтрами из адреса: иначе на первом рендере черновик поиска
@@ -795,6 +834,35 @@ const RedesignCatalog = () => {
     ) : null;
 
   /**
+   * Планшет и шире: «что показывать» — подписанный выбор из двух пилюль с текстом.
+   * Внешне не похож на иконочный переключатель вида (плитка / список / карта) — не читается как дубль.
+   */
+  const groupChoiceWide = showGroupSwitch ? (
+    <div className="hidden shrink-0 items-center gap-2 sm:flex" role="group" aria-label="Что показывать">
+      <span className="text-[13px] text-muted-foreground">Показывать:</span>
+      {(
+        [
+          [false, 'Жилые комплексы'],
+          [true, 'Квартиры списком'],
+        ] as const
+      ).map(([flats, label]) => (
+        <button
+          key={label}
+          type="button"
+          aria-pressed={flatsMode === flats}
+          onClick={() => setGroupFlats(flats)}
+          className={cn(
+            'h-8 whitespace-nowrap rounded-full border px-3 text-[13px] font-medium transition-colors',
+            flatsMode === flats ? 'border-foreground bg-foreground text-background' : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
+          )}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  /**
    * Один переключатель вида: плитка / список / карта. На ≥1280 px «Карта» у ЖК — это карта
    * рядом со списком (раскладка запоминается), ниже — карта вместо списка.
    */
@@ -854,7 +922,7 @@ const RedesignCatalog = () => {
               <Input
                 type="search"
                 aria-label="Поиск по каталогу"
-                placeholder="ЖК, улица или «2к до 8 млн»"
+                placeholder={narrowScreen ? 'ЖК или «2к до 8 млн»' : 'ЖК, улица или «2к до 8 млн»'}
                 className={cn('h-11 pl-10', isSearchPending && 'border-focus')}
                 value={filters.search}
                 onChange={(e) => handleSearchInputChange(e.target.value)}
@@ -990,7 +1058,7 @@ const RedesignCatalog = () => {
             {showHousingTabs ? (
               <CatalogHousingTabs value={housing} onChange={handleHousingChange} className="min-w-0 flex-1 sm:flex-none" />
             ) : <span />}
-            {groupSwitch('hidden sm:inline-flex')}
+            {groupChoiceWide}
           </div>
         ) : null}
 
@@ -1046,7 +1114,8 @@ const RedesignCatalog = () => {
             onChange={handleFiltersChange}
             // API объявлений не знает тип жилья — числа по комнатам с ним были бы неправдой
             showCounts={!housing}
-            className="mb-2"
+            // С 1024 px комнатность есть в боковой панели — сверху не дублируем
+            className="mb-2 lg:hidden"
           />
           <CatalogFilterPresets filters={filters} onChange={handleFiltersChange} showNewBuildPresets={showBlocks} className="mb-2" />
         </div>
@@ -1251,7 +1320,13 @@ const RedesignCatalog = () => {
             requestAnimationFrame(() => document.getElementById('catalog-results')?.scrollIntoView({ block: 'start' }));
           }}
           aria-pressed={view === 'map'}
-          className="fixed bottom-[calc(var(--mobile-nav-h)+env(safe-area-inset-bottom)+12px)] left-1/2 z-40 inline-flex h-11 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-graphite px-5 text-[15px] font-medium text-white shadow-raised transition-colors hover:bg-graphite/90 lg:hidden"
+          aria-hidden={fabHidden && view !== 'map' ? true : undefined}
+          tabIndex={fabHidden && view !== 'map' ? -1 : undefined}
+          className={cn(
+            'fixed bottom-[calc(var(--mobile-nav-h)+env(safe-area-inset-bottom)+20px)] left-1/2 z-40 inline-flex h-11 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-graphite px-5 text-[15px] font-medium text-white shadow-raised transition-[transform,opacity,background-color] duration-200 hover:bg-graphite/90 lg:hidden',
+            // При прокрутке вниз уезжает, чтобы не закрывать цены; на карте видна всегда
+            fabHidden && view !== 'map' && 'pointer-events-none translate-y-[calc(100%+var(--mobile-nav-h)+40px)] opacity-0',
+          )}
         >
           {view === 'map' ? <List className="h-4 w-4" aria-hidden /> : <MapPin className="h-4 w-4" aria-hidden />}
           {view === 'map' ? 'Показать списком' : 'Показать на карте'}

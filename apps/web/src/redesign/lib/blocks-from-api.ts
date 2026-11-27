@@ -8,6 +8,8 @@ export type ApiBlockListRow = {
   slug: string;
   name: string;
   isPromoted?: boolean;
+  /** Тип жилья: 'flat' | 'aparthotel' | 'cottage' */
+  housingType?: string | null;
   description?: string | null;
   dataSource?: string;
   status: string;
@@ -196,6 +198,7 @@ export function mapApiBlockListRowToResidentialComplex(b: ApiBlockListRow): Resi
     priceRanges: b.priceRanges,
     isPromoted: Boolean(b.isPromoted),
     scenicCount: b.scenicCount ?? null,
+    housingType: b.housingType ?? null,
     salesStartDate:
       b.salesStartDate != null
         ? typeof b.salesStartDate === 'string'

@@ -22,7 +22,7 @@ const CatalogHousingTabs = ({ value, onChange, className }: Props) => (
     role="tablist"
     aria-label="Тип жилья"
     className={cn(
-      '-mx-4 flex max-w-[calc(100%+2rem)] gap-5 overflow-x-auto border-b border-border px-4 [scrollbar-width:none] sm:mx-0 sm:max-w-full sm:px-0',
+      '-mx-4 flex max-w-[calc(100%+2rem)] gap-5 overflow-x-auto border-b border-border px-4 [scrollbar-width:none] [mask-image:linear-gradient(to_right,#000_calc(100%-40px),transparent)] sm:[mask-image:none] sm:mx-0 sm:max-w-full sm:px-0',
       className,
     )}
   >

@@ -221,6 +221,16 @@ export default function ComplexPremiumGallery({ images, title }: Props) {
             imgStyle={useContain ? undefined : { objectPosition }}
             onImageLoad={onImageLoad}
           />
+          {images.length === 1 ? (
+            <button
+              type="button"
+              onClick={() => setLightbox(true)}
+              className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-lg border border-border/60 bg-background/90 px-2 py-1 text-[11px] font-medium backdrop-blur-sm hover:bg-background sm:right-3 sm:top-3"
+              aria-label="Открыть фото на весь экран"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
           {images.length > 1 ? (
             <>
               <button

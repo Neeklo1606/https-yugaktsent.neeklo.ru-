@@ -28,8 +28,10 @@ interface Props {
   roomFilter?: number | null;
   onRoomFilter?: (key: number | null) => void;
   isLoading?: boolean;
-  /** Заявка на квартиру из превью: подпись квартиры для менеджера */
-  onApartmentLead?: (summary: string) => void;
+  /** Заявка на квартиру из превью: подпись квартиры (видна в форме) и id объявления */
+  onApartmentLead?: (summary: string, listingId: string) => void;
+  /** Квартира, к которой прокрутить и подсветить (переход со страницы квартиры) */
+  highlightId?: string | null;
 }
 
 function roomLabel(rooms: number): string {
@@ -86,7 +88,7 @@ const roomBadgeBig = 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-ro
 
 
 const leadSummary = (a: Apartment, where: string) =>
-  `${roomLabel(a.rooms)} ${fmtArea(a.area)} м², ${a.floor} этаж, ${where}${a.number ? `, № ${a.number}` : ''} (id ${a.id})`;
+  `${roomLabel(a.rooms)}${a.number ? ` № ${a.number}` : ''}, ${fmtArea(a.area)} м², ${a.floor} этаж, ${where}`;
 
 const chipClass = (active: boolean) =>
   cn(
@@ -101,7 +103,7 @@ const label = (t: string) => <p className="mb-1.5 text-[12px] font-semibold uppe
  * окна по стоякам. Сверху — выбор дома (со сроком сдачи), секции, комнатности и подсветка цены.
  * Свободные — с ценой, бронь — жёлтые, проданные — серой штриховкой, «нет в продаже» — пунктир.
  */
-const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = null, onRoomFilter, isLoading = false, onApartmentLead }: Props) => {
+const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = null, onRoomFilter, isLoading = false, onApartmentLead, highlightId = null }: Props) => {
   const navigate = useNavigate();
   const isMobile = useIsMobileChess();
   const [hover, setHover] = useState<{ apt: Apartment; rect: DOMRect; where: string } | null>(null);
@@ -132,6 +134,11 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
     [sectionsList],
   );
   const counts = useMemo(() => countChessCells(rows, isOutside), [rows, isOutside]);
+  const secOfCol = useCallback(
+    (col: number) => sectionsList.find((x) => col >= x.colStart && col < x.colStart + x.colCount) ?? null,
+    [sectionsList],
+  );
+  const topFloor = rows.length ? rows[0].floor : 0;
   const groupHeader = useMemo(() => {
     const g = chessColumnGroups(columns);
     return g.length > 1 ? g : null;
@@ -238,6 +245,25 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
     return { left: Math.max(8, left), top: Math.max(8, top) };
   }, [hover]);
 
+  // Переход со страницы квартиры: прокручиваем сетку к её ячейке
+  const highlightDone = useRef<string | null>(null);
+  useEffect(() => {
+    if (!highlightId || highlightDone.current === highlightId) return;
+    const box = scrollRef.current;
+    const el = box?.querySelector<HTMLElement>(`[data-apt-id="${CSS.escape(highlightId)}"]`);
+    if (!box || !el) return;
+    highlightDone.current = highlightId;
+    window.setTimeout(() => {
+      const r = el.getBoundingClientRect();
+      const b = box.getBoundingClientRect();
+      box.scrollTo({
+        left: Math.max(0, r.left - b.left + box.scrollLeft - box.clientWidth / 2),
+        top: Math.max(0, r.top - b.top + box.scrollTop - box.clientHeight / 2),
+        behavior: 'smooth',
+      });
+    }, 400);
+  }, [highlightId, rows]);
+
   /** Секция в фильтре — прокручиваем сетку к ней и подсвечиваем заголовок */
   const goSection = (id: string) => {
     const s = sections.find((x) => x.id === id);
@@ -246,15 +272,30 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
     setFocusSection(id);
     const th = box.querySelector<HTMLElement>(`[data-col="${s.colStart}"]`);
     if (th) box.scrollTo({ left: Math.max(0, th.offsetLeft - 52), behavior: 'smooth' });
+    // На телефоне сетка ниже фильтров — показываем её
+    if (isMobile) {
+      const y = box.getBoundingClientRect().top + window.scrollY - 120;
+      if (Math.abs(window.scrollY - y) > 40) window.scrollTo({ top: y, behavior: 'smooth' });
+    }
   };
 
   // Ячейка тянется на свободную ширину (мало стояков — не оставляем полкарточки пустой)
-  const CELL = cn('w-full rounded-lg', isMobile ? 'min-w-[72px]' : 'min-w-[84px]', hasNumbers ? 'h-[62px]' : 'h-[52px]');
+  const CELL = cn('w-full rounded-lg', isMobile ? 'min-w-[80px]' : 'min-w-[84px]', hasNumbers ? 'h-[64px]' : 'h-[54px]');
   const groupGaps = columns.filter((c) => c.groupStart).length;
   const tableWidth = `min(100%, ${columns.length * 150 + groupGaps * 16 + 56}px)`;
 
   const renderCell = (cell: ChessboardApartmentCell | null, floor: number, col: number) => {
-    if (!cell && isOutside(floor, col)) return <div className={CELL} aria-hidden />;
+    if (!cell && isOutside(floor, col)) {
+      const sec = secOfCol(col);
+      if (sec && floor === sec.maxFloor + 1) {
+        return (
+          <div className={cn(CELL, 'flex items-end pb-1')} aria-hidden>
+            <div className="h-1 w-full rounded-full bg-muted-foreground/25" />
+          </div>
+        );
+      }
+      return <div className={CELL} aria-hidden />;
+    }
     if (!cell) {
       return <div className={cn(CELL, 'border border-dashed border-border/80')} title="Нет в продаже" aria-hidden />;
     }
@@ -290,14 +331,15 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
             ? 'border-amber-400/70 bg-amber-50 hover:border-amber-500 dark:bg-amber-400/10'
             : 'border-primary/25 bg-background shadow-[0_1px_0_hsl(var(--border))] hover:-translate-y-px hover:border-primary hover:shadow-md',
           dim && 'opacity-20 hover:translate-y-0',
+          highlightId === cell.id && 'ring-2 ring-primary ring-offset-2',
         )}
       >
         {hasNumbers ? (
-          <span className="text-[10px] tabular-nums text-muted-foreground">{cell.number ? `№${cell.number}` : ' '}</span>
+          <span className="text-[11px] tabular-nums text-muted-foreground">{cell.number ? `№${cell.number}` : ' '}</span>
         ) : null}
         <span className="flex items-center justify-between gap-1">
           <span className={cn('rounded px-1 py-0.5 text-[11px] font-bold', badge)}>{shortRooms(cell.rooms)}</span>
-          <span className="text-[11px] tabular-nums text-muted-foreground">{fmtArea(cell.area)}</span>
+          <span className="text-[12px] tabular-nums text-muted-foreground">{fmtArea(cell.area)}</span>
         </span>
         <span className="truncate text-[12px] font-semibold tabular-nums text-foreground">
           {reserved ? 'бронь' : price || 'по запросу'}
@@ -311,10 +353,10 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
   }
 
   const selectClass = 'h-11 w-full rounded-xl border border-border bg-background px-3 text-[15px] font-medium';
-  const literalsAsSelect = isMobile || literals.length > 10;
+  const literalsAsSelect = isMobile;
 
   const roomChips = onRoomFilter ? (
-    <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-hide lg:flex-wrap" role="group" aria-label="Комнатность">
+    <div className="chess-fade-x -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-hide lg:flex-wrap" role="group" aria-label="Комнатность">
       <button type="button" aria-pressed={roomFilter === null} className={chipClass(roomFilter === null)} onClick={() => onRoomFilter(null)}>
         Все
       </button>
@@ -361,9 +403,9 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
   );
 
   const filters = (
-    <div className="space-y-4 rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+    <div className={cn('rounded-2xl border border-border/70 bg-card', isMobile ? 'space-y-3 p-3' : 'space-y-4 p-5')}>
       {literals.length > 1 || sections.length > 1 ? (
-      <div className={cn('grid gap-4', !literalsAsSelect && 'lg:grid-cols-[minmax(0,1fr)_auto]')}>
+      <div className={cn('grid', isMobile ? 'grid-cols-2 gap-2' : 'gap-4 lg:grid-cols-[minmax(0,1fr)_auto]')}>
         {literals.length > 1 ? (
           <div className="min-w-0">
             {label('Дом')}
@@ -380,12 +422,12 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
                 {literals.map((l) => (
                   <option key={l.group} value={l.group}>
                     {l.group}
-                    {l.deadline ? ` · сдача ${l.deadline}` : ''} · {l.available} своб.
+                    ({l.available})
                   </option>
                 ))}
               </select>
             ) : (
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Дом">
+              <div className="chess-fade-x -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide" role="group" aria-label="Дом">
                 {literals.map((l) => {
                   const active = l.group === literalName;
                   return (
@@ -395,14 +437,14 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
                       aria-pressed={active}
                       onClick={() => onBuildingChange(l.firstId)}
                       className={cn(
-                        'flex min-h-12 flex-col items-start justify-center rounded-xl border px-3 py-1.5 text-left transition-colors',
+                        'flex min-h-12 shrink-0 flex-col items-start justify-center rounded-xl border px-3 py-1.5 text-left transition-colors',
                         active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:border-primary/50',
                       )}
                     >
                       <span className="text-[14px] font-semibold leading-tight">{l.group}</span>
                       <span className={cn('text-[11px] leading-tight', active ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
                         {l.deadline ? `${l.deadline} · ` : ''}
-                        {l.available} своб.
+                        {l.available} в продаже
                       </span>
                     </button>
                   );
@@ -411,7 +453,19 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
             )}
           </div>
         ) : null}
-        {sections.length > 1 ? (
+        {sections.length > 1 && isMobile ? (
+          <div className="min-w-0">
+            {label('Секция')}
+            <select aria-label="Секция" className={selectClass} value={focusSection ?? ''} onChange={(e) => e.target.value && goSection(e.target.value)}>
+              <option value="">Все секции</option>
+              {sections.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label} ({s.available})
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : sections.length > 1 ? (
           <div className="min-w-0">
             {label('Секция / подъезд')}
             <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scrollbar-hide lg:flex-wrap" role="group" aria-label="Секция">
@@ -420,7 +474,7 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
                   key={s.id}
                   type="button"
                   aria-pressed={focusSection === s.id}
-                  title={`${s.label}: ${s.available} свободно из ${s.total}`}
+                  title={`${s.label}: ${s.available} в продаже из ${s.total}`}
                   className={cn(chipClass(focusSection === s.id), 'min-w-10')}
                   onClick={() => goSection(s.id)}
                 >
@@ -435,12 +489,12 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         {roomChips ? (
           <div className="min-w-0">
-            {label('Комнаты')}
+            {isMobile ? null : label('Комнаты')}
             {roomChips}
           </div>
         ) : null}
       </div>
-      {legend}
+      {isMobile ? null : legend}
     </div>
   );
 
@@ -456,7 +510,7 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
           {dl ? <span className="font-normal text-muted-foreground"> — сдача {dl}</span> : null}
         </h3>
         <p className="text-[14px] text-muted-foreground">
-          <b className="font-semibold text-foreground tabular-nums">{fmtInt(counts.available + counts.reserved)}</b> свободно из{' '}
+          <b className="font-semibold text-foreground tabular-nums">{fmtInt(counts.available + counts.reserved)}</b> в продаже из{' '}
           <span className="tabular-nums">{fmtInt(counts.total)}</span> · {rows.length}{' '}
           {rows.length === 1 ? 'этаж' : rows.length % 10 >= 2 && rows.length % 10 <= 4 && (rows.length < 12 || rows.length > 14) ? 'этажа' : 'этажей'}
         </p>
@@ -475,18 +529,20 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
         {rows.length && columns.length ? (
           <div className="relative">
           {edge.left || edge.right ? (
-            <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-[5] hidden lg:block">
-              {edge.left ? (
+            <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-[5]">
+              {edge.left ? <div className="absolute inset-y-0 left-10 w-10 bg-gradient-to-r from-card to-transparent" /> : null}
+              {edge.right ? <div className="absolute inset-y-0 right-0 w-12 rounded-r-2xl bg-gradient-to-l from-card to-transparent" /> : null}
+              {edge.left && !isMobile ? (
                 <button
                   type="button"
                   aria-label="Прокрутить влево"
                   onClick={() => scrollRef.current?.scrollBy({ left: -480, behavior: 'smooth' })}
-                  className="pointer-events-auto absolute left-12 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/95 text-lg shadow-md hover:border-primary"
+                  className="pointer-events-auto absolute left-11 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/95 text-lg shadow-md hover:border-primary"
                 >
                   ‹
                 </button>
               ) : null}
-              {edge.right ? (
+              {edge.right && !isMobile ? (
                 <button
                   type="button"
                   aria-label="Прокрутить вправо"
@@ -498,7 +554,15 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
               ) : null}
             </div>
           ) : null}
-          <div ref={scrollRef} onScroll={updateEdge} className="max-h-[min(78vh,820px)] overflow-auto overscroll-x-contain p-2 sm:p-3">
+          <div
+            ref={scrollRef}
+            onScroll={updateEdge}
+            className={cn(
+              'overscroll-x-contain',
+              // На телефоне без вертикальной прокрутки внутри страницы — только вбок
+              isMobile ? 'overflow-x-auto overflow-y-hidden' : 'max-h-[min(78vh,820px)] overflow-auto',
+            )}
+          >
             <table className="border-separate border-spacing-[3px]" style={{ minWidth: 'max-content', width: tableWidth }}>
               <thead>
                 {groupHeader ? (
@@ -507,16 +571,19 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
                     {groupHeader.map((g, gi) => {
                       const sec = sections.find((s) => s.label === g.label || g.label.startsWith(`${s.label} ·`));
                       const focused = sec && focusSection === sec.id;
+                      // Крыша в шапке — только у секций до верхнего этажа литера; у низких — над их верхним этажом
+                      const roofInHeader = !sec || sec.maxFloor >= topFloor;
                       return (
                         <th
                           key={gi}
                           colSpan={g.span + (gi > 0 ? 1 : 0)}
-                          className={cn('sticky top-0 z-[2] bg-card pb-1 text-left align-bottom', gi > 0 && 'pl-4')}
+                          className={cn('sticky top-0 z-[2] h-[30px] bg-card pb-1 text-left align-bottom shadow-[0_-3px_0_hsl(var(--card))]', gi > 0 && 'pl-4')}
                         >
                           <span
                             className={cn(
                               'block rounded-t-lg border-b-4 px-1 pb-1 text-[12px] font-semibold uppercase tracking-wide transition-colors',
                               focused ? 'border-primary text-primary' : 'border-muted-foreground/25 text-muted-foreground',
+                              !roofInHeader && 'border-transparent',
                             )}
                           >
                             {g.label || '—'}
@@ -527,7 +594,7 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
                   </tr>
                 ) : null}
                 <tr>
-                  <th className={cn('sticky left-0 z-[3] bg-card pr-1 text-right text-[11px] font-medium text-muted-foreground', groupHeader ? 'top-[30px]' : 'top-0')}>
+                  <th className={cn('sticky left-0 z-[3] bg-card pr-1 text-right text-[11px] font-medium text-muted-foreground shadow-[3px_0_0_hsl(var(--card)),0_3px_0_hsl(var(--card))]', groupHeader ? 'top-[33px]' : 'top-0')}>
                     Этаж
                   </th>
                   {columns.map((c, i) => (
@@ -535,8 +602,8 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
                       {c.groupStart ? <th aria-hidden className="w-3" /> : null}
                       <th
                         data-col={i}
-                        className={cn('sticky z-[2] bg-card text-center text-[11px] font-normal text-muted-foreground tabular-nums', groupHeader ? 'top-[30px]' : 'top-0')}
-                        title="Номер окна на этаже"
+                        className={cn('sticky z-[2] bg-card text-center text-[11px] font-normal text-muted-foreground tabular-nums shadow-[0_3px_0_hsl(var(--card))]', groupHeader ? 'top-[33px]' : 'top-0')}
+                        title={`Стояк ${c.label} (окно №${c.origin} у застройщика)`}
                       >
                         {c.label}
                       </th>
@@ -547,7 +614,7 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.floor}>
-                    <th scope="row" className="sticky left-0 z-[1] w-10 bg-card pr-2 text-right text-[13px] font-semibold text-foreground/70 tabular-nums">
+                    <th scope="row" className="sticky left-0 z-[1] w-10 bg-card pr-2 text-right text-[13px] font-semibold text-foreground/70 tabular-nums shadow-[3px_0_0_hsl(var(--card)),0_3px_0_hsl(var(--card)),0_-3px_0_hsl(var(--card))]">
                       {r.floor}
                     </th>
                     {r.cells.map((cell, i) => (
@@ -566,6 +633,7 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
           <p className="p-6 text-center text-sm text-muted-foreground">В этом доме нет данных о квартирах</p>
         )}
       </div>
+      {isMobile ? legend : null}
       <p className="text-[12px] text-muted-foreground">
         {isMobile ? 'Нажмите на свободную квартиру — покажем планировку.' : 'Наведите на квартиру — покажем планировку, нажмите — откроем её страницу.'}{' '}
         {columns.length > 12 ? 'Сетку можно прокручивать вбок. ' : ''}Данные застройщика, обновляются несколько раз в день.
@@ -592,7 +660,7 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
                 buildingName={hover.where}
                 section={0}
                 roomLabel={roomLabel(hover.apt.rooms)}
-                onLead={onApartmentLead ? () => onApartmentLead(leadSummary(hover.apt, hover.where)) : undefined}
+                onLead={onApartmentLead ? () => onApartmentLead(leadSummary(hover.apt, hover.where), hover.apt.id) : undefined}
               />
             </div>,
             document.body,
@@ -615,8 +683,9 @@ const Chessboard = ({ boards, activeBuildingId, onBuildingChange, roomFilter = n
                 onApartmentLead
                   ? () => {
                       const s = leadSummary(sheetApt.apt, sheetApt.where);
+                      const id = sheetApt.apt.id;
                       setSheetApt(null);
-                      onApartmentLead(s);
+                      onApartmentLead(s, id);
                     }
                   : undefined
               }

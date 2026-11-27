@@ -181,7 +181,7 @@ export default function AboutCompany() {
           <div className="flex flex-col items-start gap-6 rounded-[24px] border border-border bg-card p-8 sm:p-10 lg:flex-row lg:items-center lg:justify-between lg:p-12">
             <div>
               <h2 id="about-office-title" className="text-section-title">
-                Приезжайте на чашечку кофе
+                Приезжайте на чашку кофе
               </h2>
               <p className="mt-3 max-w-[560px] text-sm leading-relaxed text-muted-foreground sm:text-base">
                 Покажем подборку на большом экране, разберём планировки и ответим на вопросы
