@@ -33,3 +33,21 @@ describe('routeModulePreloads', () => {
     expect(routeModulePreloads('/nonexistent', 'RedesignApartment', '')).toBe('');
   });
 });
+
+// @ts-ignore — .mjs-скрипт пререндера без типов
+import { staticShellHtml } from '../../../scripts/prerender-seo.mjs';
+
+describe('staticShellHtml', () => {
+  it('отдаёт h1, текст, факты и ссылки без JS и экранирует текст', () => {
+    const html = staticShellHtml({
+      h1: 'Контакты <офис>',
+      lead: 'Офис в Анапе',
+      facts: [['Телефон', '8 (800) 234-57-15']],
+      links: [['/catalog', 'Новостройки']],
+    });
+    expect(html).toContain('<h1>Контакты &lt;офис&gt;</h1>');
+    expect(html).toContain('8 (800) 234-57-15');
+    expect(html).toContain('href="/catalog"');
+    expect(html).toContain('id="ssr-shell"');
+  });
+});

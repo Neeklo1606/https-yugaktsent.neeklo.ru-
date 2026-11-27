@@ -421,6 +421,36 @@ export function apartmentShellHtml({ title, description, price, complexName, com
 }
 
 /**
+ * Статичный первый экран обычных страниц (о компании, ипотека, контакты, карта, документы, эксперт):
+ * h1, текст, факты и ссылки прямо в HTML. Поисковики и нейро-боты не исполняют JS — без этого
+ * они видели пустую страницу. Стоит в #ssr-shell, приложение убирает его, когда отрисует страницу.
+ */
+export function staticShellHtml({ h1, lead = '', paragraphs = [], facts = [], links = [] }) {
+  const factHtml = facts.length
+    ? `<ul class="st-facts">${facts.map(([k, v]) => `<li><b>${escapeXml(k)}:</b> ${escapeXml(v)}</li>`).join('')}</ul>`
+    : '';
+  const linkHtml = links.length
+    ? `<ul class="st-links">${links.map(([href, text]) => `<li><a href="${escapeXml(href)}">${escapeXml(text)}</a></li>`).join('')}</ul>`
+    : '';
+  return (
+    '<style>#ssr-shell~#root>.boot-header,#ssr-shell~#root>.boot-hero{display:none}' +
+    '.st-shell{max-width:1100px;margin:0 auto;padding:16px 16px 48px;color:#1b2126;font-size:15px;line-height:1.55}' +
+    '.st-shell h1{font-size:24px;line-height:1.25;margin:12px 0 10px;font-weight:700}' +
+    '.st-lead{color:#5b6670;margin:0 0 12px}.st-shell p{margin:0 0 10px}' +
+    '.st-facts,.st-links{list-style:none;padding:0;margin:12px 0}.st-facts li,.st-links li{margin:4px 0}' +
+    '.st-links a{color:#245b4b}' +
+    '@media(min-width:1024px){.st-shell{padding:24px 32px 64px}.st-shell h1{font-size:32px}}</style>' +
+    '<div id="ssr-shell"><div class="boot-header"><a href="/"><img src="/logo-yug-aktsent.png" alt="ЮгАкцент" width="194" height="48"></a></div>' +
+    `<main class="st-shell"><h1>${escapeXml(h1)}</h1>` +
+    (lead ? `<p class="st-lead">${escapeXml(lead)}</p>` : '') +
+    paragraphs.map((t) => `<p>${escapeXml(t)}</p>`).join('') +
+    factHtml +
+    linkHtml +
+    '</main></div>'
+  );
+}
+
+/**
  * modulepreload для чанка страницы и всех его статических импортов (кроме основного бандла из index.html):
  * браузер качает их параллельно с основным скриптом, а не цепочкой после него.
  */
@@ -711,13 +741,16 @@ async function main() {
     ['cookies', `Cookie и аналитика | ${siteBrand}`, `Какие записи сайт ${siteBrand} хранит в браузере и какие сторонние сервисы загружает.`],
     ['terms', `Пользовательское соглашение | ${siteBrand}`, `Условия использования сайта ${siteBrand}: статус сведений об объектах, права и ответственность.`],
   ];
-  for (const [rel, title, description] of STATIC_PAGES) {
-    writeHtml(rel, baseHtml, { title, description, canonical: `${siteUrl}/${rel}` });
-  }
+  STATIC_PAGES.push([
+    'catalog/apartments',
+    `Квартиры в новостройках ${SERVICE_AREA_GENITIVE} | ${siteBrand}`,
+    `Квартиры в новостройках ${SERVICE_AREA_GENITIVE} списком: студии, 1-, 2- и 3-комнатные, цены застройщиков и планировки.`,
+  ]);
+  // Страницы пишутся ниже, когда загружен список ЖК (ссылки и разметка в теле страницы)
   // Служебные и личные страницы: в индекс не нужны
-  for (const rel of ['favorites', 'login']) {
+  for (const rel of ['favorites', 'login', 'admin']) {
     writeHtml(rel, baseHtml, {
-      title: rel === 'login' ? `Вход для сотрудников | ${siteBrand}` : `Избранное | ${siteBrand}`,
+      title: rel === 'favorites' ? `Избранное | ${siteBrand}` : `Вход для сотрудников | ${siteBrand}`,
       description: `Служебная страница сайта ${siteBrand}.`,
       canonical: `${siteUrl}/${rel}`,
       robots: 'noindex, nofollow',
@@ -827,16 +860,117 @@ async function main() {
     console.warn(`[prerender-seo] Новости не загружены (${e.message}).`);
   }
 
+  // Статические страницы: title/description/canonical + тело страницы и разметка прямо в HTML
+  {
+    const str = (v) => (typeof v === 'string' ? v.trim() : '');
+    const phone = str(settings.phone_main);
+    const email = str(settings.email);
+    const office = str(settings.address);
+    const contactFacts = [
+      phone && ['Телефон', phone],
+      str(settings.phone_secondary) && ['Телефон (мобильный)', str(settings.phone_secondary)],
+      email && ['Почта', email],
+      office && ['Офис', office],
+      str(settings.work_hours) && ['Часы работы', str(settings.work_hours)],
+    ].filter(Boolean);
+    const complexLinks = complexes.slice(0, 40).map((c) => [`/complex/${encodeURIComponent(c.slug)}`, `ЖК «${c.name}»${c.city ? `, ${c.city}` : ''}`]);
+    const org = {
+      '@context': 'https://schema.org',
+      '@type': 'RealEstateAgent',
+      name: 'Южный Акцент',
+      alternateName: siteBrand,
+      url: siteUrl,
+      areaServed: ['Анапа', 'Новороссийск', 'Краснодар', 'Майкоп'],
+      ...(phone ? { telephone: phone } : {}),
+      ...(email ? { email } : {}),
+      ...(office ? { address: { '@type': 'PostalAddress', streetAddress: office, addressLocality: 'Анапа', addressCountry: 'RU' } } : {}),
+    };
+    const BODIES = {
+      about: {
+        h1: 'О компании «Южный Акцент»',
+        lead: `Агентство недвижимости в Анапе. Подбираем квартиры в новостройках ${SERVICE_AREA_GENITIVE}.`,
+        paragraphs: [
+          'Помогаем выбрать жилой комплекс и квартиру под бюджет и цель покупки, показываем объекты, проверяем документы застройщика и сопровождаем сделку.',
+          'Подбираем ипотечную программу и помогаем с одобрением. Консультация бесплатная.',
+        ],
+        facts: contactFacts,
+        links: [['/catalog', 'Новостройки'], ['/mortgage', 'Ипотека'], ['/contacts', 'Контакты']],
+        ld: org,
+      },
+      contacts: {
+        h1: 'Контакты',
+        lead: `Офис ${siteBrand} в Анапе. Консультация по подбору новостроек бесплатная.`,
+        facts: contactFacts,
+        links: [['/catalog', 'Новостройки'], ['/mortgage', 'Ипотека']],
+        ld: org,
+      },
+      mortgage: {
+        h1: 'Ипотека на новостройки',
+        lead: `Рассчитайте платёж и подберите программу для покупки квартиры в новостройке ${SERVICE_AREA_GENITIVE}.`,
+        paragraphs: [
+          'Калькулятор считает ежемесячный платёж, сумму кредита и переплату по стоимости квартиры, первому взносу и сроку.',
+          'Программы: семейная ипотека, IT-ипотека и базовая ипотека. Точную ставку подтверждает банк — менеджер поможет подать заявку.',
+        ],
+        facts: contactFacts.slice(0, 1),
+        links: [['/catalog', 'Новостройки с ценами']],
+      },
+      map: {
+        h1: 'Новостройки на карте',
+        lead: `Жилые комплексы ${SERVICE_AREA_GENITIVE} на карте с ценами и сроками сдачи.`,
+        links: complexLinks,
+      },
+      news: { h1: 'Новости недвижимости', lead: `Новости рынка недвижимости ${SERVICE_AREA_GENITIVE}.`, links: [['/catalog', 'Новостройки']] },
+      'catalog/apartments': {
+        h1: 'Квартиры в новостройках',
+        lead: `Квартиры в новостройках ${SERVICE_AREA_GENITIVE}: студии, 1-, 2- и 3-комнатные с ценами застройщиков.`,
+        links: complexLinks,
+      },
+    };
+    for (const [rel, title, description] of STATIC_PAGES) {
+      const body = BODIES[rel] || { h1: title.split(' | ')[0], lead: description };
+      const crumbs = {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Главная', item: `${siteUrl}/` },
+          { '@type': 'ListItem', position: 2, name: body.h1, item: `${siteUrl}/${rel}` },
+        ],
+      };
+      const ld = [crumbs, ...(body.ld ? [body.ld] : [])];
+      const shell = staticShellHtml(body);
+      const html = patchHtmlHead(injectHead(baseHtml, jsonLdTag(ld, 'lg-static-jsonld')), {
+        title,
+        description,
+        canonical: `${siteUrl}/${rel}`,
+      }).replace(/<div id="root">/, (m) => `${shell}\n    ${m}`);
+      const dir = path.join(distDir, rel);
+      fs.mkdirSync(dir, { recursive: true });
+      writeAtomic(path.join(dir, 'index.html'), html);
+    }
+  }
+
   // Визитки экспертов: превью ссылки в Telegram/MAX должно работать без JS
   const experts = JSON.parse(
     fs.readFileSync(path.resolve(__dirname, '../src/shared/experts/expert-seo.json'), 'utf8'),
   );
   for (const e of experts) {
-    writeHtml(`experts/${e.slug}`, baseHtml, {
+    const person = {
+      '@context': 'https://schema.org',
+      '@type': 'Person',
+      name: String(e.title).split(/[—|–,]/)[0].trim(),
+      description: e.description,
+      url: `${siteUrl}/experts/${e.slug}`,
+      worksFor: { '@type': 'RealEstateAgent', name: 'Южный Акцент', url: siteUrl },
+    };
+    const shell = staticShellHtml({ h1: e.title, lead: e.description, links: [['/catalog', 'Новостройки'], ['/contacts', 'Контакты']] });
+    const html = patchHtmlHead(injectHead(baseHtml, jsonLdTag(person, 'lg-static-jsonld')), {
       title: `${e.title} | ${siteBrand}`,
       description: e.description,
       canonical: `${siteUrl}/experts/${e.slug}`,
-    });
+    }).replace(/<div id="root">/, (m) => `${shell}\n    ${m}`);
+    const dir = path.join(distDir, `experts/${e.slug}`);
+    fs.mkdirSync(dir, { recursive: true });
+    writeAtomic(path.join(dir, 'index.html'), html);
   }
 
   const sitemap = buildSitemapXml(

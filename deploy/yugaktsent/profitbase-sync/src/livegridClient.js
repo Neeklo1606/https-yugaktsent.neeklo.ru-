@@ -378,6 +378,18 @@ export class LiveGridClient {
     }
   }
 
+  /** Наполнение ЖК (blocks.content): галерея, видео, генплан, вопросы — правится и в админке */
+  async blockContent(blockId) {
+    const block = await this.api(`/admin/blocks/${blockId}`);
+    return block?.content && typeof block.content === "object" && !Array.isArray(block.content) ? block.content : {};
+  }
+
+  /** Галерея ЖК из фида: остальное наполнение (видео, генплан, вопросы, описание) сохраняется */
+  async setBlockGallery(blockId, gallery) {
+    const content = await this.blockContent(blockId);
+    await this.api(`/admin/blocks/${blockId}`, { method: "PUT", body: { content: { ...content, gallery } } });
+  }
+
   /** Текущая обложка ЖК (первый рендер) — чтобы не затирать фото, загруженное в админке */
   async blockCoverUrl(blockId) {
     const block = await this.api(`/admin/blocks/${blockId}`);

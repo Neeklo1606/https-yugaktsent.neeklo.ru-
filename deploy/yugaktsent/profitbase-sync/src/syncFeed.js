@@ -175,6 +175,57 @@ export function coverCandidates(offers, limit = 5) {
   return out;
 }
 
+const NOT_PHOTO_RE = /plan|planer|layout|floor|этаж/i;
+
+/**
+ * Фото комплекса для галереи: кадры без типа из всех лотов (у ССК их 5–10 на ЖК), без планировок.
+ * Первый кадр уходит в обложку, в галерею — остальные.
+ */
+export function galleryCandidates(offers, limit = 8) {
+  return coverCandidates(offers, limit + 1)
+    .filter((u) => !NOT_PHOTO_RE.test(String(u).split("/").pop() ?? ""))
+    .slice(1, limit + 1);
+}
+
+/**
+ * Галерея ЖК из фида (задача со встречи 23.11: «все фото из фидов в карточку»). Фото качаем к себе
+ * один раз (исходники до 5000 px, отдаём через ресайзер). Галерею, которую менеджер поменял в админке,
+ * не трогаем: обновляем только пустую или ту, что сами поставили в прошлый раз.
+ */
+export async function syncGallery(lg, state, blockId, sources) {
+  if (sources.length < 2) return null;
+  const galleries = (state.galleries ??= {});
+  const prev = galleries[blockId];
+  let current = [];
+  try {
+    const content = await lg.blockContent(blockId);
+    current = Array.isArray(content.gallery) ? content.gallery : [];
+  } catch {
+    return "skipped";
+  }
+  const prevAbs = prev?.urls?.map((u) => absoluteMediaUrl(u)) ?? [];
+  const ours = current.length === 0 || (prevAbs.length > 0 && JSON.stringify(current) === JSON.stringify(prevAbs));
+  if (!ours) return "admin";
+  if (prev && JSON.stringify(prev.srcs) === JSON.stringify(sources) && current.length > 0) return "kept";
+  const urls = [];
+  for (const src of sources) {
+    const cached = prev?.srcs?.indexOf(src) ?? -1;
+    if (cached >= 0 && prev.urls[cached]) {
+      urls.push(prev.urls[cached]);
+      continue;
+    }
+    try {
+      urls.push(await lg.uploadRemoteImage(src));
+    } catch (err) {
+      console.warn(`[profitbase-sync] фото галереи ЖК ${blockId} не скачано (${src}): ${err.message}`);
+    }
+  }
+  if (!urls.length) return "failed";
+  await lg.setBlockGallery(blockId, urls.map((u) => absoluteMediaUrl(u)));
+  galleries[blockId] = { srcs: sources, urls };
+  return "uploaded";
+}
+
 async function syncCover(lg, state, blockId, sources, skipMedia) {
   const src = sources[0];
   const covers = (state.covers ??= {});
@@ -276,6 +327,13 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
     // Обложку (одна на ЖК) храним у себя даже в режиме «фото по ссылке»: исходники у застройщиков
   // бывают по 5000 px, а локальный ресайзер nginx отдаёт их сжатыми.
   const coverState = covers.length ? await syncCover(lg, state, block.id, covers, skipMedia) : null;
+  let galleryState = null;
+  try {
+    galleryState = await syncGallery(lg, state, block.id, galleryCandidates(offers));
+  } catch (err) {
+    galleryState = "failed";
+    console.warn(`[profitbase-sync] галерея ЖК ${block.id}: ${err.message}`);
+  }
 
   const blockListings = offers.length > 0 ? await lg.loadBlockListings(block.id) : [];
   const bound = bindOffers(offers, bucket, blockListings);
@@ -294,6 +352,7 @@ export async function syncFeed(feedConfig, lg, state, feedKey) {
     withoutPlan: 0,
     hasCover: covers.length > 0,
     cover: coverState,
+    gallery: galleryState,
     bound: bound.size,
     hidden: 0,
     skippedNoArea: 0,
